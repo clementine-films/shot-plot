@@ -3254,6 +3254,31 @@ document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest
 {const _rq=renderQuick;renderQuick=function(){_rq();const q=$('#quick');if(!q||fromQuick)return;const it=selItem();if(!it||selIds().length!==1||!scalable(it))return;if((+it.sx&&+it.sx!==1)||(+it.sy&&+it.sy!==1)){const f=q.querySelector('[data-sz]');if(f&&!q.querySelector('[data-unstretch]'))f.closest('label').insertAdjacentHTML('afterend',`<button class="btn sm" data-unstretch="1" title="Undo the side stretching (width ${Math.round((+it.sx||1)*100)}%, depth ${Math.round((+it.sy||1)*100)}%)">Unstretch</button>`);}};}
 /* align and space use each item's real drawn size, stretch included */
 {const _bo=boxOf;boxOf=function(it){if(it&&it.t!=='line'&&scalable(it)){const {ex,ey}=halfExt(it);const a=(it.r||0)*D2R,c=Math.abs(Math.cos(a)),s=Math.abs(Math.sin(a));const hw=ex*c+ey*s,hh=ex*s+ey*c;return {x0:it.x-hw,x1:it.x+hw,y0:it.y-hh,y1:it.y+hh};}return _bo(it);};}
+/* ============================================================
+   Practicals: lamps you can see in frame, and fixtures on the ceiling.
+   Ceiling fixtures point straight down: the plot shows a dashed ring (above the set),
+   their height, and the pool of light they throw on the floor.
+   ============================================================ */
+if(!MOUNTS.includes('Ceiling (practical)'))MOUNTS.splice(MOUNTS.indexOf('Practical (set)')+1,0,'Ceiling (practical)');
+{const _io=isOverhead;isOverhead=function(it){return _io(it)||/Ceiling/i.test(it.mount||'');};}
+function practical(key,name,o){light(key,'Practicals',name,o.w,o.k,o.beam,o.thr,o.shape||'practical',o.s||.8);Object.assign(LIB[key].defaults,{role:'Practical',mount:o.mount||'Practical (set)',height:o.h,tilt:o.tilt||'Level'},o.extra||{});LIB[key].practical=true;}
+practical('pr_table','Table Lamp',{w:60,k:2700,beam:360,thr:4,h:3});
+practical('pr_floor','Floor Lamp',{w:100,k:2700,beam:360,thr:6,h:5.5,s:.9});
+practical('pr_torch','Torchiere Floor Lamp (bounces off the ceiling)',{w:150,k:2700,beam:360,thr:8,h:6,s:.9});
+practical('pr_desk','Desk Lamp',{w:40,k:3000,beam:70,thr:4,h:2.5,tilt:'Tilted down',s:.7});
+practical('pr_sconce','Wall Sconce',{w:40,k:2700,beam:180,thr:4,h:6,s:.7});
+practical('pr_flush','Ceiling Fixture (flush mount)',{w:100,k:2700,beam:100,thr:6,h:8.5,mount:'Ceiling (practical)',tilt:'Straight down',s:1});
+practical('pr_pendant','Pendant',{w:60,k:2700,beam:80,thr:5,h:7,mount:'Ceiling (practical)',tilt:'Straight down',s:1});
+practical('pr_chand','Chandelier',{w:200,k:2700,beam:120,thr:7,h:7.5,mount:'Ceiling (practical)',tilt:'Straight down',s:1.4});
+practical('pr_can','Recessed Can Light',{w:65,k:3000,beam:50,thr:6,h:8.5,mount:'Ceiling (practical)',tilt:'Straight down',s:.7});
+practical('pr_track','Ceiling Track Head',{w:50,k:3000,beam:40,thr:7,h:8.5,mount:'Ceiling (practical)',tilt:'Tilted down',s:.7});
+practical('pr_troffer','Fluorescent Ceiling Panel (2×4)',{w:64,k:4100,beam:100,thr:6,h:8.5,mount:'Ceiling (practical)',tilt:'Straight down',shape:'tube',s:4});
+if(LIB.practical)LIB.practical.name='Practical Lamp (generic)';
+if(LIB.floorlamp)LIB.floorlamp.name='Floor Lamp (dressing, unlit)';
+/* rebuild the library list so the practicals appear, grouped right after Soft & Practical */
+{const arr=libEntries();const first={};arr.forEach((e,i)=>{const g=(e.kit?'k':'')+e.cat+'|'+e.group;if(!(g in first))first[g]=i;});
+  if(first['Electric|Soft & Practical']!=null)first['Electric|Practicals']=first['Electric|Soft & Practical']+.5;if(first['Set|Street']!=null)first['Set|Ground & roads']=first['Set|Street']-.5;
+  const ord=arr.map((e,i)=>[first[(e.kit?'k':'')+e.cat+'|'+e.group],i,e]).sort((a,b)=>a[0]-b[0]||a[1]-b[1]).map(x=>x[2]);LIBALL.splice(0,LIBALL.length,...ord);try{renderLib();}catch(e){}}
 const BRANDFF=(()=>{let o='';for(const sh of document.styleSheets){try{for(const r of sh.cssRules)if(r.type===5&&/EB Garamond|Lato/.test(r.cssText))o+=r.cssText;}catch(e){}}return o;})();
 /* ============================================================
    Export
