@@ -3862,6 +3862,73 @@ KIT('kit_bath_primary','Primary Bathroom (8×10, double vanity, walk-in shower)'
   rest.forEach(e=>{if(e.key==='radiator')e.name=LIB.radiator.name;});LIBALL.splice(0,LIBALL.length,...rest);}
 Object.assign(LIB_TIPS,{toilet:'About 30″ deep. Drop it by a wall and the tank turns to the wall.',toiletround:'Compact round bowl, common in older NYC apartments.',vanity:'Cabinet with one sink. The back goes to the wall.',vanity2:'Five-foot vanity with two sinks.',pedsink:'Freestanding pedestal sink; leaves floor space in a small bathroom.',wallsink:'Wall-hung sink; snaps to a wall.',bathtub:'Standard 5 ft alcove tub; faucet and drain at one end.',tubshower:'The classic apartment tub with a shower head and curtain rod.',clawfoot:'Freestanding clawfoot tub on four feet.',shower:'Square stall with a hinged glass door; the dashed arc shows the door swing.',walkin:'Tiled walk-in shower with a fixed glass panel.',neoangle:'Corner shower with an angled glass front.',medcab:'Mirrored medicine cabinet; snaps to a wall. Watch for camera and lights in its reflection.',mirror:'Wall mirror; snaps to a wall. Watch for camera and lights in its reflection.',towelbar:'Towel bar with a towel; snaps to a wall.',tphold:'Toilet paper holder; snaps to a wall.',overtoilet:'Shelf unit over the toilet tank; snaps to a wall.',radiator:'Cast-iron radiator, common in pre-war buildings. Noisy when the heat kicks on: plan sound around it.',kit_bath_apt:'A typical 5×8 apartment bathroom: tub / shower, toilet, vanity with medicine cabinet and light bar, door.',kit_bath_primary:'An 8×10 primary bathroom: walk-in shower, clawfoot tub, double vanity, toilet, radiator.',pr_vanity:'Light bar over a bathroom mirror. A strong motivated source for a bathroom scene.'});
 try{renderLib();}catch(e){}
+/* ============================================================
+   Wall materials: drywall, brick, concrete, glass and more
+   Each side of a room is its own wall, so each side can be its own material.
+   Glass walls let the sun and moon in like a window.
+   ============================================================ */
+const WALL_MATS={
+  'Drywall / plaster':{th:.38,base:null,note:''},
+  'Brick':{th:.67,base:'#a4573f',note:'Textured and warm; it drinks light. Skim a light across it to bring out the texture. Rigging needs masonry anchors or stands.'},
+  'Painted brick':{th:.67,base:'#d9d4cc',note:'Painted brick reads bright and textured. Skim light across it for shape.'},
+  'Concrete':{th:.67,base:'#9c9d99',note:'Hard, cool surface; hard to rig to. Plan on stands, polecats or the ceiling grid.'},
+  'Cinder block':{th:.67,base:'#a9aaa5',note:'Block joints read on camera; good for basements, stairwells and hallways.'},
+  'Stone':{th:1,base:'#8d8478',note:'Heavy texture. A low, raking light makes it read.'},
+  'Wood paneling':{th:.42,base:'#a87d55',note:'Warm bounce; it will tint light that hits it.'},
+  'Tile':{th:.42,base:'#e6ebee',note:'Shiny: watch for kicks and hot spots from lights, and reflections of the camera.'},
+  'Glass (floor to ceiling)':{th:.17,base:'#9fd3ff',glass:1,note:'Acts like a big window: sun and moon come through it. Watch for reflections of camera, crew and lights; ND or polarizer may help.'},
+  'Glass block':{th:.33,base:'#bfe0f5',glass:1,blur:1,note:'Lets light in but diffuses it, so no sharp sun patch. Nothing reads through it clearly.'},
+  'Half wall (pony wall)':{th:.38,base:null,half:1,note:'Waist-high: blocks people and furniture, not light or the camera\'s view over it.'}
+};
+const WALL_MAT_NAMES=Object.keys(WALL_MATS);
+const wallMat=it=>WALL_MATS[it.mat]||null;
+
+/* drawing: material color on the wall, then its pattern masked to the wall (so door and window gaps stay open) */
+function wallDetail(it,o){const m=wallMat(it);if(!m)return '';const C=o.C,px=o.px,p=it.pts,th=+it.th||m.th;let g='';
+  for(let k=1;k<p.length;k++){const a=p[k-1],b=p[k];if(b.c)continue;const L=Math.hypot(b.x-a.x,b.y-a.y);if(L<.05)continue;const ang=Math.atan2(b.y-a.y,b.x-a.x)/D2R;let s='';const t=th/2;
+    const ln=(x1,y1,x2,y2,c,w,ex)=>`M${x1} ${y1} L${x2} ${y2} `;let d='',d2='';
+    switch(it.mat){
+      case 'Brick':case 'Painted brick':{const courses=Math.max(2,Math.round(th/.22));const ch=th/courses;for(let c=1;c<courses;c++)d+=ln(0,-t+c*ch,L,-t+c*ch);for(let c=0;c<courses;c++){const off=c%2?.33:0;for(let x=off;x<L;x+=.67)d+=ln(x,-t+c*ch,x,-t+(c+1)*ch);}
+        s=`<path d="${d}" stroke="${it.mat==='Brick'?'#e8d9c8':'#9a958c'}" stroke-width="${.8*px}" opacity=".9"/>`;break;}
+      case 'Concrete':{for(let x=.13;x<L;x+=.37)for(const y of [-t*.5,t*.35])d+=`M${x+(y>0?.15:0)} ${y} h.02 `;s=`<path d="${d}" stroke="#5f605c" stroke-width="${2*px}" stroke-linecap="round"/>`;for(let x=4;x<L;x+=4)d2+=ln(x,-t,x,t);s+=`<path d="${d2}" stroke="#6f706c" stroke-width="${.8*px}"/>`;break;}
+      case 'Cinder block':{d+=ln(0,0,L,0);for(let x=0;x<L;x+=1.33)d+=ln(x,-t,x,0)+ln(x+.67,0,x+.67,t);s=`<path d="${d}" stroke="#6f706c" stroke-width="${.9*px}"/>`;break;}
+      case 'Stone':{let x=0,i=0;while(x<L){const wv=.5+((i*37)%7)/10;d+=ln(x,-t,x+((i%3)-1)*.08,t);x+=wv;i++;}d+=ln(0,(i%2?-.1:.1)*th,L,0);s=`<path d="${d}" stroke="#d6cfc4" stroke-width="${1*px}"/>`;break;}
+      case 'Wood paneling':{for(let y=-t+th/4;y<t;y+=th/4)d+=ln(0,y,L,y);for(let x=1.33;x<L;x+=1.33)d2+=ln(x,-t,x,t);s=`<path d="${d}" stroke="#7d5737" stroke-width="${.6*px}" opacity=".7"/><path d="${d2}" stroke="#6b4a2f" stroke-width="${.9*px}"/>`;break;}
+      case 'Tile':{d+=ln(0,0,L,0);for(let x=.5;x<L;x+=.5)d+=ln(x,-t,x,t);s=`<path d="${d}" stroke="#9aa6ae" stroke-width="${.7*px}"/>`;break;}
+      case 'Glass (floor to ceiling)':{d+=ln(0,-t*.45,L,-t*.45)+ln(0,t*.45,L,t*.45);for(let x=0;x<=L+.01;x+=Math.max(2,L/Math.max(1,Math.round(L/5))))d2+=ln(Math.min(x,L),-t*1.6,Math.min(x,L),t*1.6);s=`<path d="${d}" stroke="#5aa7dc" stroke-width="${1.1*px}"/><path d="${d2}" stroke="${C.wall}" stroke-width="${2.2*px}"/>`;break;}
+      case 'Glass block':{for(let x=0;x<=L;x+=.67)d+=ln(x,-t,x,t);d+=ln(0,0,L,0);s=`<path d="${d}" stroke="#7fb3d6" stroke-width="${.8*px}"/>`;break;}
+      case 'Half wall (pony wall)':{for(let x=-th;x<L;x+=.35)d+=ln(x,t,x+th,-t);s=`<path d="${d}" stroke="${C.wall}" stroke-width="${.9*px}" opacity=".9"/>`;break;}
+    }
+    g+=`<g transform="translate(${a.x} ${a.y}) rotate(${ang})">${s}</g>`;}
+  if(!g)return '';const da=wallDash(p,o.openings||[]);const xs=p.map(q=>q.x),ys=p.map(q=>q.y);const pad=th+2;const bx=Math.min(...xs)-pad,by=Math.min(...ys)-pad,bw=Math.max(...xs)-bx+pad,bh=Math.max(...ys)-by+pad;const id='wmat'+it.id+(o.tag||'')+(o.ghost?'g':'');
+  return `<g pointer-events="none" ${o.ghost?'opacity=".3"':''}><defs><mask id="${id}" maskUnits="userSpaceOnUse" x="${bx}" y="${by}" width="${bw}" height="${bh}"><path d="${linePathD(p)}" fill="none" stroke="#fff" stroke-width="${th}" stroke-linecap="square" stroke-linejoin="miter" ${da?`stroke-dasharray="${da}"`:''}/></mask></defs><g mask="url(#${id})">${g}</g></g>`;}
+{const _dl=drawLine;drawLine=function(it,L1,o,sel){const m=it&&it.kind==='wall'?wallMat(it):null;if(!m)return _dl(it,L1,o,sel);
+  const C2=Object.assign({},o.C);if(m.base)C2.wall=m.base;else if(m.half)C2.wall=o.C.setFill||o.C.wall;const o2=Object.assign({},o,{C:C2});const before=L1.walls||'';
+  const th0=it.th;if(!(+it.th>0))it.th=m.th;try{_dl(it,L1,o2,sel);}finally{if(th0===undefined)delete it.th;else it.th=th0;}
+  // glass reads lighter than a solid wall
+  if(m.glass){const added=(L1.walls||'').slice(before.length);L1.walls=before+added.replace(/(<path d="[^"]*" fill="none" stroke="[^"]*" stroke-width="[^"]*")/,'$1 stroke-opacity=".55"');}
+  L1.walls=(L1.walls||'')+wallDetail(it,o);};}
+// sizes and handles use the material's thickness when none is set
+{const _lw=lineW;lineW=function(it){if(it&&it.kind==='wall'&&!(+it.th>0)){const m=wallMat(it);if(m)return m.th;}return _lw(it);};}
+
+/* glass walls: the sun and moon come through like a window (glass block: softened) */
+{const _sk=skyBodySVG;skyBodySVG=function(items,o,body,slot,litK){try{const extra=[];items.forEach(w=>{if(w.t!=='line'||w.kind!=='wall')return;const m=wallMat(w);if(!m||!m.glass)return;
+      for(let k=1;k<w.pts.length;k++){const a=w.pts[k-1],b=w.pts[k];if(b.c)continue;const L=Math.hypot(b.x-a.x,b.y-a.y);if(L<.5)continue;extra.push({id:w.id+'_g'+k,t:'window',x:(a.x+b.x)/2,y:(a.y+b.y)/2,r:Math.atan2(b.y-a.y,b.x-a.x)/D2R,w:L-.1,_gb:m.blur?1:0});}});
+    if(!extra.length)return _sk(items,o,body,slot,litK);let out=_sk(items.concat(extra),o,body,slot,litK);
+    extra.filter(e=>e._gb).forEach(e=>{const fid='gbf'+e.id+(o.tag||'');out=out.replace(new RegExp(`(<path data-win="${e.id}"[^>]*?)(\\/?>)`),`<defs><filter id="${fid}" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation=".7"/></filter></defs>$1 filter="url(#${fid})"$2`).replace(new RegExp(`(<path data-win="${e.id}"[^>]*?)opacity="([\\d.]+)"`),(m,a,v)=>`${a}opacity="${(+v*.6).toFixed(2)}"`);});return out;}catch(e){return _sk(items,o,body,slot,litK);}};}
+
+/* panel and quick bar: pick the material */
+const wallMatSel=(it,style)=>`<select class="in" data-wmat="1" ${style?`style="${style}"`:''}>${WALL_MAT_NAMES.map(n=>`<option ${(it.mat||'Drywall / plaster')===n?'selected':''}>${esc(n)}</option>`).join('')}</select>`;
+{const _pi=panelItem;panelItem=function(){let h=_pi();try{const it=selItem();if(it&&it.t==='line'&&it.kind==='wall'){const m=wallMat(it);const f=fld('Material',wallMatSel(it))+(m&&m.note?`<div class="pSub" style="margin:-2px 0 8px">${esc(m.note)}</div>`:'');
+    const i=h.indexOf('data-k="label"');if(i>=0){const j=h.indexOf('</div>',i)+6;h=h.slice(0,j)+f+h.slice(j);}else h+=f;}}catch(e){}return h;};}
+{const _rq=renderQuick;renderQuick=function(){_rq();try{const q=$('#quick');if(!q||!P)return;const ids=selIds();if(ids.length!==1)return;const it=selItem();if(!it||it.t!=='line'||it.kind!=='wall'||q.querySelector('[data-wmat]'))return;
+  const sep=q.querySelector('.qsep');const lab=`<label class="qf">Material${wallMatSel(it,'width:auto')}</label>`;if(sep)sep.insertAdjacentHTML('beforebegin',lab);else q.insertAdjacentHTML('beforeend',lab);}catch(e){}};}
+document.addEventListener('change',e=>{const el=e.target;if(!el||!el.dataset||!el.dataset.wmat)return;e.stopPropagation();const ids=selIds();if(!ids.length)return;snap();
+  ids.forEach(id=>{const f=findItem(id);if(!f||f.it.t!=='line'||f.it.kind!=='wall')return;const w=f.it;if(el.value==='Drywall / plaster')delete w.mat;else w.mat=el.value;delete w.th;});
+  changed(true);el.blur();toast(el.value==='Drywall / plaster'?'Wall set to drywall':'Wall set to '+el.value.toLowerCase());},true);
+// several walls selected: the quick bar offers the material for all of them
+{const _rq2=renderQuick;renderQuick=function(){_rq2();try{const q=$('#quick');if(!q||!P)return;const ids=selIds();if(ids.length<2||q.querySelector('[data-wmat]'))return;const its=ids.map(id=>(findItem(id)||{}).it).filter(Boolean);if(!its.length||!its.every(i=>i.t==='line'&&i.kind==='wall'))return;
+  const sep=q.querySelector('.qsep');const lab=`<label class="qf">Material${wallMatSel(its[0],'width:auto')}</label>`;if(sep)sep.insertAdjacentHTML('beforebegin',lab);}catch(e){}};}
 const BRANDFF=(()=>{let o='';for(const sh of document.styleSheets){try{for(const r of sh.cssRules)if(r.type===5&&/EB Garamond|Lato/.test(r.cssText))o+=r.cssText;}catch(e){}}return o;})();
 /* ============================================================
    Export
