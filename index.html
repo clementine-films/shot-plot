@@ -3929,6 +3929,22 @@ document.addEventListener('change',e=>{const el=e.target;if(!el||!el.dataset||!e
 // several walls selected: the quick bar offers the material for all of them
 {const _rq2=renderQuick;renderQuick=function(){_rq2();try{const q=$('#quick');if(!q||!P)return;const ids=selIds();if(ids.length<2||q.querySelector('[data-wmat]'))return;const its=ids.map(id=>(findItem(id)||{}).it).filter(Boolean);if(!its.length||!its.every(i=>i.t==='line'&&i.kind==='wall'))return;
   const sep=q.querySelector('.qsep');const lab=`<label class="qf">Material${wallMatSel(its[0],'width:auto')}</label>`;if(sep)sep.insertAdjacentHTML('beforebegin',lab);}catch(e){}};}
+
+/* sun and moon patches stop at walls: a solid wall throws its shadow across any patch that reaches it */
+{const _sk=skyBodySVG;skyBodySVG=function(items,o,body,slot,litK){let out=_sk(items,o,body,slot,litK);try{if(out.indexOf('data-win=')<0)return out;
+  const wins={};items.filter(i=>isGlass(i)).forEach(w=>wins[w.id]={x:w.x,y:w.y,r:w.r||0});
+  items.forEach(w=>{if(w.t!=='line'||w.kind!=='wall')return;const m=wallMat(w);if(!m||!m.glass)return;for(let k=1;k<w.pts.length;k++){const a=w.pts[k-1],b=w.pts[k];wins[w.id+'_g'+k]={x:(a.x+b.x)/2,y:(a.y+b.y)/2,r:Math.atan2(b.y-a.y,b.x-a.x)/D2R};}});
+  const segs=[];items.forEach(w=>{if(w.t!=='line'||w.kind!=='wall')return;const m=wallMat(w);if(m&&(m.glass||m.half))return;for(let k=1;k<w.pts.length;k++){if(w.pts[k].c)continue;segs.push([w.pts[k-1],w.pts[k]]);}});
+  if(!segs.length)return out;
+  out=out.replace(/(<path data-win="([^"]+)" d="M([-\d.e]+) ([-\d.e]+) L([-\d.e]+) ([-\d.e]+) L([-\d.e]+) ([-\d.e]+) L([-\d.e]+) ([-\d.e]+)Z"[^>]*\/>)(<path d="[^"]*" stroke="[^"]*" stroke-width="[^"]*" stroke-dasharray="[^"]*" opacity="\.55" fill="none"\/>)?/g,(m0,patch,wid,...n)=>{const v=n.slice(0,8).map(Number);const edge=n[8]||'';
+    const Q=[{x:v[0],y:v[1]},{x:v[2],y:v[3]},{x:v[4],y:v[5]},{x:v[6],y:v[7]}];const len=Math.hypot(Q[3].x-Q[0].x,Q[3].y-Q[0].y);if(len<.1)return m0;const Lx=(Q[3].x-Q[0].x)/len,Ly=(Q[3].y-Q[0].y)/len;
+    const wn=wins[wid];const wa=wn?wn.r*D2R:Math.atan2(Q[1].y-Q[0].y,Q[1].x-Q[0].x);const ux=Math.cos(wa),uy=Math.sin(wa);const R=80;const polys=[];
+    segs.forEach(([a,b])=>{const sl=Math.hypot(b.x-a.x,b.y-a.y);if(sl<.05)return;const sx=(b.x-a.x)/sl,sy=(b.y-a.y)/sl;
+      if(wn&&Math.abs(sx*uy-sy*ux)<.06&&Math.abs((wn.x-a.x)*-sy+(wn.y-a.y)*sx)<.45)return; // the window's own wall
+      if(Math.abs(sx*Ly-sy*Lx)<.02)return; // a wall running along the light throws no area
+      polys.push(`<path d="M${a.x} ${a.y} L${b.x} ${b.y} L${b.x+Lx*R} ${b.y+Ly*R} L${a.x+Lx*R} ${a.y+Ly*R}Z" fill="#000"/>`);});
+    if(!polys.length)return m0;const xs=Q.map(q=>q.x),ys=Q.map(q=>q.y);const bx=Math.min(...xs)-R,by=Math.min(...ys)-R,bw=Math.max(...xs)-bx+R,bh=Math.max(...ys)-by+R;const id='wc'+wid+(o.tag||'')+(body||'');
+    return `<defs><mask id="${id}" maskUnits="userSpaceOnUse" x="${bx}" y="${by}" width="${bw}" height="${bh}"><rect x="${bx}" y="${by}" width="${bw}" height="${bh}" fill="#fff"/>${polys.join('')}</mask></defs><g mask="url(#${id})">${patch}${edge}</g>`;});}catch(e){}return out;};}
 const BRANDFF=(()=>{let o='';for(const sh of document.styleSheets){try{for(const r of sh.cssRules)if(r.type===5&&/EB Garamond|Lato/.test(r.cssText))o+=r.cssText;}catch(e){}}return o;})();
 /* ============================================================
    Export
