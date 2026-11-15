@@ -783,7 +783,7 @@ function renderItems(items,o){
     if(L.kind==='camera'){
       const fov=hfov(it),fl=+it.fovLen||12,a=fov/2*D2R;const x=fl*Math.cos(a),y=fl*Math.sin(a);const col='#5cb8ff';
       L1.beams+=`<g transform="${tr}" pointer-events="none" opacity="${o.ghost?.35:1}"><path d="M.45 0 L${x} ${-y} M.45 0 L${x} ${y}" stroke="${col}" stroke-width="${1.2*px}" stroke-dasharray="${6*px} ${4*px}" fill="none"/><path d="M.45 0 L${x} ${-y} A${fl} ${fl} 0 0 1 ${x} ${y} Z" fill="${col}" fill-opacity=".07"/></g>`;
-      g=`<rect x="-1.1" y="-.45" width="1.1" height=".9" rx=".08" fill="${col}" stroke="${C.bg}" stroke-width="${px}"/><path d="M0 -.25 L.5 -.4 L.5 .4 L0 .25Z" fill="${col}"/><rect x="-.9" y="-.65" width=".55" height=".2" fill="${col}"/>`;
+      g=camGlyph(it,C,px,col);
       if(it.support==='Ladder + hi-hat')L1.grip+=`<g ${ida} transform="${tr}" ${o.ghost?'opacity=".35"':''}>${ladderGlyph(C,px)}</g>`;L1.cam+=`<g ${ida} transform="${trS}" ${o.ghost?'opacity=".35"':''}>${g}${selStroke}</g>`;
       const t=(it.shotTag?`${it.shotTag} · ${lensLabel(it)}`:`${it.cam||'A'} CAM · ${lensLabel(it)}`)+(o.ghost?` · ${o.ghostLabel||''}`:'');
       L1.labels+=`<text ${o.ghost?'':`data-lid="${it.id}" data-p="4" data-ax="${it.x}" data-ay="${it.y}" data-ar="1.1"`} x="${it.x}" y="${it.y+1.1*SZ+fs}" text-anchor="middle" font-family="${C.mono}" font-weight="600" font-size="${fs}" fill="${col}" opacity="${o.ghost?.55:1}" paint-order="stroke" stroke="${C.bg}" stroke-width="${3*px}" pointer-events="none">${esc(t)}</text>`;
@@ -4167,6 +4167,243 @@ document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest
 {const _ri=renderItems;renderItems=function(items,o){const L=_ri(items,o);if(o&&o.dimSel&&!o.ghost&&CALC.open&&CALC.tab==='dof'){try{const c=dofCam(),D=CALC.dof;const p=D.two&&dofRefPt(D.sub2Ref);if(c&&p){const px=o.px,col='#6aa8d8';
   L.labels=(L.labels||'')+`<g pointer-events="none"><path d="M${c.x} ${c.y} L${p.x} ${p.y}" stroke="${col}" stroke-width="${1.2*px}" stroke-dasharray="${4*px} ${3*px}" fill="none"/><circle cx="${p.x}" cy="${p.y}" r="${6*px}" fill="none" stroke="${col}" stroke-width="${1.6*px}"/><text x="${p.x+9*px}" y="${p.y-7*px}" font-family="${o.C.mono}" font-weight="700" font-size="${9*px}" fill="${col}" paint-order="stroke" stroke="#f3ecf8" stroke-width="${2.5*px}">subject 2 · ${fmtFt(Math.hypot(p.x-c.x,p.y-c.y))}</text></g>`;}}catch(e){}}return L;};}
 {const _rcv=renderCanvas;renderCanvas=function(){_rcv();if(CALC.open&&CALC.tab==='dof'&&CALC.dof.sub2Ref){try{const out=$('#calcOut');if(out)out.innerHTML=dofOut();}catch(e){}}};}
+/* ============================================================
+   Odd shapes, three ways:
+   1. ready-made shapes with settings (L, U, booths, kidney, oval …)
+   2. a Shape tool: trace any outline like a wall, with curved edges
+   3. My library: save any piece or group and reuse it in any project
+   ============================================================ */
+const OTYPES=['Table','Booth seat','Sofa / upholstered','Counter','Platform / riser','Cabinet / storage','Plain'];
+const otypeLook=(t,C)=>({'Table':{f:WOOD,op:.55},'Booth seat':{f:'#a8473d',op:.6,back:'#8a3b33'},'Sofa / upholstered':{f:C.setFill,op:null,back:C.setStroke,bop:.55},'Counter':{f:STONE,op:.85},'Platform / riser':{f:'#3a3330',op:.85},'Cabinet / storage':{f:WOOD,op:.6},'Plain':{f:C.setFill,op:null}}[t]||{f:C.setFill,op:null});
+const ODD=(key,name,form,w,h,ex,otype)=>def(key,{cat:'Set',group:'Odd shapes',name,kind:'set',shape:'odd',form,defaults:Object.assign({w,h,label:'',otype:otype||'Table'},ex||{})});
+ODD('odd_l','L-shape (counter, desk, sectional)','L',8,6,{arm:2.2},'Counter');
+ODD('odd_u','U-shape (bar, counter, booth)','U',10,7,{arm:2.2},'Counter');
+ODD('odd_halfbooth','Half-round booth','arc',8,4.4,{seat:2,sweep:180},'Booth seat');
+ODD('odd_roundbooth','Round booth (C-shape)','arc',8,6.9,{seat:2,sweep:270},'Booth seat');
+ODD('odd_banquette','Curved banquette','arc',10,3.6,{seat:2,sweep:100},'Booth seat');
+ODD('odd_kidney','Kidney table','kidney',6,3,{},'Table');
+ODD('odd_oval','Oval table','oval',7,4,{},'Table');
+ODD('odd_pill','Rounded-end table / bar','pill',8,3,{},'Table');
+ODD('odd_semi','Half-round table / platform','semi',6,3,{},'Table');
+ODD('odd_wedge','Wedge / trapezoid','wedge',6,3,{taper:.5},'Table');
+ODD('odd_rrect','Rounded-corner piece','rrect',6,4,{rad:1},'Table');
+ODD('odd_poly','Hexagon / octagon','poly',5,5,{sides:8},'Table');
+
+/* geometry: an outline (path d) and, for seats, the backrest band; centred in the item's box */
+function arcPath(R,r,a0,a1){const p=(rad,a)=>[rad*Math.cos(a),rad*Math.sin(a)];const lg=(a1-a0)>Math.PI?1:0;const [x0,y0]=p(R,a0),[x1,y1]=p(R,a1),[x2,y2]=p(r,a1),[x3,y3]=p(r,a0);
+  return `M${x0} ${y0} A${R} ${R} 0 ${lg} 1 ${x1} ${y1} L${x2} ${y2} A${r} ${r} 0 ${lg} 0 ${x3} ${y3}Z`;}
+function arcBox(R,r,a0,a1){const xs=[],ys=[];for(let i=0;i<=60;i++){const a=a0+(a1-a0)*i/60;[R,r].forEach(q=>{xs.push(q*Math.cos(a));ys.push(q*Math.sin(a));});}return {x0:Math.min(...xs),x1:Math.max(...xs),y0:Math.min(...ys),y1:Math.max(...ys)};}
+function oddGeom(it,L){const w=Math.max(.5,+it.w||2),h=Math.max(.5,+it.h||2),a=-w/2,b=w/2,T=-h/2,B=h/2;const f=L.form;
+  if(f==='L'||f==='U'){const arm=Math.max(.5,Math.min(+it.arm||2,w/(f==='U'?2.2:1.1),h*.9));const poly=k=>f==='L'?`M${a} ${T} H${b} V${T+k} H${a+k} V${B} H${a}Z`:`M${a} ${T} H${b} V${B} H${b-k} V${T+k} H${a+k} V${B} H${a}Z`;return {d:poly(arm),back:poly(arm*.35)};}
+  if(f==='arc'){const sw=Math.max(30,Math.min(350,+it.sweep||180))*D2R;const seat=Math.max(.8,+it.seat||2);const a0=-Math.PI/2-sw/2,a1=-Math.PI/2+sw/2;
+    let R=sw>=Math.PI?w/2:(w/2)/Math.sin(sw/2);R=Math.max(R,seat+.5);const bx=arcBox(R,R-seat,a0,a1);const s=w/(bx.x1-bx.x0);const Rs=R*s,rs=Math.max(.3,(R-seat)*s);const bb=arcBox(Rs,rs,a0,a1);
+    const H2=bb.y1-bb.y0;if(Math.abs(H2-h)>.05)it.h=Math.round(H2*100)/100;const cx=-(bb.x0+bb.x1)/2,cy=-(bb.y0+bb.y1)/2;
+    return {d:arcPath(Rs,rs,a0,a1),back:arcPath(Rs,Rs-seat*.32,a0,a1),tx:`translate(${cx} ${cy})`};}
+  if(f==='kidney'){const r=h/2;return {d:`M${a+r} ${T} Q0 ${T+h*.55} ${b-r} ${T} A${r} ${r} 0 0 1 ${b-r} ${B} Q0 ${B+h*.08} ${a+r} ${B} A${r} ${r} 0 0 1 ${a+r} ${T}Z`};}
+  if(f==='oval')return {d:`M${a} 0 A${w/2} ${h/2} 0 1 0 ${b} 0 A${w/2} ${h/2} 0 1 0 ${a} 0Z`};
+  if(f==='pill'){const r=Math.min(w,h)/2;return {d:`M${a+r} ${T} H${b-r} A${r} ${r} 0 0 1 ${b-r} ${B} H${a+r} A${r} ${r} 0 0 1 ${a+r} ${T}Z`};}
+  if(f==='semi')return {d:`M${a} ${T} H${b} A${w/2} ${h} 0 0 1 ${a} ${T}Z`};
+  if(f==='wedge'){const t=Math.max(.1,Math.min(1,+it.taper||.5));return {d:`M${a} ${T} H${b} L${w*t/2} ${B} H${-w*t/2}Z`};}
+  if(f==='rrect'){const r=Math.max(0,Math.min(+it.rad||1,w/2,h/2));return {d:`M${a+r} ${T} H${b-r} A${r} ${r} 0 0 1 ${b} ${T+r} V${B-r} A${r} ${r} 0 0 1 ${b-r} ${B} H${a+r} A${r} ${r} 0 0 1 ${a} ${B-r} V${T+r} A${r} ${r} 0 0 1 ${a+r} ${T}Z`};}
+  if(f==='poly'){const n=Math.max(3,Math.min(12,Math.round(+it.sides||8)));let d='';for(let i=0;i<n;i++){const t=(i/n)*2*Math.PI-Math.PI/2+(n%2?0:Math.PI/n);d+=(i?'L':'M')+(w/2*Math.cos(t)).toFixed(3)+' '+(h/2*Math.sin(t)).toFixed(3);}return {d:d+'Z'};}
+  return {d:`M${a} ${T} H${b} V${B} H${a}Z`};}
+{const _sg=setGlyph;setGlyph=function(it,L,C,px){if(L.shape!=='odd')return _sg(it,L,C,px);const g=oddGeom(it,L);const look=otypeLook(it.otype||'Table',C);const st=`stroke="${C.setStroke}" stroke-width="${1.3*px}"`;
+  let s=`<path d="${g.d}" fill="${look.f}"${look.op!=null?` fill-opacity="${look.op}"`:''} ${st}/>`;
+  if(look.back&&g.back)s+=`<path d="${g.back}" fill="${look.back}" fill-opacity="${look.bop||.85}"/>`;
+  if(it.otype==='Platform / riser')s+=`<path d="${g.d}" fill="none" stroke="#c9a96a" stroke-width="${2*px}" stroke-dasharray="${6*px} ${4*px}"/>`;
+  if(it.otype==='Cabinet / storage')s+=`<path d="${g.d}" fill="none" stroke="${C.setStroke}" stroke-opacity=".45" stroke-width="${px}" transform="scale(.9)"/>`;
+  return g.tx?`<g transform="${g.tx}">${s}</g>`:s;};}
+// the panel: what it is, and the settings for its form
+{const _pi=panelItem;panelItem=function(){let h=_pi();try{const it=selItem();const L=it&&LIB[it.t];if(L&&L.shape==='odd'){const num=(k,lab,v,a)=>fld(lab,inp(k,v,'number',a));const f=L.form;
+    let g=fld('What it is',sel('otype',OTYPES,it.otype||'Table'));
+    if(f==='L'||f==='U')g+=num('arm','How deep each arm is (ft)',it.arm||2.2,'min=".5" step=".25"');
+    if(f==='arc')g+=num('seat','Seat depth (ft)',it.seat||2,'min=".8" step=".25"')+num('sweep','How far it curves around (°)',it.sweep||180,'min="30" max="350" step="10"')+`<div class="pSub">Width sets the size; depth follows the curve.</div>`;
+    if(f==='wedge')g+=num('taper','Front width, as a share of the back (0.1–1)',it.taper||.5,'min=".1" max="1" step=".05"');
+    if(f==='rrect')g+=num('rad','Corner roundness (ft)',it.rad||1,'min="0" step=".25"');
+    if(f==='poly')g+=num('sides','Number of sides',it.sides||8,'min="3" max="12" step="1"');
+    g=`<div class="grp"><h4>Shape</h4>${g}<div class="pSub">The back (wall side) is the top edge. Drag edges to resize; R or the angle turns it.</div></div>`;
+    const i=h.indexOf('<div class="f" style="grid-template-columns:96px 1fr"><label>Notes');h=i>=0?h.slice(0,i)+g+h.slice(i):h+g;}}catch(e){}return h;};}
+['odd_l','odd_u','odd_halfbooth','odd_roundbooth','odd_banquette'].forEach(k=>LIB[k].backToWall=true);
+{const ents=Object.keys(LIB).filter(k=>/^odd_/.test(k)).map(k=>({key:k,cat:'Set',group:'Odd shapes',name:LIB[k].name}));const i=LIBALL.map(e=>e.group).lastIndexOf('Furniture');LIBALL.splice(i>=0?i+1:LIBALL.length,0,...ents);}
+
+/* ---------- 2. the Shape tool: trace any outline ---------- */
+LINES.shape={name:'Custom Shape',cat:'Set',group:'Odd shapes',color:null,hideLib:true};
+TOOLS.push(['shape','Shape','J']);
+{const _ti=toolIcon;toolIcon=function(k){if(k!=='shape')return _ti(k);return `<svg viewBox="0 0 14 14" width="18" height="18"><path d="M2 11 L3 3 Q7 1 11 4 L12 10 Q7 13 2 11Z" fill="none" stroke="currentColor" stroke-width="1.3"/></svg>`;};}
+{const _ds=defaultScope;defaultScope=function(it){if(it.t==='line'&&it.kind==='shape')return 'setup';return _ds(it);};}
+window.addEventListener('keydown',e=>{const tag=(e.target&&e.target.tagName)||'';if(/INPUT|TEXTAREA|SELECT/.test(tag)||e.target.isContentEditable)return;if(!e.metaKey&&!e.ctrlKey&&!e.altKey&&e.key.toLowerCase()==='j'&&!$('#modal.open')){e.stopImmediatePropagation();e.preventDefault();V.placing=null;setTool(V.tool==='shape'?'select':'shape');}},true);
+// closing: the outline joins back to its first point
+{const _fd=finishDraft;finishDraft=function(){const d=V.draft;if(d&&d.kind==='shape'){if(d.pts.length<3){toast('A shape needs at least three points');}else{const a=d.pts[0],z=d.pts[d.pts.length-1];if(Math.hypot(a.x-z.x,a.y-z.y)>.02)d.pts.push({x:a.x,y:a.y});}}_fd();const it=selItem();if(it&&it.t==='line'&&it.kind==='shape'){if(!it.otype)it.otype='Table';setTool('select');}};}
+{const _uh=updHint;updHint=function(){_uh();try{if(V.tool==='shape'){const el=$('#hint');if(el)el.innerHTML='<b>Shape:</b> click each corner of the outline. Press Enter (or click the first point) to close it. Curve an edge afterwards by dragging the dot in its middle.';}}catch(e){}};}
+{const _dl=drawLine;drawLine=function(it,L1,o,sel){if(!it||it.kind!=='shape')return _dl(it,L1,o,sel);const C=o.C,px=o.px,p=it.pts;if(!p||p.length<2)return;
+  const d=linePathD(p)+(closedLine(it)?'Z':'');const look=otypeLook(it.otype||'Table',C);const ida=o.ghost?'':`data-id="${it.id}"`;
+  const selG=sel?`<path d="${d}" fill="none" stroke="#f2a93b" stroke-opacity=".5" stroke-width="${6*px}"/>`:'';
+  L1.set=(L1.set||'')+`<g ${o.ghost?'opacity=".3"':''}>${selG}<path ${ida} d="${d}" fill="${look.f}"${look.op!=null?` fill-opacity="${look.op}"`:''} stroke="${C.setStroke}" stroke-width="${1.3*px}" stroke-linejoin="round" style="pointer-events:all"/>${it.otype==='Platform / riser'?`<path d="${d}" fill="none" stroke="#c9a96a" stroke-width="${2*px}" stroke-dasharray="${6*px} ${4*px}" pointer-events="none"/>`:''}</g>`;
+  if(it.label&&!o.ghost){const cx=p.reduce((s,q)=>s+q.x,0)/p.length,cy=p.reduce((s,q)=>s+q.y,0)/p.length;const fs=(o.tag==='sheet'?12.5:11)*px;L1.labels+=`<text x="${cx}" y="${cy}" text-anchor="middle" dy=".35em" font-family="${C.font}" font-size="${fs*.9}" fill="${C.text}" paint-order="stroke" stroke="${C.bg}" stroke-width="${3*px}" pointer-events="none">${esc(it.label)}</text>`;}};}
+{const _pi=panelItem;panelItem=function(){let h=_pi();try{const it=selItem();if(it&&it.t==='line'&&it.kind==='shape'){const g=`<div class="grp"><h4>Shape</h4>${fld('What it is',sel('otype',OTYPES,it.otype||'Table'))}<div class="pSub">Drag a corner to reshape it. Drag the dot in the middle of an edge to curve it. Click an edge to add a corner.</div></div>`;
+    const i=h.indexOf('data-k="label"');if(i>=0){const j=h.indexOf('</div>',i)+6;h=h.slice(0,j)+g+h.slice(j);}else h+=g;}}catch(e){}return h;};}
+
+/* ---------- 3. My library: save a piece or a group, reuse it anywhere ---------- */
+const MYLIB_KEY='lp.mylib';
+function myLibLoad(){try{return JSON.parse(localStorage.getItem(MYLIB_KEY)||'[]');}catch(e){return [];}}
+function myLibSave(arr){try{localStorage.setItem(MYLIB_KEY,JSON.stringify(arr));return true;}catch(e){toast('Could not save to your library in this browser');return false;}}
+function myLibRegister(){const arr=myLibLoad();Object.keys(LIB).filter(k=>/^my_/.test(k)).forEach(k=>delete LIB[k]);for(let i=LIBALL.length-1;i>=0;i--)if(/^my_/.test(LIBALL[i].key))LIBALL.splice(i,1);
+  arr.forEach(e=>{try{KIT(e.key,e.name,1,1,()=>clone(e.items),'My library');LIB[e.key].mine=1;LIBALL.unshift({key:e.key,cat:'Set',group:'My library',name:e.name});}catch(err){}});}
+function saveSelToLibrary(){const ids=selIds();const its=ids.map(id=>(findItem(id)||{}).it).filter(Boolean);if(!its.length){toast('Select something first');return;}
+  openNameBox(its);}
+function openNameBox(its){const def=its.length===1?(its[0].label||(its[0].t==='line'?(LINES[its[0].kind]||{}).name:(LIB[its[0].t]||{}).name)||'My piece'):`Group of ${its.length}`;
+  const box=document.createElement('div');box.className='mylibBox';box.innerHTML=`<div style="position:fixed;inset:0;background:rgba(0,0,0,.45);z-index:9998"></div><div style="position:fixed;left:50%;top:30%;transform:translateX(-50%);background:var(--panel,#1d1f22);color:var(--text,#eee);border:1px solid #555;border-radius:10px;padding:16px;z-index:9999;width:340px;font-family:Lato,sans-serif"><b>Save to my library</b><div style="font-size:12px;margin:6px 0 10px">${its.length>1?`These ${its.length} pieces are saved together and placed as a group.`:'Saved in this browser, so you can use it in any project.'}</div><input class="in" id="mylibName" value="${esc(def)}" style="width:100%;margin-bottom:10px"><div style="display:flex;gap:8px;justify-content:flex-end"><button class="btn sm" data-mylib="cancel">Cancel</button><button class="btn sm pri" data-mylib="ok">Save</button></div></div>`;
+  document.body.appendChild(box);const nm=box.querySelector('#mylibName');nm.focus();nm.select();
+  const done=ok=>{if(ok){const name=(nm.value||def).trim().slice(0,60);const xs=[],ys=[];its.forEach(i=>{if(i.t==='line')i.pts.forEach(q=>{xs.push(q.x);ys.push(q.y);});else{xs.push(i.x);ys.push(i.y);}});const cx=(Math.min(...xs)+Math.max(...xs))/2,cy=(Math.min(...ys)+Math.max(...ys))/2;
+      const items=its.map(i=>{const c=clone(i);delete c.id;delete c.fork;delete c.owner;delete c.scope;if(c.t==='line')c.pts=c.pts.map(q=>Object.assign({},q,{x:r2(q.x-cx),y:r2(q.y-cy)}));else{c.x=r2(c.x-cx);c.y=r2(c.y-cy);}return c;});
+      const arr=myLibLoad();arr.push({key:'my_'+rid(),name,items});if(myLibSave(arr)){myLibRegister();renderLib();toast(`Saved “${name}” to My library`);}}box.remove();};
+  box.addEventListener('click',e=>{const b=e.target.closest('[data-mylib]');if(b)done(b.dataset.mylib==='ok');});nm.addEventListener('keydown',e=>{if(e.key==='Enter')done(true);if(e.key==='Escape')done(false);e.stopPropagation();});}
+{const _ea=extraAct;extraAct=function(act){if(act==='mylib'){saveSelToLibrary();return true;}return _ea(act);};}
+{const _pi=panelItem;panelItem=function(){let h=_pi();try{if(selItem())h=h.replace(/(<div style="display:flex;gap:6px;margin-top:12px;flex-wrap:wrap">)/,`$1<button class="btn sm" data-act="mylib" title="Save this piece to your own library so you can reuse it in any project">Save to my library</button>`);}catch(e){}return h;};}
+{const _rq=renderQuick;renderQuick=function(){_rq();try{const q=$('#quick');if(!q||!P||selIds().length<2||q.querySelector('[data-act="mylib"]'))return;q.insertAdjacentHTML('beforeend',`<button class="btn sm" data-act="mylib" title="Save these pieces together as one item in your library">Save group to my library</button>`);}catch(e){}};}
+// a small ✕ on your own library entries removes them
+{const _rl=renderLib;renderLib=function(){_rl();try{$('#lib').querySelectorAll('[data-k^="my_"]').forEach(b=>{if(b.querySelector('.mydel'))return;b.insertAdjacentHTML('beforeend',`<span class="mydel" data-mydel="${b.dataset.k}" title="Remove from my library" style="margin-left:auto;padding:0 6px;opacity:.8">✕</span>`);});}catch(e){}};}
+document.addEventListener('click',e=>{const x=e.target.closest&&e.target.closest('[data-mydel]');if(!x)return;e.stopPropagation();e.preventDefault();const k=x.dataset.mydel;const arr=myLibLoad().filter(i=>i.key!==k);myLibSave(arr);myLibRegister();renderLib();toast('Removed from My library');},true);
+// a single saved piece reads naturally when placed
+{const _pa=placeAt;placeAt=function(w,keep,alt){const k=V.placing;const L=k&&LIB[k];_pa(w,keep,alt);if(L&&L.mine)toast(`${L.name} placed`);};}
+myLibRegister();
+Object.assign(LIB_TIPS,{odd_l:'L-shaped piece. Set what it is (counter, sofa, desk…) and how deep each arm is.',odd_u:'U-shaped piece, like a bar or a booth that wraps a table.',odd_halfbooth:'Half-round booth; set seat depth and how far it curves.',odd_roundbooth:'C-shaped booth that wraps most of the way around a table.',odd_banquette:'A gently curved bench seat.',odd_kidney:'Kidney-shaped table.',odd_poly:'Hexagon, octagon or any regular polygon.'});
+try{renderLib();}catch(e){}
+/* ============================================================
+   Lights, grip, camera and support drawn like the real gear (top-down).
+   Lights face +x (the beam side); accessories on a light — barn doors,
+   snoot, grid, softbox, lantern skirt, diffusion, scrim — and what it is
+   mounted on (C-stand, combo, menace arm, pipe…) are drawn too.
+   ============================================================ */
+const GEAR_DARK='#3b3f45',GEAR_MID='#6b7179',CHROME='#c9ced4';
+function cstandTop(C,px,arm,opt){opt=opt||{};const g=C.grip;const legs=[[.95,90],[.75,210],[.6,330]];let s='';
+  legs.forEach(([l,a])=>{const t=a*D2R;s+=`<path d="M0 0 L${(Math.cos(t)*l).toFixed(3)} ${(Math.sin(t)*l).toFixed(3)}" stroke="${g}" stroke-width="${2*px}" stroke-linecap="round"/><circle cx="${(Math.cos(t)*l).toFixed(3)}" cy="${(Math.sin(t)*l).toFixed(3)}" r=".05" fill="${g}"/>`;});
+  s+=`<circle r=".13" fill="${GEAR_MID}" stroke="${g}" stroke-width="${px}"/>`;
+  if(arm){s+=`<path d="M0 0 L${arm} 0" stroke="${g}" stroke-width="${2.2*px}" stroke-linecap="round"/><circle cx="${arm*.12}" cy="0" r=".11" fill="${GEAR_DARK}" stroke="${g}" stroke-width="${px}"/><circle cx="${arm}" cy="0" r=".09" fill="${GEAR_DARK}" stroke="${g}" stroke-width="${px}"/>`;}
+  if(opt.wheels)legs.forEach(([l,a])=>{const t=a*D2R;s+=`<circle cx="${(Math.cos(t)*l).toFixed(3)}" cy="${(Math.sin(t)*l).toFixed(3)}" r=".11" fill="${GEAR_DARK}" stroke="${g}" stroke-width="${px}"/>`;});
+  return s;}
+function evenLegs(C,px,r,heavy,wheels){const g=C.grip;let s='';for(let i=0;i<3;i++){const t=(90+i*120)*D2R;const x=Math.cos(t)*r,y=Math.sin(t)*r;s+=`<path d="M0 0 L${x.toFixed(3)} ${y.toFixed(3)}" stroke="${g}" stroke-width="${(heavy?2.8:1.8)*px}" stroke-linecap="round"/>`+(wheels?`<circle cx="${x.toFixed(3)}" cy="${y.toFixed(3)}" r=".13" fill="${GEAR_DARK}" stroke="${g}" stroke-width="${px}"/>`:'');}
+  return s+(heavy?`<rect x="-.16" y="-.16" width=".32" height=".32" rx=".04" fill="${GEAR_MID}" stroke="${g}" stroke-width="${px}"/>`:`<circle r=".11" fill="${GEAR_MID}" stroke="${g}" stroke-width="${px}"/>`);}
+
+/* ---------- what a light sits on ---------- */
+function lightMount(it,L,C,px,cx){const m=it.mount||((L.defaults||{}).mount)||'';const g=C.grip;const at=s=>`<g transform="translate(${cx} 0)" opacity=".9">${s}</g>`;
+  if(/^C-stand/.test(m))return at(cstandTop(C,px,0));
+  if(/Light stand|Baby stand/.test(m))return at(evenLegs(C,px,.8,false));
+  if(/Beefy|Combo/.test(m))return at(evenLegs(C,px,1.15,true));
+  if(/Rolling/.test(m))return at(evenLegs(C,px,1.1,true,true));
+  if(/Pigeon/.test(m))return at(`<rect x="-.35" y="-.3" width=".7" height=".6" rx=".04" fill="${GEAR_MID}" stroke="${g}" stroke-width="${px}"/><circle r=".07" fill="${g}"/>`);
+  if(/Turtle|Floor/.test(m))return at(evenLegs(C,px,.45,true));
+  if(/Magnet|tape/.test(m))return at(`<rect x="-.12" y="-.12" width=".24" height=".24" fill="${GEAR_DARK}" stroke="${g}" stroke-width="${px}"/>`);
+  if(/Clamp/.test(m))return at(`<path d="M-.15 -.12 h.3 v.24 h-.3z" fill="${GEAR_DARK}" stroke="${g}" stroke-width="${px}"/>`);
+  if(/Menace|boom arm/.test(m))return `<path d="M${cx} 0 L${cx-4.5} 0" stroke="${g}" stroke-width="${2.6*px}" stroke-linecap="round"/><g transform="translate(${cx-4.5} 0)"><rect x="-.8" y="-.6" width="1.6" height="1.2" rx=".1" fill="${GEAR_DARK}" stroke="${g}" stroke-width="${px}"/><circle cx="-.95" cy="0" r=".3" fill="#8b8067" stroke="${g}" stroke-width="${px}"/></g>`;
+  if(/Overhead|pipe/.test(m))return `<path d="M${cx} -1.6 L${cx} 1.6" stroke="${g}" stroke-width="${3*px}" stroke-dasharray="${8*px} ${3*px}"/><rect x="${cx-.12}" y="-.15" width=".24" height=".3" fill="${GEAR_DARK}"/>`;
+  if(/Handheld/.test(m))return `<circle cx="${cx-.5}" cy="0" r=".28" fill="none" stroke="${g}" stroke-width="${px}" stroke-dasharray="${2*px} ${2*px}"/>`;
+  return '';}
+
+/* ---------- accessories in front of the face (x ≥ 0); fh = half the face height ---------- */
+function lightMods(it,L,C,px,fh,col,on){const m=it.modifier||'None';const g=C.grip;const W='#f4f6f8';let s='';const dk=GEAR_DARK;
+  switch(m){
+    case 'Barn doors':{const l=Math.max(.35,fh*1.1);s+=`<path d="M0 ${-fh} L${l*.8} ${-fh-l*.55} M0 ${fh} L${l*.8} ${fh+l*.55}" stroke="${dk}" stroke-width="${3.4*px}" stroke-linecap="round"/><path d="M0 ${-fh} L${l*.8} ${-fh-l*.55} M0 ${fh} L${l*.8} ${fh+l*.55}" stroke="${g}" stroke-width="${1*px}"/><rect x="0" y="${-fh*.85}" width="${l*.45}" height="${fh*1.7}" fill="${dk}" fill-opacity=".35" stroke="${g}" stroke-width="${.8*px}"/>`;break;}
+    case 'Snoot':{const l=Math.max(.5,fh*2.2),r=fh*.55;s+=`<path d="M0 ${-fh} L${l*.3} ${-r} L${l} ${-r} L${l} ${r} L${l*.3} ${r} L0 ${fh}Z" fill="${dk}" stroke="${g}" stroke-width="${px}"/><rect x="${l-.04}" y="${-r}" width=".08" height="${2*r}" fill="${on?col:'none'}"/>`;break;}
+    case 'Egg crate / grid':{const d=.18;let p='';for(let y=-fh;y<=fh+.001;y+=fh/3)p+=`M0 ${y} H${d} `;s+=`<rect x="0" y="${-fh}" width="${d}" height="${2*fh}" fill="${dk}" stroke="${g}" stroke-width="${px}"/><path d="${p}" stroke="${g}" stroke-width="${.7*px}"/>`;break;}
+    case 'Black wrap':{const l=Math.max(.4,fh*1.4);s+=`<path d="M0 ${-fh*1.05} L${l*.5} ${-fh*.8} L${l*.7} ${-fh*.95} L${l} ${-fh*.55} L${l*.9} 0 L${l} ${fh*.55} L${l*.65} ${fh*.9} L${l*.45} ${fh*.75} L0 ${fh*1.05}Z" fill="#141518" stroke="${g}" stroke-width="${.8*px}"/>`;break;}
+    case 'Softbox':case 'Softbox + grid':{const l=Math.max(.8,Math.min(2.6,fh*1.6+.6)),W2=Math.max(.75,Math.min(2.4,fh*1.5+.45));s+=`<path d="M0 ${-fh} L${l} ${-W2} L${l} ${W2} L0 ${fh}Z" fill="${dk}" fill-opacity=".85" stroke="${g}" stroke-width="${px}"/><path d="M0 ${-fh*.6} L${l} ${-W2*.6} M0 ${fh*.6} L${l} ${W2*.6}" stroke="${g}" stroke-opacity=".5" stroke-width="${.7*px}"/><rect x="${l-.06}" y="${-W2}" width=".12" height="${2*W2}" fill="${on?W:'none'}" stroke="${g}" stroke-width="${px}"/>`;
+      if(m==='Softbox + grid'){let p='';for(let y=-W2;y<=W2+.001;y+=W2/4)p+=`M${l} ${y} H${l+.22} `;s+=`<rect x="${l}" y="${-W2}" width=".22" height="${2*W2}" fill="${dk}" stroke="${g}" stroke-width="${px}"/><path d="${p}" stroke="${g}" stroke-width="${.7*px}"/>`;}break;}
+    case 'Lantern skirt':{const r=Math.max(.8,fh*2.4);s+=`<circle cx="${r}" cy="0" r="${r}" fill="${on?W:'none'}" fill-opacity=".9" stroke="${g}" stroke-width="${px}"/><path d="M${r*.3} ${-r*.95} A${r} ${r} 0 0 0 ${r*.3} ${r*.95}" fill="none" stroke="#141518" stroke-width="${r*.35}" stroke-opacity=".85"/><path d="M0 ${-r*.4} H${r*2} M0 ${r*.4} H${r*2}" stroke="${g}" stroke-opacity=".35" stroke-width="${.7*px}"/>`;break;}
+    case 'Dome / diffuser':{const r=Math.max(.3,fh*1.05);s+=`<path d="M0 ${-r} A${r} ${r} 0 0 1 0 ${r}Z" fill="${on?W:'none'}" fill-opacity=".9" stroke="${g}" stroke-width="${px}"/>`;break;}
+    case 'Fresnel attachment':{const l=Math.max(.4,fh*1.3);s+=`<rect x="0" y="${-fh*1.05}" width="${l}" height="${fh*2.1}" rx=".06" fill="${dk}" stroke="${g}" stroke-width="${px}"/><rect x="${l}" y="${-fh*.9}" width=".1" height="${fh*1.8}" fill="${on?col:'none'}" stroke="${g}" stroke-width="${.8*px}"/><path d="M${l+.05} ${-fh*.6} V${fh*.6} M${l+.05} ${-fh*.3} V${fh*.3}" stroke="${g}" stroke-opacity=".5" stroke-width="${.6*px}"/>`;break;}
+    case 'Spot / projection':{const l=Math.max(1,fh*3.2),r=fh*.5;s+=`<rect x="0" y="${-fh}" width="${l*.3}" height="${2*fh}" fill="${dk}" stroke="${g}" stroke-width="${px}"/><rect x="${l*.08}" y="${-fh*1.25}" width=".08" height="${fh*.5}" fill="${CHROME}"/><rect x="${l*.3}" y="${-r}" width="${l*.7}" height="${2*r}" rx=".04" fill="${dk}" stroke="${g}" stroke-width="${px}"/><path d="M${l*.55} ${-r} V${r} M${l*.75} ${-r} V${r}" stroke="${g}" stroke-width="${.7*px}"/><rect x="${l-.05}" y="${-r*.8}" width=".07" height="${r*1.6}" fill="${on?col:'none'}"/>`;break;}
+  }
+  // diffusion and scrims clipped on the front (not drawn over a softbox, lantern or snoot)
+  if(it.diff&&it.diff!=='None'&&!/Softbox|Lantern|Snoot|Spot|Dome/.test(m)){const x=(m==='Barn doors'?.12:m==='Egg crate / grid'?.22:0)+.05;s+=`<rect x="${x}" y="${-fh*1.08}" width=".07" height="${fh*2.16}" fill="${W}" fill-opacity=".9" stroke="${g}" stroke-width="${.6*px}"/>`;}
+  if(it.scrim&&it.scrim!=='None'&&!/Softbox|Lantern/.test(m)){const half=/Half/.test(it.scrim);s+=`<path d="M${-.02} ${-fh} V${half?0:fh}" stroke="${/double/i.test(it.scrim)?'#d33a3a':'#4caf6a'}" stroke-width="${2*px}" stroke-dasharray="${1.5*px} ${1.2*px}"/>`;}
+  return s;}
+
+/* ---------- the fixtures ---------- */
+const GEAR_SHAPES=new Set(['fresnel','openface','hmi','cob','panel','tube','mini','lantern']);
+function gearLight(it,L,C,px,col,on){const s=L.s||1;const fam=L.group;const acc=fam==='HMI'?'#9fc8ff':/LED|Picksheet/.test(fam)&&!/fresnel|openface/.test(L.shape)?'#9fe8de':fam==='Fluorescent'?'#d1b8ff':'#f2a93b';
+  const hous=on?GEAR_DARK:C.bg;const hs=`stroke="${acc}" stroke-width="${1.2*px}"`;const face=on?col:'none';const g=C.grip;let body='',fh=s*.4,mx=-s*.5;
+  switch(L.shape){
+    case 'fresnel':{let fins='';for(let x=-s*.85;x<-s*.15;x+=s*.14)fins+=`M${x} ${-s*.5} v${-s*.08} M${x} ${s*.5} v${s*.08} `;
+      body=`<path d="${fins}" stroke="${acc}" stroke-width="${px}"/><rect x="${-s}" y="${-s/2}" width="${s}" height="${s}" rx="${s*.1}" fill="${hous}" ${hs}/><rect x="${-s*1.12}" y="${-s*.22}" width="${s*.14}" height="${s*.44}" rx=".03" fill="${hous}" ${hs}/><path d="M${-s*.5} ${-s*.62} Q${-s*.5} ${-s*.75} ${-s*.35} ${-s*.75} M${-s*.5} ${s*.62} Q${-s*.5} ${s*.75} ${-s*.35} ${s*.75}" fill="none" stroke="${g}" stroke-width="${1.4*px}"/><rect x="0" y="${-s*.45}" width="${s*.12}" height="${s*.9}" rx=".02" fill="${face}" stroke="${acc}" stroke-width="${px}"/><path d="M${s*.06} ${-s*.3} V${s*.3} M${s*.06} ${-s*.15} V${s*.15}" stroke="${on?'#00000033':acc}" stroke-width="${.6*px}"/>`;fh=s*.45;
+      if(it.focus==='Spot')body+=`<circle cx="${-s*1.05}" cy="0" r="${s*.06}" fill="${acc}"/>`;break;}
+    case 'openface':body=`<path d="M${-s*.85} ${-s*.25} L${-s*.1} ${-s*.5} L0 ${-s*.55} L0 ${s*.55} L${-s*.1} ${s*.5} L${-s*.85} ${s*.25}Z" fill="${hous}" ${hs}/><path d="M${-s*.1} ${-s*.42} Q${-s*.6} 0 ${-s*.1} ${s*.42}" fill="none" stroke="${acc}" stroke-width="${.8*px}"/><rect x="${-s*.32}" y="${-s*.2}" width="${s*.06}" height="${s*.4}" fill="${on?'#fff6c4':acc}"/><path d="M0 ${-s*.55} V${s*.55}" stroke="${face==='none'?acc:face}" stroke-width="${1.6*px}" stroke-dasharray="${2*px} ${1.5*px}"/>`;fh=s*.55;mx=-s*.45;break;
+    case 'hmi':body=`<path d="M${-s*1.15} ${-s*.15} L${-s*1.5} ${-s*.15}" stroke="${g}" stroke-width="${2*px}"/><rect x="${-s}" y="${-s*.45}" width="${s}" height="${s*.9}" rx="${s*.12}" fill="${hous}" ${hs}/><circle cx="${-s*.55}" cy="0" r="${s*.25}" fill="none" stroke="${acc}" stroke-width="${.8*px}"/><path d="M${-s*.5} ${-s*.58} Q${-s*.5} ${-s*.7} ${-s*.35} ${-s*.7} M${-s*.5} ${s*.58} Q${-s*.5} ${s*.7} ${-s*.35} ${s*.7}" fill="none" stroke="${g}" stroke-width="${1.4*px}"/><rect x="0" y="${-s*.42}" width="${s*.1}" height="${s*.84}" fill="${face}" stroke="${acc}" stroke-width="${px}"/>`;fh=s*.42;break;
+    case 'cob':{let grille='';for(let y=-s*.3;y<=s*.3;y+=s*.15)grille+=`M${-s*1.02} ${y} h${s*.18} `;
+      body=`<rect x="${-s*1.05}" y="${-s*.4}" width="${s*.75}" height="${s*.8}" rx="${s*.08}" fill="${hous}" ${hs}/><path d="${grille}" stroke="${acc}" stroke-width="${.7*px}"/><rect x="${-s*.3}" y="${-s*.32}" width="${s*.3}" height="${s*.64}" fill="${GEAR_MID}" stroke="${acc}" stroke-width="${px}"/>`;fh=s*.32;mx=-s*.65;
+      if(!it.modifier||it.modifier==='None')body+=`<path d="M0 ${-s*.3} L${s*.5} ${-s*.55} L${s*.5} ${s*.55} L0 ${s*.3}Z" fill="${hous}" stroke="${acc}" stroke-width="${px}"/><rect x="${s*.47}" y="${-s*.52}" width=".05" height="${s*1.04}" fill="${face}"/>`;break;}
+    case 'panel':{const t=Math.max(.14,Math.min(.3,s*.08));body=`<path d="M${-t-.3} ${-s*.35} L${-t-.3} ${s*.35}" stroke="${g}" stroke-width="${2*px}"/><path d="M${-t} ${-s*.42} L${-t-.3} ${-s*.35} M${-t} ${s*.42} L${-t-.3} ${s*.35}" stroke="${g}" stroke-width="${1.4*px}"/><rect x="${-t}" y="${-s/2}" width="${t}" height="${s}" rx=".04" fill="${hous}" ${hs}/><rect x="-.05" y="${-s/2+.04}" width=".07" height="${s-.08}" fill="${face==='none'?'none':face}" stroke="${acc}" stroke-width="${.8*px}"/>`;
+      if(/kino/.test(it.t)){let tb='';for(let i=0;i<4;i++)tb+=`<rect x="${-t*.85+i*t*.2}" y="${-s/2+.08}" width="${t*.12}" height="${s-.16}" fill="${on?'#ffffff':'none'}" fill-opacity=".6" stroke="${acc}" stroke-width="${.5*px}"/>`;body+=tb;}
+      fh=s/2;mx=-t-.3;break;}
+    case 'tube':body=`<rect x="-.13" y="${-s/2}" width=".26" height="${s}" rx=".13" fill="${on?col:'none'}" stroke="${acc}" stroke-width="${1.2*px}"/><rect x="-.15" y="${-s/2}" width=".3" height=".18" rx=".05" fill="${GEAR_DARK}" stroke="${acc}" stroke-width="${.8*px}"/><rect x="-.15" y="${s/2-.18}" width=".3" height=".18" rx=".05" fill="${GEAR_DARK}" stroke="${acc}" stroke-width="${.8*px}"/>`;fh=s/2;mx=-.2;break;
+    case 'mini':body=`<rect x="${-s}" y="${-s*.6}" width="${s}" height="${s*1.2}" rx="${s*.12}" fill="${hous}" ${hs}/><rect x="${-s*.08}" y="${-s*.5}" width="${s*.08}" height="${s}" fill="${face}" stroke="${acc}" stroke-width="${.6*px}"/>`;fh=s*.5;mx=-s*.5;break;
+    case 'lantern':{const r=s/2;let rib='';for(let k=1;k<4;k++){const yy=-r+k*r/2;const hw=Math.sqrt(Math.max(0,r*r-yy*yy));rib+=`M${-hw} ${yy} H${hw} `;}
+      body=`<circle r="${r}" fill="${on?'#fffaf0':'none'}" fill-opacity=".92" stroke="${acc}" stroke-width="${1.2*px}"/><path d="${rib}" stroke="${acc}" stroke-opacity=".6" stroke-width="${.7*px}"/><circle r="${r*.18}" fill="${on?col:'none'}" stroke="${acc}" stroke-width="${.7*px}"/>`;
+      if(it.modifier==='Lantern skirt'||/chim/i.test(it.t))body+=`<path d="M${-r*.2} ${-r*.98} A${r} ${r} 0 0 0 ${-r*.2} ${r*.98}" fill="none" stroke="#141518" stroke-width="${r*.3}" stroke-opacity=".85"/>`;
+      return `<rect x="${-r-.2}" y="${-r-.2}" width="${2*r+.4}" height="${2*r+.4}" fill="transparent"/>`+lightMount(it,L,C,px,0)+body;}
+  }
+  const mods=lightMods(it,L,C,px,fh,col,on);
+  return `<rect x="${-s*1.15}" y="${-s*.7}" width="${s*2.3}" height="${s*1.4}" fill="transparent"/>`+lightMount(it,L,C,px,mx)+body+mods;}
+{const _lg=lightGlyph;lightGlyph=function(it,L,C,px,col,on){try{if(L&&GEAR_SHAPES.has(L.shape)&&!/^pr_/.test(it.t)&&!L.src)return gearLight(it,L,C,px,col,on);}catch(e){}return _lg(it,L,C,px,col,on);};}
+
+/* ---------- grip ---------- */
+{const _gg=gripGlyph;gripGlyph=function(it,L,C,px){const g=C.grip;const hit=r=>`<circle r="${r||1}" fill="transparent"/>`;try{
+  switch(it.t==='pigeon'?'pigeon':L.shape){
+    case 'cstand':return hit()+cstandTop(C,px,1.5);
+    case 'combo':return hit(1.2)+evenLegs(C,px,1.15,true);
+    case 'rolling':return hit(1.2)+evenLegs(C,px,1.05,true,true);
+    case 'menace':return `<rect x="-1.6" y="-1" width="9" height="2" fill="transparent"/><rect x="-1.2" y="-.8" width="1.6" height="1.6" rx=".1" fill="${GEAR_DARK}" stroke="${g}" stroke-width="${px}"/>${[[-1.15,-.75],[.35,-.75],[-1.15,.75],[.35,.75]].map(([x,y])=>`<circle cx="${x}" cy="${y}" r=".12" fill="${g}"/>`).join('')}<circle cx="-1.55" cy="0" r=".35" fill="#8b8067" stroke="${g}" stroke-width="${px}"/><path d="M-.4 0 L7 0" stroke="${g}" stroke-width="${2.6*px}" stroke-linecap="round"/><circle cx="7" cy="0" r=".12" fill="${GEAR_DARK}" stroke="${g}" stroke-width="${px}"/>`;
+    case 'pigeon':return `<rect x="-.5" y="-.35" width="1" height=".7" rx=".05" fill="${GEAR_MID}" stroke="${g}" stroke-width="${px}"/><circle cx="-.35" cy="-.22" r=".04" fill="${g}"/><circle cx=".35" cy=".22" r=".04" fill="${g}"/><circle r=".1" fill="${CHROME}" stroke="${g}" stroke-width="${px}"/>`;
+    case 'applebox':return `<rect x="-.83" y="-.5" width="1.66" height="1" rx=".03" fill="#b08654" stroke="#6e5238" stroke-width="${px}"/><rect x="-.75" y="-.42" width="1.5" height=".84" fill="none" stroke="#6e5238" stroke-opacity=".5" stroke-width="${.7*px}"/><rect x="-.35" y="-.08" width=".7" height=".16" rx=".08" fill="#4a3826"/>`;
+    case 'sandbag':return `<path d="M-.65 -.32 Q-.75 0 -.65 .32 H-.08 V-.32Z M.65 -.32 Q.75 0 .65 .32 H.08 V-.32Z" fill="#8b8067" stroke="#5c5444" stroke-width="${px}"/><rect x="-.1" y="-.36" width=".2" height=".72" rx=".03" fill="#5c5444"/><path d="M-.3 -.32 V.32 M.3 -.32 V.32" stroke="#5c5444" stroke-opacity=".5" stroke-width="${.7*px}"/>`;
+    case 'ladder':{let r='';for(let i=-2;i<=2;i++)r+=`M-.75 ${i} H.75 `;return `<rect x="-1" y="-2.7" width="2" height="5.4" fill="transparent"/><path d="M-.8 -2.6 L-.6 2.6 M.8 -2.6 L.6 2.6" stroke="${g}" stroke-width="${2.2*px}"/><path d="${r}" stroke="${g}" stroke-width="${1.2*px}"/><rect x="-.7" y="-2.7" width="1.4" height=".35" rx=".05" fill="${GEAR_MID}" stroke="${g}" stroke-width="${px}"/>`;}
+    case 'frame':{if(it.orient==='Overhead'){const D=frameDims(it),a=D[0]/2,b=D[1]/2;const ff=fabricFill(it.fabric||'',C);let s=`<rect x="${-a}" y="${-b}" width="${2*a}" height="${2*b}" fill="${ff.fill==='none'?'transparent':ff.fill}" fill-opacity="${ff.fill==='none'?0:ff.op*.55}" stroke="${CHROME}" stroke-width="${2.4*px}" ${ff.dash?`stroke-dasharray="${6*px} ${3*px}"`:''}/>`;
+        [[-a,-b],[a,-b],[-a,b],[a,b]].forEach(([x,y])=>{s+=`<rect x="${x-.12}" y="${y-.12}" width=".24" height=".24" fill="${GEAR_DARK}" stroke="${g}" stroke-width="${px}"/>`;if(it.standed!==false)s+=`<g transform="translate(${x+Math.sign(x)*.7} ${y+Math.sign(y)*.7}) scale(1.2)">${evenLegs(C,px,.9,true)}</g><path d="M${x} ${y} L${x+Math.sign(x)*.7} ${y+Math.sign(y)*.7}" stroke="${g}" stroke-width="${px}" stroke-dasharray="${2*px} ${2*px}"/>`;});
+        return s;}
+      const w=FRAME_SIZES[it.size]||6;const ff=fabricFill(it.fabric||'',C);let s=`<rect x="-.6" y="${-w/2-.4}" width="1.2" height="${w+.8}" fill="transparent"/><rect x="-.08" y="${-w/2}" width=".16" height="${w}" fill="${ff.fill==='none'?C.bg:ff.fill}" fill-opacity="${ff.op}" stroke="${CHROME}" stroke-width="${1.6*px}" ${ff.dash?`stroke-dasharray="${3*px} ${2*px}"`:''}/><rect x="-.1" y="${-w/2-.08}" width=".2" height=".16" fill="${GEAR_DARK}"/><rect x="-.1" y="${w/2-.08}" width=".2" height=".16" fill="${GEAR_DARK}"/>`;
+      if(it.standed!==false){[-1,1].forEach(sg=>{s+=`<g transform="translate(-.55 ${sg*(w/2-.4)})">${cstandTop(C,px,.5)}</g>`;});}return s;}
+    case 'flag':{const w=FLAG_SIZES[it.size]||2;const t=it.ftype||'';const dot=/dot/.test(it.size||'');const finger=/finger/.test(it.size||'');const ff=/net/i.test(t)?{fill:'none',dash:1}:/silk/i.test(t)?{fill:'#f1f4f8',dash:0}:{fill:C.solid,dash:0};
+      const edge=/Double/.test(t)?'#d33a3a':/Single/.test(t)?'#4caf6a':/Silk/i.test(t)?'#e9edf2':CHROME;
+      let s=`<rect x="-2" y="${-w/2-.3}" width="2.5" height="${w+.6}" fill="transparent"/>`;
+      if(it.standed!==false)s+=`<g transform="translate(-1.5 0)">${cstandTop(C,px,1.5)}</g>`;
+      s+=dot?`<ellipse cx="0" cy="0" rx=".07" ry="${w/2}" fill="${ff.fill==='none'?C.bg:ff.fill}" stroke="${edge}" stroke-width="${1.6*px}"/>`:`<rect x="-.06" y="${-w/2}" width=".12" height="${w}" fill="${ff.fill==='none'?C.bg:ff.fill}" stroke="${edge}" stroke-width="${1.6*px}" ${ff.dash?`stroke-dasharray="${3*px} ${2*px}"`:''}/>`;
+      if(!dot&&!finger)s+=`<path d="M0 ${w/2} V${w/2+.25}" stroke="${CHROME}" stroke-width="${1.6*px}"/>`;return s;}
+    case 'bounce':{const w=BOUNCE_SIZES[it.size]||4;const fl=/Flexfill/.test(it.size||'');const side=it.side||'White';const fc=/Black/.test(side)?C.solid:/Gold/.test(side)?'#e2b84a':/Silver/.test(side)?'#cfd6dd':/Bead/.test(side)?'#f2f0ea':'#ffffff';
+      let s=`<rect x="-1.8" y="${-w/2-.3}" width="2.4" height="${w+.6}" fill="transparent"/>`;if(it.standed)s+=`<g transform="translate(-1.4 0)">${cstandTop(C,px,1.3)}</g>`;
+      s+=fl?`<ellipse cx="0" cy="0" rx=".1" ry="${w/2}" fill="${fc}" stroke="${GEAR_DARK}" stroke-width="${1.4*px}"/>`:`<rect x="-.1" y="${-w/2}" width=".2" height="${w}" fill="${fc}" stroke="${g}" stroke-width="${1.2*px}"/>${/Bead/i.test(it.fabric||'')?`<path d="M0 ${-w/2+.2} V${w/2-.2}" stroke="#c8c3b5" stroke-width="${px}" stroke-dasharray="${1*px} ${2*px}"/>`:''}`;return s;}
+    case 'vflat':{const a=35*D2R,l=4;const x=-Math.cos(a)*l,y=Math.sin(a)*l;const c=it.side==='Black'?C.solid:'#ffffff';const back=it.side==='Black'?'#ffffff':C.solid;
+      return `<rect x="-3.4" y="-2.4" width="3.6" height="4.8" fill="transparent"/><path d="M0 0 L${x} ${-y} M0 0 L${x} ${y}" stroke="${back}" stroke-width=".34" stroke-linecap="butt"/><path d="M.03 0 L${x+.03} ${-y+.0} M.03 0 L${x+.03} ${y}" stroke="${c}" stroke-width=".2" stroke-linecap="butt"/><circle r=".1" fill="${g}"/>`;}
+  }}catch(e){}return _gg(it,L,C,px);};}
+
+/* ---------- camera: body, lens (longer for longer focal lengths), matte box, and what it's on ---------- */
+function camSupport(it,C,px,col){const sp=it.support||'';const g=C.grip;
+  const tri=(r,heavy)=>{let s='';for(let i=0;i<3;i++){const t=(60+i*120)*D2R;s+=`<path d="M-.4 0 L${(-.4+Math.cos(t)*r).toFixed(3)} ${(Math.sin(t)*r).toFixed(3)}" stroke="${g}" stroke-width="${(heavy?2.2:1.6)*px}" stroke-linecap="round"/>`;}return s;};
+  if(/Sticks/.test(sp))return tri(1.5,true)+`<path d="M${-.4+.75*Math.cos(60*D2R)} ${.75*Math.sin(60*D2R)} L${-.4-.75} 0 L${-.4+.75*Math.cos(300*D2R)} ${.75*Math.sin(300*D2R)}Z" fill="none" stroke="${g}" stroke-opacity=".6" stroke-width="${px}"/>`;
+  if(/Baby legs/.test(sp))return tri(1.05,true);
+  if(/Hi-hat/.test(sp))return (/Ladder/.test(sp)?`<rect x="-1.3" y="-.9" width="1.8" height="1.8" fill="none" stroke="${g}" stroke-width="${1.4*px}"/><path d="M-1.3 -.3 H.5 M-1.3 .3 H.5" stroke="${g}" stroke-width="${px}"/>`:'')+tri(.55,true);
+  if(/Dolly/.test(sp))return `<rect x="-2" y="-1.25" width="3.4" height="2.5" rx=".2" fill="none" stroke="${g}" stroke-opacity=".7" stroke-width="${1.2*px}" stroke-dasharray="${4*px} ${2*px}"/>`;
+  if(/Slider/.test(sp))return `<rect x="-2.2" y="-.12" width="4" height=".24" fill="${GEAR_MID}" stroke="${g}" stroke-width="${px}"/>`+tri(1.3,true).replace(/M-\.4 0/g,'M-2 0')+tri(1.3,true).replace(/M-\.4 0/g,'M1.6 0');
+  if(/Steadicam/.test(sp))return `<path d="M-.5 0 L-1.4 .9" stroke="${g}" stroke-width="${2.4*px}"/><ellipse cx="-1.9" cy="1.1" rx=".75" ry=".45" fill="${GEAR_DARK}" stroke="${g}" stroke-width="${px}"/><circle cx="-1.9" cy="1.1" r=".25" fill="${C.setFill}" stroke="${g}" stroke-width="${px}"/>`;
+  if(/Gimbal/.test(sp))return `<rect x="-.9" y="-.75" width="1" height="1.5" rx=".3" fill="none" stroke="${g}" stroke-width="${2*px}"/><circle cx="-1.6" cy="0" r=".35" fill="none" stroke="${g}" stroke-dasharray="${2*px} ${2*px}" stroke-width="${px}"/>`;
+  if(/Handheld|Shoulder/.test(sp))return `<ellipse cx="-1.25" cy="0" rx=".55" ry="1.05" fill="${C.setFill}" stroke="${g}" stroke-width="${px}"/><circle cx="-1.2" cy="0" r=".32" fill="${GEAR_MID}" stroke="${g}" stroke-width="${px}"/>`;
+  if(/Jib|crane/.test(sp))return `<path d="M-.4 0 L-6 0" stroke="${g}" stroke-width="${2.6*px}"/><circle cx="-3" cy="0" r=".5" fill="none" stroke="${g}" stroke-width="${1.4*px}"/><rect x="-6.5" y="-.45" width=".9" height=".9" fill="${GEAR_DARK}" stroke="${g}" stroke-width="${px}"/>`;
+  if(/Car mount/.test(sp))return [[-.9,-.7],[-.9,.7],[.3,0]].map(([x,y])=>`<circle cx="${x}" cy="${y}" r=".35" fill="none" stroke="${g}" stroke-width="${1.4*px}"/><path d="M${x} ${y} L-.4 0" stroke="${g}" stroke-width="${px}"/>`).join('');
+  return '';}
+function camGlyph(it,C,px,col){let f=+it.lens||35;try{const lo=lensOf(it);if(lo&&lo.f)f=lo.f;}catch(e){}const ll=Math.max(.35,Math.min(1.6,.25+f/90));const lr=Math.max(.22,Math.min(.38,.2+f/700));
+  return camSupport(it,C,px,col)+`<rect x="-1.15" y="-.45" width="1.15" height=".9" rx=".1" fill="${GEAR_DARK}" stroke="${col}" stroke-width="${1.3*px}"/><rect x="-1.05" y="-.66" width=".55" height=".22" rx=".05" fill="${GEAR_MID}" stroke="${col}" stroke-width="${px}"/><path d="M-.95 .45 L-.95 .7 L-.35 .7" fill="none" stroke="${col}" stroke-width="${1.2*px}"/><rect x="-.65" y=".55" width=".55" height=".32" rx=".04" fill="#0f1215" stroke="${col}" stroke-width="${px}"/>`+
+    `<rect x="0" y="${-lr}" width="${ll}" height="${2*lr}" rx=".05" fill="${GEAR_DARK}" stroke="${col}" stroke-width="${1.2*px}"/><path d="M${ll*.35} ${-lr} V${lr} M${ll*.6} ${-lr} V${lr}" stroke="${col}" stroke-opacity=".6" stroke-width="${.8*px}"/>`+
+    `<path d="M${ll} ${-lr-.05} L${ll+.35} ${-lr-.3} L${ll+.35} ${lr+.3} L${ll} ${lr+.05}Z" fill="${GEAR_DARK}" stroke="${col}" stroke-width="${px}"/><text x="-.58" y=".02" dy=".35em" text-anchor="middle" font-family="${C.mono}" font-weight="700" font-size=".45" fill="${col}">${esc(it.cam||'A')}</text>`;}
+
+/* ---------- camera support, crew and power pieces ---------- */
+{const _mg=miscGlyph;miscGlyph=function(it,L,C,px){const cc='#5cb8ff',g=C.grip;try{switch(L.shape){
+  case 'dolly':return `<rect x="-2" y="-1.25" width="4" height="2.5" rx=".25" fill="${C.setFill}" stroke="${cc}" stroke-width="${1.4*px}"/>${[[-1.55,-1.25],[1.55,-1.25],[-1.55,1.25],[1.55,1.25]].map(([x,y])=>`<rect x="${x-.35}" y="${y-.17}" width=".7" height=".34" rx=".1" fill="${GEAR_DARK}" stroke="${cc}" stroke-width="${px}"/>`).join('')}<circle cx=".3" cy="0" r=".55" fill="${GEAR_DARK}" stroke="${cc}" stroke-width="${px}"/><circle cx=".3" cy="0" r=".2" fill="${cc}"/><path d="M-2 -.6 L-2.6 -.6 L-2.6 .6 L-2 .6" fill="none" stroke="${cc}" stroke-width="${2*px}"/><circle cx="-1.2" cy=".55" r=".35" fill="none" stroke="${cc}" stroke-width="${px}"/><path d="M1.4 0 L1.9 0 M1.65 -.25 L1.9 0 L1.65 .25" stroke="${cc}" stroke-width="${1.4*px}" fill="none"/>`;
+  case 'slider':return `<rect x="-1.7" y="-.4" width="3.4" height=".8" fill="transparent"/><rect x="-1.5" y="-.14" width="3" height=".28" rx=".04" fill="${GEAR_MID}" stroke="${cc}" stroke-width="${px}"/><path d="M-1.5 -.05 H1.5 M-1.5 .05 H1.5" stroke="${cc}" stroke-opacity=".6" stroke-width="${.6*px}"/><rect x="-.3" y="-.3" width=".6" height=".6" rx=".06" fill="${GEAR_DARK}" stroke="${cc}" stroke-width="${px}"/><rect x="-1.75" y="-.3" width=".25" height=".6" fill="${cc}"/><rect x="1.5" y="-.3" width=".25" height=".6" fill="${cc}"/>`;
+  case 'jib':return `<rect x="-3" y="-1" width="12.5" height="2" fill="transparent"/>${evenLegs(C,px,1,true)}<path d="M-2.2 0 L9 0" stroke="${cc}" stroke-width="${3*px}" stroke-linecap="round"/><rect x="-2.9" y="-.45" width=".9" height=".9" rx=".05" fill="${GEAR_DARK}" stroke="${cc}" stroke-width="${px}"/><rect x="8.6" y="-.35" width=".8" height=".7" rx=".08" fill="${GEAR_DARK}" stroke="${cc}" stroke-width="${px}"/>`;
+  case 'boom':return `<rect x="-.9" y="-.9" width="10" height="1.8" fill="transparent"/><ellipse cx="-.1" cy="0" rx=".45" ry=".75" fill="#c9a0ff" fill-opacity=".35" stroke="#c9a0ff" stroke-width="${px}"/><circle r=".3" fill="#c9a0ff"/><path d="M.3 0 L8 0" stroke="#c9a0ff" stroke-width="${2*px}" stroke-linecap="round"/><rect x="7.7" y="-.22" width="1.1" height=".44" rx=".22" fill="#8c8c8c" stroke="#c9a0ff" stroke-width="${px}"/><path d="M7.7 -.22 q.55 -.18 1.1 0 M7.7 .22 q.55 .18 1.1 0" fill="none" stroke="#c9a0ff" stroke-opacity=".6" stroke-width="${px}"/>`;
+  case 'village':return `<rect x="-1.8" y="-1.1" width="3.6" height="2.2" fill="transparent"/><rect x="-.9" y="-.9" width="1.8" height=".55" rx=".06" fill="#0f1215" stroke="${cc}" stroke-width="${px}"/><rect x="-.8" y="-.83" width="1.6" height=".4" fill="${cc}" fill-opacity=".35"/>${evenLegs(C,px,.45,false).replace(/<path/g,'<path transform="translate(0 -.6)"').replace(/<circle r/,'<circle cy="-.6" r')}<g transform="translate(-.9 .5)"><rect x="-.45" y="-.4" width=".9" height=".8" fill="#6e5238" stroke="${g}" stroke-width="${px}"/><rect x="-.45" y=".2" width=".9" height=".2" fill="#2b2d30"/></g><g transform="translate(.9 .5)"><rect x="-.45" y="-.4" width=".9" height=".8" fill="#6e5238" stroke="${g}" stroke-width="${px}"/><rect x="-.45" y=".2" width=".9" height=".2" fill="#2b2d30"/></g>`;
+  case 'gen':{let v='';for(let y=-.7;y<=.7;y+=.2)v+=`M.6 ${y} H1.3 `;return `<rect x="-1.6" y="-1.1" width="3.2" height="2.2" rx=".25" fill="#c33" fill-opacity=".85" stroke="#f08c3c" stroke-width="${1.4*px}"/><rect x="-1.4" y="-.9" width="1.8" height="1.8" rx=".15" fill="${GEAR_DARK}"/><path d="${v}" stroke="#f3d3c0" stroke-width="${px}"/><path d="M-1.7 -1.2 H1.7" stroke="${g}" stroke-width="${2*px}"/><path d="M-.6 -.5 L-.85 .1 H-.4 L-.65 .6 L-.1 -.1 H-.5 L-.3 -.5Z" fill="#f08c3c"/>`;}
+  case 'distro':{let o='';for(let i=0;i<4;i++)o+=`<rect x="${-.55+i*.3}" y=".2" width=".2" height=".3" rx=".04" fill="#f08c3c"/>`;return `<rect x="-.75" y="-.7" width="1.5" height="1.4" rx=".1" fill="${GEAR_DARK}" stroke="#f08c3c" stroke-width="${1.6*px}"/><rect x="-.55" y="-.5" width="1.1" height=".4" fill="#1a1c1f" stroke="#f08c3c" stroke-width="${.7*px}"/><path d="M-.4 -.4 v.2 M-.15 -.4 v.2 M.1 -.4 v.2 M.35 -.4 v.2" stroke="#f3d3c0" stroke-width="${1.2*px}"/>${o}`;}
+}}catch(e){}return _mg(it,L,C,px);};}
 const BRANDFF=(()=>{let o='';for(const sh of document.styleSheets){try{for(const r of sh.cssRules)if(r.type===5&&/EB Garamond|Lato/.test(r.cssText))o+=r.cssText;}catch(e){}}return o;})();
 /* ============================================================
    Export
