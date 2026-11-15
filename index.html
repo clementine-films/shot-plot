@@ -4404,6 +4404,129 @@ function camGlyph(it,C,px,col){let f=+it.lens||35;try{const lo=lensOf(it);if(lo&
   case 'gen':{let v='';for(let y=-.7;y<=.7;y+=.2)v+=`M.6 ${y} H1.3 `;return `<rect x="-1.6" y="-1.1" width="3.2" height="2.2" rx=".25" fill="#c33" fill-opacity=".85" stroke="#f08c3c" stroke-width="${1.4*px}"/><rect x="-1.4" y="-.9" width="1.8" height="1.8" rx=".15" fill="${GEAR_DARK}"/><path d="${v}" stroke="#f3d3c0" stroke-width="${px}"/><path d="M-1.7 -1.2 H1.7" stroke="${g}" stroke-width="${2*px}"/><path d="M-.6 -.5 L-.85 .1 H-.4 L-.65 .6 L-.1 -.1 H-.5 L-.3 -.5Z" fill="#f08c3c"/>`;}
   case 'distro':{let o='';for(let i=0;i<4;i++)o+=`<rect x="${-.55+i*.3}" y=".2" width=".2" height=".3" rx=".04" fill="#f08c3c"/>`;return `<rect x="-.75" y="-.7" width="1.5" height="1.4" rx=".1" fill="${GEAR_DARK}" stroke="#f08c3c" stroke-width="${1.6*px}"/><rect x="-.55" y="-.5" width="1.1" height=".4" fill="#1a1c1f" stroke="#f08c3c" stroke-width="${.7*px}"/><path d="M-.4 -.4 v.2 M-.15 -.4 v.2 M.1 -.4 v.2 M.35 -.4 v.2" stroke="#f3d3c0" stroke-width="${1.2*px}"/>${o}`;}
 }}catch(e){}return _mg(it,L,C,px);};}
+/* ============================================================
+   1. Walls and tall set pieces block lamp light (doors and windows let it through)
+   2. Exposure: an estimate of the light on each actor, the T-stop it supports,
+      the key-to-fill ratio, and how it fits the depth of field plan
+   ============================================================ */
+// tall pieces that stop light from a lamp on a stand; curtains let some through
+const BLOCK_T={bookshelf:0,wardrobe:0,fridge:0,column:0,building:0,aisle:0,cubicle:0,linen:0,elevcar:0,kiosk:0,dryers:0,stalls:0,stall:0,walkin:.75,shower:.75,curtain:.12,sheers:.6,cabinets:0,tvon:0,vflat:0,booth:.0};
+function blockSurfaces(items){const out=[];const ops=items.filter(i=>isOpening(i));
+  const seg=(a,b,T)=>{const L=Math.hypot(b.x-a.x,b.y-a.y);if(L<.05)return;out.push({a,b,c:{x:(a.x+b.x)/2,y:(a.y+b.y)/2},n:{x:-(b.y-a.y)/L,y:(b.x-a.x)/L},T,w:L,wall:1});};
+  items.forEach(w=>{if(w.t!=='line'||w.kind!=='wall')return;const m=typeof wallMat==='function'?wallMat(w):null;if(m&&(m.half||(m.glass&&!m.blur)))return;const T0=m&&m.blur?.5:0;
+    for(let k=1;k<w.pts.length;k++){const a=w.pts[k-1],b=w.pts[k];if(b.c)continue;const L=Math.hypot(b.x-a.x,b.y-a.y);if(L<.05)continue;const ux=(b.x-a.x)/L,uy=(b.y-a.y)/L;
+      const gaps=[];ops.forEach(op=>{const t=(op.x-a.x)*ux+(op.y-a.y)*uy;const d=Math.abs(-(op.x-a.x)*uy+(op.y-a.y)*ux);if(d<.5&&t>-1&&t<L+1){const hw=(+op.w||3)/2;gaps.push([t-hw,t+hw]);}});
+      gaps.sort((p,q)=>p[0]-q[0]);let t0=0;gaps.forEach(([g0,g1])=>{if(g0>t0)seg({x:a.x+ux*t0,y:a.y+uy*t0},{x:a.x+ux*Math.min(g0,L),y:a.y+uy*Math.min(g0,L)},T0);t0=Math.max(t0,g1);});
+      if(t0<L)seg({x:a.x+ux*Math.max(0,t0),y:a.y+uy*Math.max(0,t0)},b,T0);}});
+  items.forEach(it=>{if(it.t==='line'||!(it.t in BLOCK_T)||LIB[it.t]&&LIB[it.t].kind==='grip')return;const w=+it.w||2,h=+it.h||2,r=(it.r||0)*D2R,c=Math.cos(r),s=Math.sin(r);
+    const P=[[-w/2,-h/2],[w/2,-h/2],[w/2,h/2],[-w/2,h/2]].map(([x,y])=>({x:it.x+x*c-y*s,y:it.y+x*s+y*c}));for(let i=0;i<4;i++)seg(P[i],P[(i+1)%4],BLOCK_T[it.t]);});
+  return out;}
+// beams: walls and tall pieces join the grip that shades a light
+let _blkCache=null;
+{const _ri=renderItems;renderItems=function(items,o){_blkCache={items,list:blockSurfaces(items)};try{return _ri(items,o);}finally{_blkCache=null;}};}
+{const _gs=gripSurfaces;gripSurfaces=function(g){if(g&&g.__blk)return [g.__blk];return _gs(g);};}
+{const _bf=beamFx;beamFx=function(it,gid,items,o,Lb,b,col,ga){let extra=[];try{const L=LIB[it.t];if(L&&L.shape!=='sun'){const list=(_blkCache&&_blkCache.items===items?_blkCache.list:blockSurfaces(items));
+    extra=list.filter(s=>{const d=Math.abs((it.x-s.a.x)*s.n.x+(it.y-s.a.y)*s.n.y);return d>.12;}).map((s,i)=>({id:'__blk'+i,t:'blackout',__blk:s}));}}catch(e){}
+  return _bf(it,gid,extra.length?items.concat(extra):items,o,Lb,b,col,ga);};}
+// the blackout key is treated as grip by beamFx; make sure fake pieces never reach anything else
+function pathBlockT(p,q,list){let T=1;for(const s of list){if(segX(p,q,s.a,s.b)){T*=s.T;if(T<.02)return 0;}}return T;}
+
+/* ---------- light on a point ---------- */
+const EFF={Tungsten:18,HMI:85,LED:75,Fluorescent:55,'Soft & Practical':14,Picksheet:40,Practicals:14};
+function lumensOf(l,L){const w=+l.watts||+(L.defaults||{}).watts||0;let e=EFF[L.group]||40;if(L.group==='Picksheet')e=/fresnel|openface/.test(L.shape)?18:/lantern/.test(L.shape)?14:75;if(/pr_/.test(l.t))e=14;return w*e;}
+function lightOnPoint(l,p,items,list,opt){opt=opt||{};const L=LIB[l.t];if(!L||l.on===false)return {lux:0};const dFt=Math.max(.5,Math.hypot(p.x-l.x,p.y-l.y));
+  // natural sources give an illuminance directly
+  if(L.shape==='sun'){const base=l.t==='moon'?.3:l.t==='windowAmb'?2500:100000;return {lux:base*effLevel(l),d:dFt,note:'natural light, fixed level'};}
+  const lm=lumensOf(l,L);if(!lm)return {lux:0,d:dFt};const b=Math.max(5,effBeam(l));const Om=b>=300?4*Math.PI*.8:2*Math.PI*(1-Math.cos(b/2*D2R));const I=lm*.35/Om*effLevel(l);
+  let fa=1;if(b<300){const ang=Math.abs(((Math.atan2(p.y-l.y,p.x-l.x)/D2R-(l.r||0))%360+540)%360-180);const half=b/2;fa=ang<=half?1-.5*Math.pow(ang/half,2):Math.max(.02,.5*Math.exp(-(ang-half)/12));}
+  let T=1,why=[];const pb=pathBlockT(l,p,list);if(pb<1){T*=pb;why.push(pb===0?'blocked by a wall or set piece':'partly blocked');}
+  if(!opt.noGrip&&typeof onPath==='function'){onPath(l,p,items).forEach(x=>{if(x.block){T=0;why.push('blocked by '+gripShort(x.g));}else{T*=Math.pow(2,-x.st);why.push('through '+gripShort(x.g));}});}
+  const dm=dFt*.3048;return {lux:I*fa*T/(dm*dm),d:dFt,off:fa<.6,why};}
+// light that reaches a point after bouncing off a board, frame or flexfill
+function bouncedOnPoint(l,p,items,list){let lux=0,via=[];items.forEach(g=>{const GL=LIB[g.t];if(!GL||GL.kind!=='grip'||g.t==='line')return;gripSurfaces(g).forEach(s=>{if(!s.bounce)return;
+    const sl=(l.x-s.c.x)*s.n.x+(l.y-s.c.y)*s.n.y,sp=(p.x-s.c.x)*s.n.x+(p.y-s.c.y)*s.n.y;if(sl*sp<=0)return;if(s.oneSide&&sl<0)return;
+    const Eb=lightOnPoint(l,s.c,items,list,{noGrip:true}).lux;if(Eb<=0)return;const hgt=Math.min(8,Math.max(2,s.w));const A=s.w*hgt*.0929;const rho=s.bounce.eff||.7;
+    const d2=Math.max(.5,Math.hypot(p.x-s.c.x,p.y-s.c.y));const cosb=Math.abs(sp)/d2;const T=pathBlockT(s.c,p,list);const e=Eb*A*rho/Math.PI*cosb/Math.pow(d2*.3048,2)*T;if(e>.5){lux+=e;via.push(gripShort(g));}});});return {lux,via};}
+const fcOf=lux=>lux/10.764;
+const STOPS_T=[1,1.4,2,2.8,4,5.6,8,11,16,22,32];
+function tFor(lux,E){const N=Math.sqrt(Math.max(0,lux)*E.iso/(E.fps*360/E.ang*250));return N;}
+const THIRDS=[1,1.1,1.2,1.4,1.6,1.8,2,2.2,2.5,2.8,3.2,3.5,4,4.5,5,5.6,6.3,7.1,8,9,10,11,13,14,16,18,20,22,25,29,32,36,40,45];
+function fmtT(N){if(!(N>0))return '—';if(N<.95)return 'under T1';if(N>48)return 'over T45';const st=Math.log2(N);const best=THIRDS.reduce((a,b)=>Math.abs(Math.log2(b)-st)<Math.abs(Math.log2(a)-st)?b:a);return 'T'+best;}
+function lightsOnActor(a){const items=activeItems();const list=blockSurfaces(items);const out=[];
+  items.filter(i=>LIB[i.t]&&LIB[i.t].kind==='light'&&i.on!==false&&!LIB[i.t].src).forEach(l=>{const d=lightOnPoint(l,a,items,list);const bo=bouncedOnPoint(l,a,items,list);if(d.lux<.5&&bo.lux<.5)return;out.push({l,direct:d,bounce:bo,lux:d.lux+bo.lux});});
+  return out.sort((p,q)=>q.lux-p.lux);}
+
+/* ---------- the Exposure calculator ---------- */
+CALC.exp=Object.assign({act:'',iso:'800',fps:'24',ang:'180',show:false},CALC.exp||{});
+if(!CTABS.some(t=>t[0]==='exp'))CTABS.push(['exp','Exposure']);
+function expE(){const E=CALC.exp;return {iso:Math.max(25,+E.iso||800),fps:Math.max(1,+E.fps||24),ang:Math.max(1,Math.min(360,+E.ang||180))};}
+function expOut(){const as=actsNow();const a=pick(as,CALC.exp.act);if(!a)return '<div class="pSub">Put an actor and some lights on the plot.</div>';const E=expE();const rows=lightsOnActor(a);const row=(x,y)=>`<div class="kv"><span>${x}</span><b>${y}</b></div>`;
+  if(!rows.length)return `<div class="cBig">No light on ${esc(a.label||'the actor')}</div><div class="pSub">Nothing on the plot reaches them: check the lights are on, aimed at them, and not behind a wall.</div>`;
+  const tot=rows.reduce((s,r)=>s+r.lux,0);const N=tFor(tot,E);const nums=lightNumbers(activeItems());
+  let h=`<div class="cBig">≈ ${Math.round(fcOf(tot))} fc on ${esc(a.label||'the actor')} · ${fmtT(N)}</div><div class="pSub" style="margin-bottom:6px">at ISO ${E.iso}, ${E.fps} fps, ${E.ang}° shutter · rough estimate from typical fixture output, so meter it on set (expect ±1 stop)</div>`;
+  rows.forEach(r=>{const l=r.l;const notes=[...(r.direct.why||[])];if(r.direct.off)notes.push('edge of the beam');if(r.bounce.lux>Math.max(10,r.direct.lux*.05))notes.push('plus bounce off '+r.bounce.via.join(', '));
+    h+=row(`${nums[l.id]?nums[l.id]+' · ':''}${esc(lightName(l))}${l.role?` (${esc(l.role)})`:''} at ${fmtFt(r.direct.d||Math.hypot(a.x-l.x,a.y-l.y))}${notes.length?`<br><span style="font-weight:400">${esc(notes.join('; '))}</span>`:''}`,`${Math.round(fcOf(r.lux))} fc · ${fmtT(tFor(r.lux,E))} alone`);});
+  // key and fill: the brightest light, against everything else
+  if(rows.length>1){const key=rows[0].lux,rest=tot-key;if(rest>0){const ratio=(key+rest)/rest;h+=row('Key to fill',`${ratio.toFixed(1)}:1 (${Math.log2(ratio).toFixed(1)} stops)`);}}
+  else h+=row('Key to fill','one light only, so the other side falls to black');
+  // fit with the depth of field plan
+  const want=parseFloat(CALC.dof&&CALC.dof.stop);if(want>0&&N>0){const over=2*Math.log2(N/want);
+    h+=row(`Depth of field plan: T${want}`,Math.abs(over)<.34?'right on it':over>0?(over<=3.2?`${over.toFixed(1)} stops too bright: add ND ${over>=2.5?'.9':over>=1.5?'.6':'.3'}, or dim the lights`:`${over.toFixed(1)} stops too bright: ND .9 covers 3 of them; dim, scrim or pull lights back for the other ${(over-3).toFixed(1)}`):`${(-over).toFixed(1)} stops short: add light, raise the ISO, or open up`);}
+  return h;}
+function calcExpHTML(){const E=CALC.exp;const as=actsNow();const opt=(k,arr,v)=>`<select class="in" data-c="exp.${k}">${arr.map(x=>`<option ${String(v)===String(x)?'selected':''}>${x}</option>`).join('')}</select>`;
+  return `<div class="cGrid"><div><h4>Exposure</h4>${fld('Actor',`<select class="in" data-c="exp.act">${selOpt(as,(pick(as,E.act)||{}).id,a=>a.label||'Actor')}</select>`)}
+   <div class="f2">${fld('ISO / EI',opt('iso',[100,200,400,640,800,1250,1600,2000,3200,6400,12800],E.iso))}${fld('Frame rate',opt('fps',[23.98,24,25,30,48,60,120],E.fps))}</div>${fld('Shutter angle',opt('ang',[45,90,172.8,180,270,360],E.ang))}
+   <label class="chk"><input type="checkbox" data-c="exp.show" ${E.show?'checked':''}> Show the light level on every actor on the plot</label>
+   <div class="pSub" style="margin-top:6px">Counts each light's typical output, its dimmer, gels and diffusion on it, scrims, ND, grip in the way, walls and tall set pieces, and light bounced off boards and frames. It doesn't count daylight from the Sun &amp; Moon window patches or light off walls.</div></div>
+   <div><h4>Result</h4><div id="calcOut">${expOut()}</div></div></div>`;}
+{const _rc=renderCalc;renderCalc=function(){_rc();try{if(CALC.open&&CALC.tab==='exp'){const el=$('#calc');const head=el.querySelector('.cHead');el.innerHTML=(head?head.outerHTML:'')+calcExpHTML();}}catch(e){}};}
+{const _cl=calcLive;calcLive=function(){_cl();try{if(CALC.open&&CALC.tab==='exp'){const o=$('#calcOut');if(o)o.innerHTML=expOut();}}catch(e){}};}
+{const _rcv=renderCanvas;renderCanvas=function(){_rcv();if(CALC.open&&CALC.tab==='exp'){try{const o=$('#calcOut');if(o)o.innerHTML=expOut();}catch(e){}}};}
+// light levels on the plot
+{const _ri=renderItems;renderItems=function(items,o){const L=_ri(items,o);try{if(CALC.exp.show&&o&&o.dimSel&&!o.ghost){const E=expE();let s='';const px=o.px;
+  items.filter(i=>i.t==='actor').forEach(a=>{const rows=lightsOnActor(a);const tot=rows.reduce((x,r)=>x+r.lux,0);const t=tot>.5?`≈${Math.round(fcOf(tot))} fc · ${fmtT(tFor(tot,E))}`:'no light';
+    s+=`<text x="${a.x}" y="${a.y+1.6}" text-anchor="middle" font-family="${o.C.mono}" font-weight="700" font-size="${9.5*px}" fill="#f2a93b" paint-order="stroke" stroke="${o.C.bg}" stroke-width="${3*px}" pointer-events="none">${esc(t)}</text>`;});
+  L.labels=(L.labels||'')+s;}}catch(e){}return L;};}
+/* ============================================================
+   180° line: the line of action between two characters, set by the first
+   shot that sees them; any later shot whose camera is on the other side
+   gets a warning (unless you mark the cross as intentional).
+   ============================================================ */
+function sceneActorLabels(sc){const seen=[];(sc.setups||[]).forEach(su=>{[su.items,...su.shots.map(s=>s.items)].forEach(arr=>arr.forEach(i=>{if(i.t==='actor'&&i.label&&!seen.includes(i.label))seen.push(i.label);}));});return seen;}
+function lineCfg(sc){sc=sc||scene();const labs=sceneActorLabels(sc);const L=sc.line180||{};const a=labs.includes(L.a)?L.a:labs[0],b=labs.includes(L.b)&&L.b!==a?L.b:labs.find(x=>x!==a);return {a,b,show:L.show!==false,labs};}
+function sideOf(su,sh,cfg){const items=activeItems(su,sh);const A=items.find(i=>i.t==='actor'&&i.label===cfg.a),B=items.find(i=>i.t==='actor'&&i.label===cfg.b);if(!A||!B)return null;
+  const cams=items.filter(i=>i.t==='camera');if(!cams.length)return null;const dx=B.x-A.x,dy=B.y-A.y;if(Math.hypot(dx,dy)<.3)return null;
+  return cams.map(c=>({c,s:Math.sign(dx*(c.y-A.y)-dy*(c.x-A.x))||1,A,B}));}
+function lineReport(sc){sc=sc||scene();const cfg=lineCfg(sc);if(!cfg.a||!cfg.b)return {cfg,rows:[],ref:null};const rows=[];let ref=null;
+  (sc.setups||[]).forEach(su=>su.shots.forEach(sh=>{const r=sideOf(su,sh,cfg);if(!r)return;r.forEach(x=>{if(ref==null&&!sh.crossOK)ref={s:x.s,num:sh.num};rows.push({su,sh,c:x.c,s:x.s});});}));
+  rows.forEach(r=>r.bad=ref&&r.s!==ref.s&&!r.sh.crossOK);return {cfg,rows,ref};}
+
+/* on the plot: the line, the safe side, and a warning on a camera that crosses */
+{const _ri=renderItems;renderItems=function(items,o){const L=_ri(items,o);try{if(!o||o.ghost||!P)return L;const sc=scene();const rep=lineReport(sc);if(!rep.cfg.show||!rep.ref)return L;
+  const su=setup(),sh=shot();const A=items.find(i=>i.t==='actor'&&i.label===rep.cfg.a),B=items.find(i=>i.t==='actor'&&i.label===rep.cfg.b);if(!A||!B)return L;
+  const dx=B.x-A.x,dy=B.y-A.y,len=Math.hypot(dx,dy);if(len<.3)return L;const ux=dx/len,uy=dy/len,E=40;const p1={x:A.x-ux*E,y:A.y-uy*E},p2={x:B.x+ux*E,y:B.y+uy*E};
+  const nx=-uy*rep.ref.s,ny=ux*rep.ref.s;// the safe side is where the first shot's camera sits: sign of cross = +, i.e. along (−uy, ux)
+  const px=o.px,col='#e0b13a';
+  let s=`<g pointer-events="none"><path d="M${p1.x} ${p1.y} L${p2.x} ${p2.y} L${p2.x+nx*E} ${p2.y+ny*E} L${p1.x+nx*E} ${p1.y+ny*E}Z" fill="${col}" fill-opacity=".045"/><path d="M${p1.x} ${p1.y} L${p2.x} ${p2.y}" stroke="${col}" stroke-width="${1.6*px}" stroke-dasharray="${10*px} ${5*px}" opacity=".85"/>`;
+  const mx=(A.x+B.x)/2+ux*Math.min(6,len/2+2),my=(A.y+B.y)/2+uy*Math.min(6,len/2+2);const ang=Math.atan2(uy,ux)/D2R;const ang2=ang>90||ang<-90?ang+180:ang;
+  s+=`<text transform="translate(${mx+nx*.6} ${my+ny*.6}) rotate(${ang2})" text-anchor="middle" font-family="${o.C.mono}" font-weight="700" font-size="${9*px}" fill="${col}" paint-order="stroke" stroke="${o.C.bg}" stroke-width="${3*px}">180° line · ${esc(rep.cfg.a)}–${esc(rep.cfg.b)} · camera side set by ${esc(rep.ref.num)}</text>`;
+  rep.rows.filter(r=>r.sh===sh&&r.su===su&&r.bad).forEach(r=>{s+=`<text x="${r.c.x}" y="${r.c.y-1.4}" text-anchor="middle" font-family="${o.C.font}" font-weight="700" font-size="${11*px}" fill="#e5484d" paint-order="stroke" stroke="${o.C.bg}" stroke-width="${3*px}">⚠ crosses the 180° line</text>`;});
+  L.labels=(L.labels||'')+s+'</g>';}catch(e){}return L;};}
+
+/* Shot tab: pick the two characters, see each shot's side, mark an intentional cross */
+{const _ps=panelShot;panelShot=function(){let h=_ps();try{const sc=scene();const rep=lineReport(sc);const cfg=rep.cfg;if(cfg.labs.length<2)return h;const sh=shot();
+  const opts=(k,v)=>`<select class="in" data-l180="${k}">${cfg.labs.map(l=>`<option ${l===v?'selected':''}>${esc(l)}</option>`).join('')}</select>`;
+  let rows='';rep.rows.forEach(r=>{rows+=`<div class="kv"><span>${esc(r.sh.num)}${r.c.cam?' · '+esc(r.c.cam)+' cam':''}</span><b style="${r.bad?'color:#e5484d':''}">${r.bad?'⚠ crosses the line':r.sh.crossOK?'crosses on purpose':rep.ref&&r.sh.num===rep.ref.num?'sets the side':'same side ✓'}</b></div>`;});
+  const bad=rep.rows.filter(r=>r.bad).length;
+  h+=`<div class="grp"><h4>180° line</h4><div class="f2">${fld('Between',opts('a',cfg.a))}${fld('and',opts('b',cfg.b))}</div>
+    <label class="chk"><input type="checkbox" data-l180="show" ${cfg.show?'checked':''}> Show the line on the plot</label>
+    ${rows||'<div class="pSub">Add a camera to a shot that has both characters to set the side.</div>'}
+    <label class="chk" style="margin-top:6px"><input type="checkbox" data-l180="cross" ${sh.crossOK?'checked':''}> Shot ${esc(sh.num)} crosses the line on purpose</label>
+    <div class="pSub">${bad?`${bad} shot${bad>1?'s':''} on the other side. Screen direction will flip unless the move is motivated or you cut through a neutral shot.`:'The first shot that sees both characters sets the side; later shots should keep the camera on it.'}</div></div>`;}catch(e){}return h;};}
+document.addEventListener('change',e=>{const k=e.target&&e.target.dataset&&e.target.dataset.l180;if(!k)return;e.stopPropagation();snap();const sc=scene();sc.line180=Object.assign({},lineCfg(sc),sc.line180||{});delete sc.line180.labs;
+  if(k==='a'||k==='b')sc.line180[k]=e.target.value;if(k==='show')sc.line180.show=e.target.checked;if(k==='cross')shot().crossOK=e.target.checked;changed(true);},true);
+// the shot list flags shots that cross
+{const _rt=renderTree;renderTree=function(){_rt();try{const rep=lineReport();rep.rows.filter(r=>r.bad).forEach(r=>{document.querySelectorAll(`#tree [data-shot="${r.sh.id}"]`).forEach(b=>{if(!b.querySelector('.x180'))b.insertAdjacentHTML('beforeend','<span class="x180" title="Crosses the 180° line" style="color:#e5484d;margin-left:3px">⚠</span>');});});}catch(e){}};}
 const BRANDFF=(()=>{let o='';for(const sh of document.styleSheets){try{for(const r of sh.cssRules)if(r.type===5&&/EB Garamond|Lato/.test(r.cssText))o+=r.cssText;}catch(e){}}return o;})();
 /* ============================================================
    Export
