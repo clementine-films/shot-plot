@@ -313,6 +313,9 @@ body.narrow #left{left:0} body.narrow #right{right:0}
 #tree .shotChip.dBefore{box-shadow:-3px 0 0 var(--amber)}#tree .shotChip.dAfter{box-shadow:3px 0 0 var(--amber)}
 #tree .dInto{outline:2px dashed var(--amber);outline-offset:1px;border-radius:6px}#tree .dSrc{opacity:.45}
 #tree .sRow[draggable],#tree .suRow[draggable]{cursor:grab}
+.dofPickRow{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:-2px 0 10px}
+.dofRef{font-size:12px;font-weight:600;color:var(--text);background:rgba(90,35,128,.18);border:1px solid #8a5bb0;border-radius:999px;padding:2px 9px}
+#cv.dofPicking,#cv.dofPicking *{cursor:crosshair!important}
 </style>
 </head>
 <body>
@@ -750,7 +753,7 @@ function renderItems(items,o){
     const sel=o.selSet?o.selSet.has(it.id):o.sel===it.id;
     if(it.t==='line'){drawLine(it,L1,o,sel);return;}
     const L=LIB[it.t];if(!L)return;
-    const tr=`translate(${it.x} ${it.y}) rotate(${it.r||0})`;const SZ=szOf(it);const trS=SZ===1?tr:tr+` scale(${SZ})`;
+    const tr=`translate(${it.x} ${it.y}) rotate(${it.r||0})`;const SZ=szOf(it);const SXs=scalable(it)?SZ*(+it.sx||1):1,SYs=scalable(it)?SZ*(+it.sy||1):1;const trS=(SXs===1&&SYs===1)?tr:tr+` scale(${SXs} ${SYs})`;
     const ida=o.ghost?'':`data-id="${it.id}"`;
     const selStroke=sel?`<circle r="${Math.max(1.1,(L.s||1)*.9)}" fill="none" stroke="#f2a93b" stroke-width="${1.5*px}" stroke-dasharray="${4*px} ${3*px}"/>`:'';
     let g='';
@@ -901,7 +904,7 @@ function setGlyph(it,L,C,px){
     case 'couch':return `<rect x="${-w/2}" y="${-h/2}" width="${w}" height="${h}" rx=".25" fill="${C.setFill}" ${st}/><rect x="${-w/2}" y="${-h/2}" width="${w}" height="${h*.28}" rx=".2" fill="${C.setStroke}" fill-opacity=".55"/><rect x="${-w/2}" y="${-h/2}" width=".6" height="${h}" rx=".2" fill="${C.setStroke}" fill-opacity=".45"/><rect x="${w/2-.6}" y="${-h/2}" width=".6" height="${h}" rx=".2" fill="${C.setStroke}" fill-opacity=".45"/>`;
     case 'bed':return `<rect x="${-w/2}" y="${-h/2}" width="${w}" height="${h}" rx=".15" fill="${C.setFill}" ${st}/><rect x="${-w/2+.3}" y="${-h/2+.3}" width="${w/2-.45}" height="1" rx=".2" fill="${C.setStroke}" fill-opacity=".5"/><rect x="${.15}" y="${-h/2+.3}" width="${w/2-.45}" height="1" rx=".2" fill="${C.setStroke}" fill-opacity=".5"/><line x1="${-w/2}" y1="${-h/2+1.6}" x2="${w/2}" y2="${-h/2+1.6}" ${st}/>`;
     case 'rug':return `<rect x="${-w/2}" y="${-h/2}" width="${w}" height="${h}" fill="${C.setStroke}" fill-opacity=".12" stroke="${C.setStroke}" stroke-width="${px}" stroke-dasharray="${5*px} ${3*px}"/>`;
-    case 'car':return `<rect x="${-w/2}" y="${-h/2}" width="${w}" height="${h}" rx="1.2" fill="${C.setFill}" ${st}/><rect x="${-w/2+.6}" y="${-h/2+3.2}" width="${w-1.2}" height="2" rx=".4" fill="#9fd3ff" fill-opacity=".3" ${st}/><rect x="${-w/2+.6}" y="${h/2-4.4}" width="${w-1.2}" height="1.6" rx=".4" fill="#9fd3ff" fill-opacity=".3" ${st}/>`;
+    case 'car':return `<rect x="${-w/2}" y="${-h/2}" width="${w}" height="${h}" rx="1.2" fill="${C.setFill}" ${st}/><rect x="${-w/2+.6}" y="${-h/2+3.2}" width="${Math.max(0,w-1.2)}" height="2" rx=".4" fill="#9fd3ff" fill-opacity=".3" ${st}/><rect x="${-w/2+.6}" y="${h/2-4.4}" width="${Math.max(0,w-1.2)}" height="1.6" rx=".4" fill="#9fd3ff" fill-opacity=".3" ${st}/>`;
     case 'plant':return `<circle r="${w/2}" fill="#4f8a5b" fill-opacity=".45" stroke="#6fae7a" stroke-width="${1.2*px}"/><circle r="${w*.18}" fill="#6fae7a"/>`;
     case 'north':return `<circle r="${w/2}" fill="none" stroke="${C.sub}" stroke-width="${1.2*px}"/><path d="M0 ${-w/2} L${w*.18} ${w*.15} L0 0 L${-w*.18} ${w*.15}Z" fill="${C.text}"/><text y="${-w/2-.25}" text-anchor="middle" font-family="${C.font}" font-weight="700" font-size=".6" fill="${C.text}">N</text>`;
     default:return `<rect x="${-w/2}" y="${-h/2}" width="${w}" height="${h}" rx=".06" fill="${C.setFill}" ${st}/>`;
@@ -941,7 +944,7 @@ function drawLine(it,L1,o,sel){
   const selG=sel?`<path d="${d}" fill="none" stroke="#f2a93b" stroke-opacity=".45" stroke-width="${8*px}" stroke-linecap="round" stroke-linejoin="round"/>`:'';
   const fs=(o.tag==='sheet'?12.5:11)*px;const len=lineLen(p);const mid=midPoint(p);const op=o.ghost?'opacity=".3"':'';
   switch(it.kind){
-    case 'wall':{const da=wallDash(p,o.openings||[]);L1.walls=(L1.walls||'')+`<g ${op}>${selG}<path d="${d}" fill="none" stroke="${C.wall}" stroke-width=".38" stroke-linecap="square" stroke-linejoin="miter" ${da?`stroke-dasharray="${da}"`:''}/>${hit}</g>`;}
+    case 'wall':{const da=wallDash(p,o.openings||[]);L1.walls=(L1.walls||'')+`<g ${op}>${selG}<path d="${d}" fill="none" stroke="${C.wall}" stroke-width="${+it.th||.38}" stroke-linecap="square" stroke-linejoin="miter" ${da?`stroke-dasharray="${da}"`:''}/>${hit}</g>`;}
       if(!o.ghost&&(o.dims||(o.dimSel&&sel)))L1.labels+=dimLabels(p,C,px,sel&&!!o.dimSel);
       if(it.label)L1.labels+=`<text x="${mid.x}" y="${mid.y-.5}" text-anchor="middle" font-family="${C.font}" font-size="${fs*.9}" fill="${C.sub}" pointer-events="none">${esc(it.label)}</text>`;break;
     case 'actor':{const c=it.color||'#ff7a7a';let marks='';p.forEach((q,i)=>{if(i===0)return;marks+=`<circle cx="${q.x}" cy="${q.y}" r="${7*px}" fill="${C.bg}" stroke="${c}" stroke-width="${1.5*px}"/><text x="${q.x}" y="${q.y}" dy=".35em" text-anchor="middle" font-family="${C.mono}" font-weight="700" font-size="${fs*.85}" fill="${c}">${i}</text>`;});
@@ -1071,12 +1074,12 @@ function renderCanvas(){
     if(it.t==='line'){
       if(it.kind==='wall')for(let i=1;i<it.pts.length;i++){const a=it.pts[i-1],b=it.pts[i];const L=Math.hypot(b.x-a.x,b.y-a.y);if(L*V.zoom<44)continue;const ang=Math.atan2(b.y-a.y,b.x-a.x)/D2R;
         const am=arcMid(a,b);out+=`<g transform="translate(${am.x} ${am.y}) rotate(${ang})"><rect data-h="seg" data-i="${i}" x="${-9*px}" y="${-4.5*px}" width="${18*px}" height="${9*px}" rx="${4.5*px}" fill="#fff" stroke="#111" stroke-width="${px}" style="cursor:${Math.abs(b.x-a.x)<.011?'ew-resize':Math.abs(b.y-a.y)<.011?'ns-resize':'move'}"><title>Drag to push this wall in or out</title></rect></g>`;}
-      out+=bendHandles(it,px);
+      out+=bendHandles(it,px);out+=lineHandles(it,px);
       it.pts.forEach((q,i)=>{out+=`<rect data-h="v" data-i="${i}" x="${q.x-5*px}" y="${q.y-5*px}" width="${10*px}" height="${10*px}" fill="#f2a93b" stroke="#111" stroke-width="${px}" style="cursor:move"/>`;});}
     else{const L=LIB[it.t];const R=handleR(it);const a=(it.r||0)*D2R;const hx=it.x+Math.cos(a)*R,hy=it.y+Math.sin(a)*R;
       out+=`<line x1="${it.x}" y1="${it.y}" x2="${hx}" y2="${hy}" stroke="#f2a93b" stroke-width="${px}" stroke-dasharray="${3*px} ${3*px}" pointer-events="none"/><circle data-h="rot" cx="${hx}" cy="${hy}" r="${6*px}" fill="#f2a93b" stroke="#111" stroke-width="${px}" style="cursor:grab"><title>Drag to rotate (Shift = 15° steps)</title></circle>`;
       if(L&&L.kind==='set'&&L.shape!=='north'){const c=Math.cos(a),s=Math.sin(a);const lx=it.w/2,ly=it.h/2;const cx=it.x+lx*c-ly*s,cy=it.y+lx*s+ly*c;out+=`<rect data-h="size" x="${cx-5*px}" y="${cy-5*px}" width="${10*px}" height="${10*px}" fill="#fff" stroke="#111" stroke-width="${px}" style="cursor:nwse-resize"><title>Drag to resize</title></rect>`;
-        out+=sizeTag(it,C,px);}else if(scalable(it)){const rb=szBase(it)*szOf(it)*.75;out+=`<rect data-h="scale" x="${it.x+rb-5*px}" y="${it.y+rb-5*px}" width="${10*px}" height="${10*px}" fill="#fff" stroke="#111" stroke-width="${px}" style="cursor:nwse-resize"><title>Drag to make it bigger or smaller</title></rect>`;}}
+        out+=sizeTag(it,C,px);}else if(scalable(it)){const rb=szBase(it)*szOf(it)*.75;out+=`<rect data-h="scale" x="${it.x+rb-5*px}" y="${it.y+rb-5*px}" width="${10*px}" height="${10*px}" fill="#fff" stroke="#111" stroke-width="${px}" style="cursor:nwse-resize"><title>Drag to make it bigger or smaller</title></rect>`;}out+=extraHandles(it,px);}
   }
   // drafts & placement ghost
   if(V.draft&&V.draft.pts.length){const dl=Object.assign({},V.draft,{pts:V.draft.pts.concat(V.draft.cursor?[V.draft.cursor]:[])});const L2={floor:'',walls:'',set:'',beams:'',lines:'',grip:'',lights:'',cam:'',talent:'',labels:''};drawLine(dl,L2,{C,px,ghost:false},false);
@@ -1185,6 +1188,7 @@ cv.addEventListener('pointermove',e=>{
   }
   else if(drag.type==='bend'){clearSnapFx();bendDrag(it,w,e);}
   else if(drag.type==='rot'){let a=Math.atan2(w.y-it.y,w.x-it.x)/D2R;a=e.shiftKey?Math.round(a/15)*15:Math.round(a/5)*5;it.r=((a%360)+360)%360;if(it.r>180)it.r-=360;V.lastRot[it.t]=it.r;}
+  else if(drag.type==='edge'){edgeDrag(it,w,e);}else if(drag.type==='lrot'){lineRotDrag(it,w,e);}else if(drag.type==='lw'){lineWDrag(it,w,e);}
   else if(drag.type==='scale'){const o=drag.orig;const d=Math.hypot(w.x-o.x,w.y-o.y);const v=Math.max(.3,Math.min(6,Math.round(d/(szBase(o)*1.06)/.05)*.05));if(Math.abs(v-1)<.03)delete it.sz;else it.sz=v;}
   else if(drag.type==='size'){const o=drag.orig;const a=(o.r||0)*D2R,c=Math.cos(a),s=Math.sin(a);const lx=(w.x-o.x)*c+(w.y-o.y)*s,ly=-(w.x-o.x)*s+(w.y-o.y)*c;
     const nw=Math.max(.25,sn(lx+o.w/2)),nh=Math.max(.25,sn(ly+o.h/2));const ox=(nw-o.w)/2,oy=(nh-o.h)/2;it.w=nw;it.h=nh;it.x=r2(o.x+ox*c-oy*s);it.y=r2(o.y+ox*s+oy*c);}
@@ -2013,7 +2017,8 @@ function sunSVG(items,o){const sc=o.tag==='sheet'&&window.__expSc?window.__expSc
   return bodies.map((b,i)=>skyBodySVG(items,o,b,i,b==='moon'?Math.max(.3,lit):1)).join('');}
 {const _ri=renderItems;renderItems=function(items,o){const L=_ri(items,o);if(o&&!o.ghost&&(o.dimSel||o.tag==='sheet')){try{const sv=sunSVG(items,o);if(sv){L.floor=(L.floor||'')+sv;if(L.pieces)L.pieces.push({key:1.999,html:sv});}}catch(e){}}return L;};}
 /* panel */
-const CITIES=[['New York, NY',40.7128,-74.006],['Los Angeles, CA',34.0522,-118.2437],['Atlanta, GA',33.749,-84.388],['Chicago, IL',41.8781,-87.6298],['New Orleans, LA',29.9511,-90.0715],['Austin, TX',30.2672,-97.7431],['Albuquerque, NM',35.0844,-106.6504],['Vancouver, BC',49.2827,-123.1207],['Toronto, ON',43.6532,-79.3832],['London, UK',51.5074,-.1278],['Paris, France',48.8566,2.3522],['Mumbai, India',19.076,72.8777]];
+const CITIES=[['New York, NY',40.7128,-74.006,'America/New_York'],['Los Angeles, CA',34.0522,-118.2437,'America/Los_Angeles'],['Atlanta, GA',33.749,-84.388,'America/New_York'],['Chicago, IL',41.8781,-87.6298,'America/Chicago'],['New Orleans, LA',29.9511,-90.0715,'America/Chicago'],['Austin, TX',30.2672,-97.7431,'America/Chicago'],['Albuquerque, NM',35.0844,-106.6504,'America/Denver'],['Vancouver, BC',49.2827,-123.1207,'America/Vancouver'],['Toronto, ON',43.6532,-79.3832,'America/Toronto'],['London, UK',51.5074,-.1278,'Europe/London'],['Paris, France',48.8566,2.3522,'Europe/Paris'],['Mumbai, India',19.076,72.8777,'Asia/Kolkata']];
+function tzOffH(tz,date){try{const d=new Date((date||new Date().toISOString().slice(0,10))+'T12:00:00Z');const v=new Intl.DateTimeFormat('en-US',{timeZone:tz,timeZoneName:'longOffset'}).formatToParts(d).find(p=>p.type==='timeZoneName').value;const m=v.match(/GMT([+-])(\d\d):?(\d\d)?/);if(!m)return 0;return (m[1]==='-'?-1:1)*(+m[2]+(+m[3]||0)/60);}catch(e){return null;}}
 function sunReadout(){const s=sunOf();const p=skyPos(s),T=skyTimes(s),moon=s.body==='moon';const row=(a,b)=>`<div class="kv"><span>${a}</span><b>${b}</b></div>`;
   let h=row(moon?'Moon is':'Sun is',p.alt>0?`${Math.round(p.az)}° ${compass(p.az)}, ${Math.round(p.alt)}° above the horizon`:'below the horizon');
   if(p.alt>0)h+=row('A 6 ft person casts',p.alt>2?`a ${fmtFt(6/Math.tan(p.alt*D2R))} shadow`:'a very long shadow');
@@ -2061,10 +2066,10 @@ function sunRefresh(full){renderCanvas();scheduleSave();if(full)renderCalc();els
 $('#calc').addEventListener('input',e=>{const k=e.target.dataset&&e.target.dataset.sun;if(k!=='min')return;e.stopPropagation();sunOf().min=+e.target.value;sunRefresh(false);},true);
 $('#calc').addEventListener('change',e=>{const k=e.target.dataset&&e.target.dataset.sun;if(!k)return;e.stopPropagation();const s=sunOf();const v=e.target.value;
   if(k==='on'){s.on=e.target.checked;sunRefresh(false);return;}if(k==='min'){return;}
-  if(k==='city'){if(v==='')return;const c=CITIES[+v];s.place=c[0];s.lat=c[1];s.lng=c[2];if(sunMap){sunMap.setView([c[1],c[2]],13);sunPin.setLatLng([c[1],c[2]]);}sunRefresh(true);return;}
+  if(k==='city'){if(v==='')return;const c=CITIES[+v];s.place=c[0];s.lat=c[1];s.lng=c[2];if(c[3]){const oh=tzOffH(c[3],s.date);if(oh!=null){s.off=oh;s.tz=c[3];}}if(sunMap){sunMap.setView([c[1],c[2]],13);sunPin.setLatLng([c[1],c[2]]);}sunRefresh(true);return;}
   if(k==='lat'||k==='lng'){const n=parseFloat(v);if(!isFinite(n)||Math.abs(n)>(k==='lat'?90:180)){renderCalc();return;}s[k]=n;s.place='';if(sunMap){sunMap.setView([+s.lat,+s.lng]);sunPin.setLatLng([+s.lat,+s.lng]);}sunRefresh(true);return;}
-  if(k==='date'){if(/^\d{4}-\d{2}-\d{2}$/.test(v)){s.date=v;sunRefresh(true);}return;}
-  if(k==='off'){const n=parseFloat(v);s.off=isFinite(n)&&Math.abs(n)<=14?n:null;sunRefresh(true);return;}
+  if(k==='date'){if(/^\d{4}-\d{2}-\d{2}$/.test(v)){s.date=v;if(s.tz){const oh=tzOffH(s.tz,v);if(oh!=null)s.off=oh;}sunRefresh(true);}return;}
+  if(k==='off'){const n=parseFloat(v);s.off=isFinite(n)&&Math.abs(n)<=14?n:null;s.tz=null;sunRefresh(true);return;}
   if(k==='north'){const n=parseFloat(v);if(isFinite(n)){snap();setNorth(n);changed();renderCalc();}return;}},true);
 $('#calc').addEventListener('click',async e=>{const t=e.target;if(t.dataset&&t.dataset.sunbody){sunOf().body=t.dataset.sunbody;sunRefresh(true);return;}
   if(t.dataset&&t.dataset.sunlayer&&sunMap){const k=t.dataset.sunlayer;if(k!==sunLayer){sunMap.removeLayer(sunLayers[sunLayer]);sunLayer=k;sunLayers[k].addTo(sunMap);renderCalc();}return;}
@@ -2088,7 +2093,7 @@ function dofCalc(){const c=pick(camsNow(),CALC.dof.cam),a=pick(actsNow(),CALC.do
 const selOpt=(arr,id,name)=>arr.map(i=>`<option value="${i.id}" ${i.id===id?'selected':''}>${esc(name(i))}</option>`).join('');
 function skyChart(){const s=sunOf();const W=340,H=170,x=m=>18+m/1440*(W-30),y=a=>H-34-(a+20)/110*(H-48);const path=body=>{let d='';for(let m=0;m<=1440;m+=10){const a=SKY[body](sunMs(s,m),+s.lat,+s.lng).alt;d+=(m?'L':'M')+x(m).toFixed(1)+' '+y(Math.max(-20,a)).toFixed(1)+' ';}return d;};
   const T=skyTimes(s);const sun=SKY.sun(sunMs(s),+s.lat,+s.lng),moon=SKY.moon(sunMs(s),+s.lat,+s.lng);const hz=y(0);let o=`<svg class="sky" id="skyChart" viewBox="0 0 ${W} ${H}"><rect x="${x(0)}" y="${hz}" width="${x(1440)-x(0)}" height="${y(-20)-hz}" fill="#0c0e10"/>`;
-  if(T.sun.rise!=null&&T.sun.set!=null)o+=`<rect x="${x(T.sun.rise)}" y="${y(90)}" width="${x(T.sun.set)-x(T.sun.rise)}" height="${hz-y(90)}" fill="#ffc94d" opacity=".06"/>`+(T.g6.am?`<rect x="${x(T.sun.rise)}" y="${y(90)}" width="${Math.max(0,x(T.g6.am)-x(T.sun.rise))}" height="${hz-y(90)}" fill="#ff9d3b" opacity=".16"/>`:'')+(T.g6.pm?`<rect x="${x(T.g6.pm)}" y="${y(90)}" width="${Math.max(0,x(T.sun.set)-x(T.g6.pm))}" height="${hz-y(90)}" fill="#ff9d3b" opacity=".16"/>`:'');
+  if(T.sun.rise!=null&&T.sun.set!=null)o+=(T.sun.set>=T.sun.rise?`<rect x="${x(T.sun.rise)}" y="${y(90)}" width="${x(T.sun.set)-x(T.sun.rise)}" height="${hz-y(90)}" fill="#ffc94d" opacity=".06"/>`:`<rect x="${x(0)}" y="${y(90)}" width="${Math.max(0,x(T.sun.set)-x(0))}" height="${hz-y(90)}" fill="#ffc94d" opacity=".06"/><rect x="${x(T.sun.rise)}" y="${y(90)}" width="${Math.max(0,x(1440)-x(T.sun.rise))}" height="${hz-y(90)}" fill="#ffc94d" opacity=".06"/>`)+(T.g6.am?`<rect x="${x(T.sun.rise)}" y="${y(90)}" width="${Math.max(0,x(T.g6.am)-x(T.sun.rise))}" height="${hz-y(90)}" fill="#ff9d3b" opacity=".16"/>`:'')+(T.g6.pm?`<rect x="${x(T.g6.pm)}" y="${y(90)}" width="${Math.max(0,x(T.sun.set)-x(T.g6.pm))}" height="${hz-y(90)}" fill="#ff9d3b" opacity=".16"/>`:'');
   o+=`<line x1="${x(0)}" x2="${x(1440)}" y1="${hz}" y2="${hz}" stroke="#5b636d" stroke-width="1"/><text x="${x(1440)}" y="${hz-4}" text-anchor="end" font-size="8.5" fill="#8b949e">horizon</text>`;
   [0,6,12,18,24].forEach(h=>{o+=`<line x1="${x(h*60)}" x2="${x(h*60)}" y1="${y(90)}" y2="${y(-20)}" stroke="#2a2f36" stroke-width="1"/><text x="${x(h*60)}" y="${H-20}" text-anchor="middle" font-size="9" fill="#8b949e">${['12a','6a','12p','6p','12a'][h/6]}</text>`;});
   o+=`<path d="${path('moon')}" fill="none" stroke="#a9c4ff" stroke-width="1.6" stroke-dasharray="4 3" opacity="${s.body==='moon'?1:.6}"/><path d="${path('sun')}" fill="none" stroke="#ffc94d" stroke-width="2" opacity="${s.body==='moon'?.6:1}"/>`;
@@ -3051,7 +3056,7 @@ const SZ_KINDS=['light','camera','talent','mark','grip','camgear','power'];
 function scalable(it){const L=it&&LIB[it.t];return !!(L&&SZ_KINDS.includes(L.kind)&&it.t!=='frame');}
 function szOf(it){return scalable(it)&&+it.sz>0?+it.sz:1;}
 function szBase(it){const L=LIB[it.t]||{};if(L.kind==='light')return (L.s||1)*.9+.2;if(L.kind==='grip')return Math.max(.6,gripExtent(Object.assign({},it,{sz:1}))-.4);if(L.kind==='camera')return 1.1;if(L.kind==='talent')return .9;if(L.kind==='mark')return .6;return 1;}
-{const _h=handleR;handleR=function(it){const r=_h(it);return scalable(it)?r*szOf(it):r;};}
+{const _h=handleR;handleR=function(it){const r=_h(it);return scalable(it)?r*szOf(it)*Math.max(1,+it.sx||1,+it.sy||1):r;};}
 /* quick bar: Size % */
 {const _rq=renderQuick;renderQuick=function(){_rq();const q=$('#quick');if(!q||!q.innerHTML||fromQuick)return;const it=selItem();if(!it||selIds().length!==1||!scalable(it))return;const sep=q.querySelector('.qsep');if(!sep)return;
   sep.insertAdjacentHTML('beforebegin',`<label class="qf" title="How big it is drawn on the plot (100% is the standard size)">Size<input class="in" data-sz="1" type="number" min="30" max="600" step="10" value="${Math.round(szOf(it)*100)}" style="width:58px"><span>%</span></label>`);};}
@@ -3152,6 +3157,101 @@ function renumberScenes(){const plan=P.scenes.map((sc,i)=>({sc,old:String(sc.num
   $('#renumGo').onclick=()=>{snap();const tmp=plan.map(x=>{const re=new RegExp('^'+x.old.replace(/[.*+?^${}()|[\]\\]/g,'\\$&')+'(?=[A-Za-z])');const shots=[];x.sc.setups.forEach(su=>su.shots.forEach(s=>{if(re.test(s.num))shots.push([s,s.num.replace(re,'')]);}));return {x,shots};});
     tmp.forEach(({x,shots})=>{x.sc.num=x.nw;shots.forEach(([s,suf])=>s.num=x.nw+suf);});closeModal();changed();renderTree();if(UI.R)renderPanel();toast(`${changes.length} scene${changes.length===1?'':'s'} renumbered`);};}
 {const h=$('#addScene');if(h){h.insertAdjacentHTML('beforebegin','<button class="addMini" id="renumScenes" title="Renumber every scene 1, 2, 3… in list order (for early drafts)">1·2·3</button> ');$('#renumScenes').onclick=renumberScenes;}}
+/* ============================================================
+   Depth of field: pick the subject and the background on the plot instead of measuring.
+   A pick follows the element: move the bookshelf and the background distance updates.
+   ============================================================ */
+CALC.dof.bgRef=null;CALC.dof.subRef=null;V.dofPick=null;
+function dofRefName(ref){if(!ref)return '';if(ref.pt)return 'a point on the plot';const it=activeItems().find(i=>i.id===ref.id);if(!it)return '';
+  return it.label||(it.t==='line'?(LINES[it.kind]||{}).name:(LIB[it.t]||{}).name)||'element';}
+function dofRefPt(ref){if(!ref)return null;if(ref.pt)return ref.pt;const it=activeItems().find(i=>i.id===ref.id);if(!it)return null;
+  if(it.t==='line'&&it.pts&&it.pts.length){const a=it.pts[Math.min(ref.i||0,it.pts.length-1)],b=it.pts[Math.min((ref.i||0)+1,it.pts.length-1)];return {x:a.x+(b.x-a.x)*(ref.u||0),y:a.y+(b.y-a.y)*(ref.u||0)};}
+  const r=(it.r||0)*D2R,c=Math.cos(r),s=Math.sin(r),dx=ref.dx||0,dy=ref.dy||0;return {x:it.x+dx*c-dy*s,y:it.y+dx*s+dy*c};}
+function dofMakeRef(it,w){if(!it)return {pt:{x:r2(w.x),y:r2(w.y)}};
+  if(it.t==='line'&&it.pts&&it.pts.length){let best={d:1e9,i:0,u:0};for(let i=0;i<Math.max(1,it.pts.length-1);i++){const a=it.pts[i],b=it.pts[i+1]||a;const L2=(b.x-a.x)**2+(b.y-a.y)**2;let u=L2?((w.x-a.x)*(b.x-a.x)+(w.y-a.y)*(b.y-a.y))/L2:0;u=Math.max(0,Math.min(1,u));const d=Math.hypot(a.x+(b.x-a.x)*u-w.x,a.y+(b.y-a.y)*u-w.y);if(d<best.d)best={d,i,u};}return {id:it.id,i:best.i,u:best.u};}
+  const r=-(it.r||0)*D2R,c=Math.cos(r),s=Math.sin(r),x=w.x-it.x,y=w.y-it.y;return {id:it.id,dx:x*c-y*s,dy:x*s+y*c};}
+function dofCam(){const D=CALC.dof;return D.cam&&D.cam!=='manual'?camsNow().find(c=>c.id===D.cam):null;}
+/* keep the typed distances in step with the picks */
+function dofSyncRefs(){const D=CALC.dof,c=dofCam();if(!c)return;
+  ['subRef','bgRef'].forEach(k=>{const ref=D[k];if(!ref)return;const p=dofRefPt(ref);if(!p){D[k]=null;return;}const d=Math.max(1,Math.hypot(p.x-c.x,p.y-c.y));D[k==='subRef'?'dist':'bgDist']=fmtFtIn(d);});}
+{const _n=dofNums;dofNums=function(){try{dofSyncRefs();}catch(e){}return _n();};}
+{const _rc=renderCalc;renderCalc=function(){try{dofSyncRefs();}catch(e){}_rc();if(!CALC.open||CALC.tab!=='dof')return;const D=CALC.dof,cam=dofCam();
+  [['dist','subRef','subject'],['bgDist','bgRef','background']].forEach(([k,rk,word])=>{const inp=$(`#calc [data-c="dof.${k}"]`);if(!inp)return;const host=inp.closest('.f')||inp.parentNode;if(host.nextElementSibling&&host.nextElementSibling.classList.contains('dofPickRow'))return;
+    const ref=D[rk];const on=V.dofPick===rk;
+    host.insertAdjacentHTML('afterend',`<div class="dofPickRow">${ref?`<span class="dofRef">◎ ${esc(dofRefName(ref))}</span><button class="btn sm" data-dofpick="${rk}">${on?'Click it on the plot…':'Pick another'}</button><button class="btn sm" data-dofclear="${rk}" title="Stop following it and type a distance instead">✕</button>`
+      :cam?`<button class="btn sm ${on?'pri':''}" data-dofpick="${rk}">${on?`Click the ${word} on the plot…`:`Pick the ${word} on the plot`}</button>`:`<span class="pSub">Choose a camera on the plot to pick the ${word} instead of measuring.</span>`}</div>`);});};}
+document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-dofpick],[data-dofclear]');if(!b)return;const D=CALC.dof;
+  if(b.dataset.dofclear){D[b.dataset.dofclear]=null;V.dofPick=null;}else{V.dofPick=V.dofPick===b.dataset.dofpick?null:b.dataset.dofpick;if(V.dofPick)toast(`Click the ${V.dofPick==='bgRef'?'background element, like a wall or a bookshelf,':'subject'} on the plot. Esc cancels.`,4000);}
+  cv.classList.toggle('dofPicking',!!V.dofPick);renderCalc();renderCanvas();});
+/* typing a distance stops following a pick */
+document.addEventListener('input',e=>{const k=e.target&&e.target.dataset&&e.target.dataset.c;if(k==='dof.bgDist')CALC.dof.bgRef=null;if(k==='dof.dist')CALC.dof.subRef=null;},true);
+cv.addEventListener('pointerdown',e=>{if(!V.dofPick||e.button)return;e.stopImmediatePropagation();e.preventDefault();const w=toWorld(e);const g=e.target.closest&&e.target.closest('[data-id]');
+  let it=g?activeItems().find(i=>i.id===g.dataset.id):null;if(it&&it.t==='camera')it=null;const D=CALC.dof;D[V.dofPick]=dofMakeRef(it,w);
+  const what=dofRefName(D[V.dofPick]);V.dofPick=null;cv.classList.remove('dofPicking');renderCalc();renderCanvas();toast(`Following ${what}. Move it and the distance updates.`,3000);},true);
+window.addEventListener('keydown',e=>{if(e.key==='Escape'&&V.dofPick){V.dofPick=null;cv.classList.remove('dofPicking');renderCalc();e.stopImmediatePropagation();}},true);
+/* show the picks on the plot while the depth of field calculator is open */
+{const _ri=renderItems;renderItems=function(items,o){const L=_ri(items,o);if(o&&o.dimSel&&!o.ghost&&CALC.open&&CALC.tab==='dof'){try{const c=dofCam(),D=CALC.dof;if(c){let s='';const px=o.px;
+  [['subRef','#35d0ba','focus'],['bgRef','#5a2380','background']].forEach(([k,col,lab])=>{const p=dofRefPt(D[k]);if(!p)return;
+    s+=`<path d="M${c.x} ${c.y} L${p.x} ${p.y}" stroke="${col}" stroke-width="${1.2*px}" stroke-dasharray="${4*px} ${3*px}" fill="none"/><circle cx="${p.x}" cy="${p.y}" r="${6*px}" fill="none" stroke="${col}" stroke-width="${1.6*px}"/><circle cx="${p.x}" cy="${p.y}" r="${1.6*px}" fill="${col}"/><text x="${p.x+9*px}" y="${p.y-7*px}" font-family="${o.C.mono}" font-weight="700" font-size="${9*px}" fill="${col}" paint-order="stroke" stroke="#f3ecf8" stroke-width="${2.5*px}">${lab} · ${fmtFt(Math.hypot(p.x-c.x,p.y-c.y))}</text>`;});
+  L.labels=(L.labels||'')+`<g pointer-events="none">${s}</g>`;}}catch(e){}}return L;};}
+{const _rc=renderCanvas;renderCanvas=function(){_rc();if(CALC.open&&CALC.tab==='dof'&&(CALC.dof.bgRef||CALC.dof.subRef)&&typeof calcLive==='function'){try{const out=$('#calcOut');if(out)out.innerHTML=dofOut();}catch(e){}}};}
+/* the docked calculator covers the right side of the plot: Fit uses the space beside it, and opening it fits once */
+function calcInset(){const el=$('#calc');if(!CALC.open||CALC.min||!el||window.innerWidth<=640)return 0;const r=el.getBoundingClientRect(),c=cv.getBoundingClientRect();return Math.max(0,c.right-r.left+10);}
+{const _fit=fit;fit=function(){const ins=calcInset();if(!ins)return _fit();measure();const b=bbox(activeItems(),3);const W=Math.max(200,CW-ins),padL=74;const z=Math.min((W-padL)/(b.x1-b.x0),CH*(1-2*54/CH)/(b.y1-b.y0));V.zoom=Math.max(4,Math.min(120,z));V.vx=(b.x0+b.x1)/2-(W+padL)/2/V.zoom;V.vy=(b.y0+b.y1)/2-CH/2/V.zoom;renderCanvas();};$('#zFit').onclick=()=>fit();}
+{let was=false;const _rc=renderCalc;renderCalc=function(){_rc();const now=CALC.open&&!CALC.min;if(now&&!was)setTimeout(()=>{try{fit();}catch(e){}},0);was=now;};}
+/* ============================================================
+   Handles for every element:
+   - set pieces: drag any of the four sides; the opposite side stays put
+   - lights, grip, cameras, actors, marks, gear: drag a side to stretch it wider or deeper
+   - lines (walls, roads, sidewalks, fences, tracks, cables, moves): a rotate handle, and a
+     width handle on walls, roads, sidewalks, curbs, fences and hedges
+   ============================================================ */
+const LW_KINDS={wall:1,road:1,sidewalk:1,fence:1,curb:1,hedge:1};
+function lineW(it){if(!LW_KINDS[it.kind])return .3;if(it.kind==='wall')return +it.th>0?+it.th:.38;return typeof stW==='function'?stW(it):(+it.w||1);}
+function setLineW(it,v){if(it.kind==='wall'){v=Math.max(1/12,Math.min(3,Math.round(v*12)/12));if(Math.abs(v-.38)<.02)delete it.th;else it.th=v;}else{v=Math.max(.1,Math.round(v*4)/4);it.w=v;}}
+function stretchOf(it){return {sx:+it.sx>0?+it.sx:1,sy:+it.sy>0?+it.sy:1};}
+function halfExt(it){if(LIB[it.t]&&LIB[it.t].kind==='set')return {ex:(+it.w||1)/2,ey:(+it.h||1)/2};const b=szBase(it)*szOf(it)*.8,st=stretchOf(it);return {ex:b*st.sx,ey:b*st.sy};}
+function canEdge(it){const L=LIB[it.t];if(!L||it.t==='line')return false;if(L.kind==='set')return L.shape!=='north';return scalable(it);}
+const toW=(it,lx,ly)=>{const a=(it.r||0)*D2R,c=Math.cos(a),s=Math.sin(a);return {x:it.x+lx*c-ly*s,y:it.y+lx*s+ly*c};};
+const toL=(it,w)=>{const a=(it.r||0)*D2R,c=Math.cos(a),s=Math.sin(a),x=w.x-it.x,y=w.y-it.y;return {x:x*c+y*s,y:-x*s+y*c};};
+function extraHandles(it,px){if(!canEdge(it))return '';const {ex,ey}=halfExt(it);const r=it.r||0;let o='';
+  [[-ex,0,0,'ew'],[ex,0,1,'ew'],[0,-ey,2,'ns'],[0,ey,3,'ns']].forEach(([lx,ly,i,cur])=>{const p=toW(it,lx,ly);const vert=i<2;const w=(vert?5:14)*px,h=(vert?14:5)*px;
+    const ang=((r%180)+180)%180;const c=(ang>45&&ang<135)?(cur==='ew'?'ns':'ew'):cur;
+    o+=`<rect data-h="edge" data-i="${i}" x="${-w/2}" y="${-h/2}" width="${w}" height="${h}" rx="${2*px}" transform="translate(${p.x} ${p.y}) rotate(${r})" fill="#fff" stroke="#111" stroke-width="${px}" style="cursor:${c}-resize"><title>Drag to ${vert?'make it wider or narrower':'make it deeper or shallower'} from this side</title></rect>`;});
+  return o;}
+function edgeDrag(it,w,e){const sn=v=>V.snap&&!e.altKey?Math.round(v*4)/4:Math.round(v*100)/100;const o=drag.orig;const L=LIB[o.t]||{};const q=toL(o,w);const i=drag.i;const horiz=i<2;const sign=(i===1||i===3)?1:-1;
+  if(L.kind==='set'){const full=horiz?o.w:o.h;let nv=Math.max(.25,sn(sign*(horiz?q.x:q.y)+full/2));const sh=sign*(nv-full)/2;
+    if(horiz){it.w=nv;const p=toW(o,sh,0);it.x=r2(p.x);it.y=r2(p.y);}else{it.h=nv;const p=toW(o,0,sh);it.x=r2(p.x);it.y=r2(p.y);}return;}
+  const base=szBase(o)*szOf(o)*.8,st=stretchOf(o);const e0=base*(horiz?st.sx:st.sy);let full=sign*(horiz?q.x:q.y)+e0;full=Math.max(base*.4,full);
+  let ns=Math.round(full/2/base*20)/20;ns=Math.max(.2,Math.min(8,ns));const sh=sign*(ns*base-e0);
+  const k=horiz?'sx':'sy';if(Math.abs(ns-1)<.03)delete it[k];else it[k]=ns;const p=horiz?toW(o,sh,0):toW(o,0,sh);it.x=r2(p.x);it.y=r2(p.y);}
+/* lines */
+function lineCenter(it){const ps=it.pts;let x=0,y=0;ps.forEach(p=>{x+=p.x;y+=p.y;});return {x:x/ps.length,y:y/ps.length};}
+function longestSeg(it){let best={i:1,L:-1};for(let i=1;i<it.pts.length;i++){const a=it.pts[i-1],b=it.pts[i];const L=Math.hypot(b.x-a.x,b.y-a.y);if(L>best.L)best={i,L};}return best;}
+function lineHandles(it,px){if(!it.pts||it.pts.length<2||it.kind==='dim')return '';let o='';
+  if(!it.owner){const c=lineCenter(it);const s0=longestSeg(it),a0=it.pts[s0.i-1],b0=it.pts[s0.i];const L0=s0.L||1;const n0x=(b0.y-a0.y)/L0,n0y=-(b0.x-a0.x)/L0;const off=Math.max(1.6,lineW(it)/2+1.2);const base=it.pts.length<=3?{x:a0.x+(b0.x-a0.x)*.75,y:a0.y+(b0.y-a0.y)*.75}:c;const hx=base.x+n0x*off,hy=base.y+n0y*off;
+    o+=`<line x1="${base.x}" y1="${base.y}" x2="${hx}" y2="${hy}" stroke="#f2a93b" stroke-width="${px}" stroke-dasharray="${3*px} ${3*px}" pointer-events="none"/><circle data-h="lrot" cx="${hx}" cy="${hy}" r="${6*px}" fill="#f2a93b" stroke="#111" stroke-width="${px}" style="cursor:grab"><title>Drag to rotate the whole ${(LINES[it.kind]||{}).name||'line'} (Shift = 15° steps)</title></circle>`;}
+  if(LW_KINDS[it.kind]){const s=longestSeg(it),a=it.pts[s.i-1],b=it.pts[s.i];const L=s.L||1;const nx=-(b.y-a.y)/L,ny=(b.x-a.x)/L;const m={x:a.x+(b.x-a.x)*.25,y:a.y+(b.y-a.y)*.25};
+    const off=lineW(it)/2+8*px;const p={x:m.x+nx*off,y:m.y+ny*off};const ang=Math.atan2(b.y-a.y,b.x-a.x)/D2R;
+    o+=`<g transform="translate(${p.x} ${p.y}) rotate(${ang})"><rect data-h="lw" data-i="${s.i}" x="${-7*px}" y="${-3*px}" width="${14*px}" height="${6*px}" rx="${3*px}" fill="#9fe3ff" stroke="#111" stroke-width="${px}" style="cursor:${Math.abs(nx)>Math.abs(ny)?'ew':'ns'}-resize"><title>Drag to change the ${it.kind==='wall'?'thickness':'width'}</title></rect></g>`;}
+  return o;}
+function lineRotDrag(it,w,e){const o=drag.orig;if(!drag.ctr){drag.ctr=lineCenter(o);drag.a0=Math.atan2(drag.start.y-drag.ctr.y,drag.start.x-drag.ctr.x);
+    drag.carry=o.kind==='wall'?activeItems().filter(x=>x.t!=='line'&&LIB[x.t]&&LIB[x.t].wallSnap&&o.pts.some((p,k)=>{const q=o.pts[k+1];if(!q)return false;const L2=(q.x-p.x)**2+(q.y-p.y)**2||1;let u=((x.x-p.x)*(q.x-p.x)+(x.y-p.y)*(q.y-p.y))/L2;u=Math.max(0,Math.min(1,u));return Math.hypot(p.x+(q.x-p.x)*u-x.x,p.y+(q.y-p.y)*u-x.y)<.6;})).map(x=>({id:x.id,x:x.x,y:x.y,r:x.r||0})):[];}
+  const c=drag.ctr;let d=(Math.atan2(w.y-c.y,w.x-c.x)-drag.a0)/D2R;d=e.shiftKey?Math.round(d/15)*15:Math.round(d);const a=d*D2R,cs=Math.cos(a),sn_=Math.sin(a);
+  const rot=p=>({x:r2(c.x+(p.x-c.x)*cs-(p.y-c.y)*sn_),y:r2(c.y+(p.x-c.x)*sn_+(p.y-c.y)*cs)});
+  it.pts=o.pts.map(p=>({...p,...rot(p)}));drag.carry.forEach(k=>{const f=findItem(k.id);if(!f)return;const q=rot(k);f.it.x=q.x;f.it.y=q.y;f.it.r=Math.round(((k.r+d)%360+540)%360-180);});
+  V.hintNow=`${d>0?'+':''}${d}°`;}
+function lineWDrag(it,w,e){const o=drag.orig;const i=Math.max(1,Math.min(o.pts.length-1,drag.i||1));const a=o.pts[i-1],b=o.pts[i];const L=Math.hypot(b.x-a.x,b.y-a.y)||1;const nx=-(b.y-a.y)/L,ny=(b.x-a.x)/L;
+  const m={x:a.x+(b.x-a.x)*.25,y:a.y+(b.y-a.y)*.25};const d=Math.abs((w.x-m.x)*nx+(w.y-m.y)*ny);setLineW(it,Math.max(.05,(d-8*(1/V.zoom))*2));}
+/* walls draw at their own thickness */
+/* quick bar: thickness for walls */
+{const _rq=renderQuick;renderQuick=function(){_rq();const q=$('#quick');if(!q||!q.innerHTML||fromQuick)return;if(selIds().length!==1)return;const it=selItem();
+  if(!it||it.t!=='line'||it.kind!=='wall'||q.querySelector('[data-wth]'))return;const b=q.querySelector('b');
+  if(b)b.insertAdjacentHTML('afterend',`<label class="qf" title="Wall thickness in inches">Thick<input class="in" data-wth="1" type="number" min="1" max="36" step="1" value="${Math.round(lineW(it)*12)}" style="width:52px"><span>in</span></label>`);};}
+document.addEventListener('change',e=>{const t=e.target;if(!t.matches||!t.matches('#quick [data-wth]'))return;const it=selItem();if(!it||it.kind!=='wall')return;snap();setLineW(it,(+t.value||4.5)/12);changed();});
+/* stretch shows in the Size field's tooltip, and the panel gets a reset */
+document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-unstretch]');if(!b)return;const it=selItem();if(!it)return;snap();delete it.sx;delete it.sy;changed();});
+{const _rq=renderQuick;renderQuick=function(){_rq();const q=$('#quick');if(!q||fromQuick)return;const it=selItem();if(!it||selIds().length!==1||!scalable(it))return;if((+it.sx&&+it.sx!==1)||(+it.sy&&+it.sy!==1)){const f=q.querySelector('[data-sz]');if(f&&!q.querySelector('[data-unstretch]'))f.closest('label').insertAdjacentHTML('afterend',`<button class="btn sm" data-unstretch="1" title="Undo the side stretching (width ${Math.round((+it.sx||1)*100)}%, depth ${Math.round((+it.sy||1)*100)}%)">Unstretch</button>`);}};}
 const BRANDFF=(()=>{let o='';for(const sh of document.styleSheets){try{for(const r of sh.cssRules)if(r.type===5&&/EB Garamond|Lato/.test(r.cssText))o+=r.cssText;}catch(e){}}return o;})();
 /* ============================================================
    Export
