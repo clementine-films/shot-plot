@@ -1354,7 +1354,7 @@ function treeClick(e){
   const sR=t.closest('[data-scene]');if(sR){V.sceneId=sR.dataset.scene;V.setupId=null;V.shotId=null;fixView();V.sel=null;changed(true,true);setTimeout(fit,0);return;}
   const suR=t.closest('[data-setup]');if(suR){V.setupId=suR.dataset.setup;V.shotId=null;fixView();V.sel=null;changed(true,true);return;}
   const shR=t.closest('[data-shot]');if(shR){V.setupId=shR.dataset.su;V.shotId=shR.dataset.shot;fixView();if(V.sel&&!findItem(V.sel))V.sel=null;changed(true,true);return;}
-  const aS=t.closest('[data-addshot]');if(aS){snap();const su=scene().setups.find(s=>s.id===aS.dataset.addshot);const base=(su.id===setup().id?shot():su.shots[su.shots.length-1]);const n=mkShot(nextShotNum(scene()));n.size=base.size;n.items=reId(clone(base.items));su.shots.push(n);V.setupId=su.id;V.shotId=n.id;V.sel=null;V.rightTab='shot';changed();toast(`Shot ${n.num} added — characters and camera copied from ${base.num}. Changes here won't touch ${base.num}.`);return;}
+  const aS=t.closest('[data-addshot]');if(aS){snap();const su=scene().setups.find(s=>s.id===aS.dataset.addshot);const base=(su.id===setup().id?shot():su.shots[su.shots.length-1]);const n=mkShot(nextShotNum(scene()));n.size=base.size;n.items=reId(clone(base.items));if(base.hide&&su.id===setup().id)n.hide=base.hide.slice();su.shots.push(n);V.setupId=su.id;V.shotId=n.id;V.sel=null;V.rightTab='shot';changed();toast(`Shot ${n.num} added — characters and camera copied from ${base.num}. Changes here won't touch ${base.num}.`);return;}
   const aU=t.closest('[data-addsetup]');if(aU){snap();const sc=scene();const cur=setup();const letter=String.fromCharCode(65+sc.setups.length);const su=mkSetup('Setup '+letter);
     su.items=clone(cur.items.filter(i=>(i.t==='line'&&i.kind==='wall')||(LIB[i.t]&&['set','talent','text','power'].includes(LIB[i.t].kind))));reId(su.items);
     {const n0=mkShot(nextShotNum(sc));n0.items=reId(clone(blockingOf(shot().items)));su.shots.push(n0);}sc.setups.push(su);V.setupId=su.id;V.shotId=su.shots[0].id;V.sel=null;V.rightTab='shot';changed();toast(`${su.name} added — set, characters & power copied; lights cleared`);return;}
@@ -3693,6 +3693,42 @@ const LIB_TIPS={frame:'A fabric on a frame. Pick diffusion to shoot through, a b
 DIFF_PRESETS.forEach(([k,,,f,o])=>{const d=diffInfo(f);if(d)LIB_TIPS[k]=`${d.n}: ${d.lbl}${d.ap?' (approx.)':''}. ${d.use}${d.care?' '+d.care:''}${o?' Rigged overhead.':''}`;});
 {const _rl=renderLib;renderLib=function(){_rl();try{$('#lib').querySelectorAll('[data-k]').forEach(b=>{const t=LIB_TIPS[b.dataset.k];if(t)b.title=b.querySelector('.nm').textContent+'\n'+t;});}catch(e){}};}
 try{renderLib();}catch(e){}
+/* ============================================================
+   Remove a shared item from one shot only
+   Lights, grip and set pieces live on the setup, so every shot shares them.
+   Deleting one while a shot is open now takes it out of that shot only;
+   "Delete from all shots" removes it everywhere.
+   ============================================================ */
+const hideOf=sh=>(sh&&sh.hide)||[];
+const hiddenIn=(sh,id)=>hideOf(sh).includes(id);
+{const _ai=activeItems;activeItems=function(su,sh){su=su||setup();sh=sh||shot();const h=hideOf(sh);const a=_ai(su,sh);return h.length?a.filter(i=>!h.includes(i.id)):a;};}
+{const _fi=findItem;findItem=function(id){const f=_fi(id);if(f&&f.arr===setup().items&&hiddenIn(shot(),id))return null;return f;};}
+// an item counts as shared when it sits on a setup that has more than one shot
+const sharedInSetup=id=>{const su=setup();return su.shots.length>1&&su.items.some(i=>i.id===id);};
+function ownedLinesOf(id){return setup().items.filter(l=>l.t==='line'&&l.owner===id).map(l=>l.id);}
+function dropFromHides(su,ids){su.shots.forEach(sh=>{if(sh.hide)sh.hide=sh.hide.filter(x=>!ids.includes(x));});}
+function purgeAllHidden(su){// gone from every shot: delete it for real
+  const gone=su.items.filter(i=>su.shots.every(sh=>hiddenIn(sh,i.id))).map(i=>i.id);if(!gone.length)return;su.items=su.items.filter(i=>!gone.includes(i.id));dropFromHides(su,gone);}
+delSel=function(){const ids=selIds();if(!ids.length)return;snap();const su=setup(),sh=shot();let hid=0,del=0;
+  ids.forEach(id=>{if(sharedInSetup(id)){sh.hide=hideOf(sh).concat([id],ownedLinesOf(id)).filter((x,i,a)=>a.indexOf(x)===i);hid++;}else{const f=findItem(id);if(f){f.arr.splice(f.i,1);del++;}}});
+  purgeAllHidden(su);V.sel=null;V.multi=[];changed();
+  if(hid){const others=su.shots.filter(s=>s.id!==sh.id).map(s=>s.num).join(', ');toast(`Removed from shot ${sh.num} only. Still in ${others}.`);}};
+function delAllSel(){const ids=selIds();if(!ids.length)return;snap();const su=setup();const all=[];ids.forEach(id=>{all.push(id,...ownedLinesOf(id));const f=findItem(id);if(f)f.arr.splice(f.i,1);});
+  su.items=su.items.filter(i=>!all.includes(i.id));dropFromHides(su,all);V.sel=null;V.multi=[];changed();toast('Deleted from every shot in this setup');}
+function putBack(id){snap();const sh=shot();const lines=ownedLinesOf(id);sh.hide=hideOf(sh).filter(x=>x!==id&&!lines.includes(x));V.sel=id;V.multi=[];V.rightTab='item';changed();toast('Back in shot '+sh.num);}
+{const _ea=extraAct;extraAct=function(act){if(act==='delall'){delAllSel();return true;}return _ea(act);};}
+document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-putback]');if(!b)return;e.stopPropagation();putBack(b.dataset.putback);},true);
+
+/* the Delete buttons say what they will do */
+function delButtonsFor(ids){const sh=shot();const shared=ids.some(sharedInSetup);if(!shared)return null;
+  return `<button class="btn sm danger" data-act="del" title="Take it out of shot ${esc(sh.num)} only; the other shots keep it">Remove from ${esc(sh.num)}</button><button class="btn sm danger" data-act="delall" title="Delete it from every shot in this setup">Delete from all shots</button>`;}
+{const _rq=renderQuick;renderQuick=function(){_rq();try{const q=$('#quick');if(!q||!P)return;const b=q.querySelector('[data-act="del"]');if(!b||q.querySelector('[data-act="delall"]'))return;const h=delButtonsFor(selIds());if(h)b.outerHTML=h;}catch(e){}};}
+{const _pi=panelItem;panelItem=function(){let h=_pi();try{const it=selItem();if(it){const r=delButtonsFor([it.id]);if(r)h=h.replace('<button class="btn sm danger" data-act="del">Delete</button>',r);}}catch(e){}return h;};}
+
+/* Shot tab: what has been taken out of this shot, with a way to put it back */
+{const _ps=panelShot;panelShot=function(){let h=_ps();try{const su=setup(),sh=shot();const gone=su.items.filter(i=>hiddenIn(sh,i.id)&&!(i.t==='line'&&i.owner&&hiddenIn(sh,i.owner)));if(!gone.length)return h;
+  const nm=i=>i.t==='line'?((LINES[i.kind]||{}).name||'Line'):(i.label?i.label+' · ':'')+((LIB[i.t]||{}).name||i.t);
+  h+=`<div class="grp"><h4>Removed from this shot (${gone.length})</h4><div class="pSub" style="margin-bottom:6px">Still in the setup's other shots.</div>${gone.map(i=>`<div class="kv"><span>${esc(nm(i))}</span><button class="btn sm" data-putback="${i.id}">Put back</button></div>`).join('')}</div>`;}catch(e){}return h;};}
 const BRANDFF=(()=>{let o='';for(const sh of document.styleSheets){try{for(const r of sh.cssRules)if(r.type===5&&/EB Garamond|Lato/.test(r.cssText))o+=r.cssText;}catch(e){}}return o;})();
 /* ============================================================
    Export
