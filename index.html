@@ -1065,7 +1065,7 @@ function renderCanvas(){
   cv.setAttribute('viewBox',`${V.vx} ${V.vy} ${w} ${h}`);
   const su=setup(),sh=shot();const items=activeItems(su,sh);const nums=lightNumbers(items);const ids=selIds();
   let out=`<rect x="${V.vx}" y="${V.vy}" width="${w}" height="${h}" fill="${C.bg}" data-bg="1"/>`+gridSVG(V.vx,V.vy,V.vx+w,V.vy+h,C,px);
-  if(V.ghost){su.shots.forEach(o=>{if(o.id===sh.id)return;const L1=renderItems(o.items.filter(i=>!isBlocking(i)),{C,px,nums:{},ghost:true,beams:false,labels:'min',ghostLabel:o.num,tag:'x'+o.id});out+=`<g pointer-events="none">${assemble(L1)}</g>`;});}
+  if(V.ghost){su.shots.forEach(o=>{if(o.id===sh.id)return;const L1=renderItems(o.items.filter(i=>!isBlocking(i)&&!i.fork),{C,px,nums:{},ghost:true,beams:false,labels:'min',ghostLabel:o.num,tag:'x'+o.id});out+=`<g pointer-events="none">${assemble(L1)}</g>`;});}
   const L1=renderItems(items,{C,px,selSet:new Set(ids),nums,beams:V.beams,labels:V.labels,dims:V.dims,dimSel:true});
   out+=assemble(L1);
   // handles (single selection only)
@@ -3701,34 +3701,61 @@ try{renderLib();}catch(e){}
    ============================================================ */
 const hideOf=sh=>(sh&&sh.hide)||[];
 const hiddenIn=(sh,id)=>hideOf(sh).includes(id);
-{const _ai=activeItems;activeItems=function(su,sh){su=su||setup();sh=sh||shot();const h=hideOf(sh);const a=_ai(su,sh);return h.length?a.filter(i=>!h.includes(i.id)):a;};}
-{const _fi=findItem;findItem=function(id){const f=_fi(id);if(f&&f.arr===setup().items&&hiddenIn(shot(),id))return null;return f;};}
+activeItems=function(su,sh){su=su||setup();sh=sh||shot();const h=hideOf(sh);return (h.length?su.items.filter(i=>!h.includes(i.id)):su.items).concat(sh.items);};
+findItem=function(id){const su=setup(),sh=shot();let i=sh.items.findIndex(x=>x.id===id);if(i>=0)return {it:sh.items[i],arr:sh.items,i};if(hiddenIn(sh,id))return null;i=su.items.findIndex(x=>x.id===id);if(i>=0)return {it:su.items[i],arr:su.items,i};return null;};
 // an item counts as shared when it sits on a setup that has more than one shot
 const sharedInSetup=id=>{const su=setup();return su.shots.length>1&&su.items.some(i=>i.id===id);};
 function ownedLinesOf(id){return setup().items.filter(l=>l.t==='line'&&l.owner===id).map(l=>l.id);}
 function dropFromHides(su,ids){su.shots.forEach(sh=>{if(sh.hide)sh.hide=sh.hide.filter(x=>!ids.includes(x));});}
 function purgeAllHidden(su){// gone from every shot: delete it for real
   const gone=su.items.filter(i=>su.shots.every(sh=>hiddenIn(sh,i.id))).map(i=>i.id);if(!gone.length)return;su.items=su.items.filter(i=>!gone.includes(i.id));dropFromHides(su,gone);}
-delSel=function(){const ids=selIds();if(!ids.length)return;snap();const su=setup(),sh=shot();let hid=0,del=0;
-  ids.forEach(id=>{if(sharedInSetup(id)){sh.hide=hideOf(sh).concat([id],ownedLinesOf(id)).filter((x,i,a)=>a.indexOf(x)===i);hid++;}else{const f=findItem(id);if(f){f.arr.splice(f.i,1);del++;}}});
+delSel=function(){const ids=selIds();if(!ids.length)return;snap();const su=setup(),sh=shot();let one=0;
+  ids.forEach(id=>{const f=findItem(id);if(f)f.arr.splice(f.i,1);if(sharedInSetup(id)){sh.hide=hideOf(sh).concat([id],ownedLinesOf(id)).filter((x,i,a)=>a.indexOf(x)===i);sh.items=sh.items.filter(l=>!(l.t==='line'&&l.owner===id&&l.fork));one++;}});
   purgeAllHidden(su);V.sel=null;V.multi=[];changed();
-  if(hid){const others=su.shots.filter(s=>s.id!==sh.id).map(s=>s.num).join(', ');toast(`Removed from shot ${sh.num} only. Still in ${others}.`);}};
+  if(one){const others=su.shots.filter(s=>s.id!==sh.id).map(s=>s.num).join(', ');toast(`Deleted from shot ${sh.num} only. Still in ${others}.`);}};
 function delAllSel(){const ids=selIds();if(!ids.length)return;snap();const su=setup();const all=[];ids.forEach(id=>{all.push(id,...ownedLinesOf(id));const f=findItem(id);if(f)f.arr.splice(f.i,1);});
-  su.items=su.items.filter(i=>!all.includes(i.id));dropFromHides(su,all);V.sel=null;V.multi=[];changed();toast('Deleted from every shot in this setup');}
+  su.items=su.items.filter(i=>!all.includes(i.id));su.shots.forEach(sh=>{sh.items=sh.items.filter(i=>!(i.fork&&all.includes(i.id)));});dropFromHides(su,all);V.sel=null;V.multi=[];changed();toast('Deleted from every shot in this setup');}
 function putBack(id){snap();const sh=shot();const lines=ownedLinesOf(id);sh.hide=hideOf(sh).filter(x=>x!==id&&!lines.includes(x));V.sel=id;V.multi=[];V.rightTab='item';changed();toast('Back in shot '+sh.num);}
 {const _ea=extraAct;extraAct=function(act){if(act==='delall'){delAllSel();return true;}return _ea(act);};}
 document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-putback]');if(!b)return;e.stopPropagation();putBack(b.dataset.putback);},true);
 
 /* the Delete buttons say what they will do */
 function delButtonsFor(ids){const sh=shot();const shared=ids.some(sharedInSetup);if(!shared)return null;
-  return `<button class="btn sm danger" data-act="del" title="Take it out of shot ${esc(sh.num)} only; the other shots keep it">Remove from ${esc(sh.num)}</button><button class="btn sm danger" data-act="delall" title="Delete it from every shot in this setup">Delete from all shots</button>`;}
+  return `<button class="btn sm danger" data-act="del" title="Take it out of shot ${esc(sh.num)} only; the other shots keep it">Delete</button><button class="btn sm danger" data-act="delall" title="Delete it from every shot in this setup">Delete from all shots</button>`;}
 {const _rq=renderQuick;renderQuick=function(){_rq();try{const q=$('#quick');if(!q||!P)return;const b=q.querySelector('[data-act="del"]');if(!b||q.querySelector('[data-act="delall"]'))return;const h=delButtonsFor(selIds());if(h)b.outerHTML=h;}catch(e){}};}
 {const _pi=panelItem;panelItem=function(){let h=_pi();try{const it=selItem();if(it){const r=delButtonsFor([it.id]);if(r)h=h.replace('<button class="btn sm danger" data-act="del">Delete</button>',r);}}catch(e){}return h;};}
 
 /* Shot tab: what has been taken out of this shot, with a way to put it back */
-{const _ps=panelShot;panelShot=function(){let h=_ps();try{const su=setup(),sh=shot();const gone=su.items.filter(i=>hiddenIn(sh,i.id)&&!(i.t==='line'&&i.owner&&hiddenIn(sh,i.owner)));if(!gone.length)return h;
+{const _ps=panelShot;panelShot=function(){let h=_ps();try{const su=setup(),sh=shot();const gone=su.items.filter(i=>hiddenIn(sh,i.id)&&!sh.items.some(x=>x.id===i.id)&&!(i.t==='line'&&i.owner&&hiddenIn(sh,i.owner)));if(!gone.length)return h;
   const nm=i=>i.t==='line'?((LINES[i.kind]||{}).name||'Line'):(i.label?i.label+' · ':'')+((LIB[i.t]||{}).name||i.t);
-  h+=`<div class="grp"><h4>Removed from this shot (${gone.length})</h4><div class="pSub" style="margin-bottom:6px">Still in the setup's other shots.</div>${gone.map(i=>`<div class="kv"><span>${esc(nm(i))}</span><button class="btn sm" data-putback="${i.id}">Put back</button></div>`).join('')}</div>`;}catch(e){}return h;};}
+  h+=`<div class="grp"><h4>Deleted from this shot (${gone.length})</h4><div class="pSub" style="margin-bottom:6px">Still in the setup's other shots.</div>${gone.map(i=>`<div class="kv"><span>${esc(nm(i))}</span><button class="btn sm" data-putback="${i.id}">Put back</button></div>`).join('')}</div>`;}catch(e){}return h;};}
+
+/* ---- moving or changing a shared item changes it in this shot only ----
+   The first change made while a shot is open gives that shot its own copy
+   (same id, so selection and dragging carry on); the other shots keep theirs. */
+const FORK_SKIP=it=>it.t==='north'||(it.t==='line'&&!['actor','cammove'].includes(it.kind))||!!(LIB[it.t]&&LIB[it.t].wallSnap);
+function forkIds(ids){const su=setup(),sh=shot();if(su.shots.length<2)return;const want=new Set();
+  ids.forEach(id=>{const it=su.items.find(i=>i.id===id);if(!it||hiddenIn(sh,id)||FORK_SKIP(it))return;want.add(id);ownedLinesOf(id).forEach(l=>want.add(l));});
+  if(!want.size)return;want.forEach(id=>{if(hiddenIn(sh,id))return;const it=su.items.find(i=>i.id===id);if(!it)return;const c=clone(it);c.fork=1;sh.items.push(c);});
+  sh.hide=hideOf(sh).concat([...want]).filter((x,i,a)=>a.indexOf(x)===i);}
+{const _snap=snap;snap=function(){_snap();try{if(P&&!V.placing&&!snap._off)forkIds(selIds());}catch(e){}};}
+{const _da=delAllSel;delAllSel=function(){snap._off=1;try{_da();}finally{snap._off=0;}};}
+{const _pb=putBack;putBack=function(id){snap._off=1;try{_pb(id);}finally{snap._off=0;}};}
+// the item panel says when this shot has its own version, with a way to share it again
+function shareEverywhere(){const it=selItem();if(!it||!it.fork)return;snap._off=1;snap();snap._off=0;const su=setup();const ids=[it.id,...shot().items.filter(l=>l.t==='line'&&l.owner===it.id&&l.fork).map(l=>l.id)];
+  ids.forEach(id=>{const mine=shot().items.find(i=>i.id===id);const k=su.items.findIndex(i=>i.id===id);if(mine&&k>=0){const c=clone(mine);delete c.fork;su.items[k]=c;}});
+  su.shots.forEach(sh=>{sh.items=sh.items.filter(i=>!(i.fork&&ids.includes(i.id)));if(sh.hide)sh.hide=sh.hide.filter(x=>!ids.includes(x));});changed();toast('Every shot in this setup now uses this version');}
+{const _ea2=extraAct;extraAct=function(act){if(act==='shareall'){shareEverywhere();return true;}return _ea2(act);};}
+{const _pi2=panelItem;panelItem=function(){let h=_pi2();try{const it=selItem();if(it&&it.fork&&setup().items.some(i=>i.id===it.id))h=h.replace(/(<div style="display:flex;gap:6px;margin-top:12px;flex-wrap:wrap">)/,`<div class="note" style="margin:10px 0 0">Changed in shot ${esc(shot().num)} only. The other shots keep their own version. <button class="btn sm" data-act="shareall" style="margin-top:6px">Use this version in every shot</button></div>$1`);}catch(e){}return h;};}
+
+/* Delete and Backspace work even right after using a menu or checkbox */
+document.addEventListener('keydown',e=>{if(e.key!=='Delete'&&e.key!=='Backspace')return;const a=document.activeElement;if(!a)return;
+  const textish=a.tagName==='TEXTAREA'||a.isContentEditable||(a.tagName==='INPUT'&&!/^(checkbox|radio|range|button|color)$/.test(a.type));if(textish)return;
+  if(a.tagName==='SELECT'||a.tagName==='INPUT'){if($('#modal').classList.contains('open'))return;if(!selIds().length)return;e.preventDefault();e.stopPropagation();a.blur();delSel();}},true);
+// a shot's own copy that ends up the same as the shared one goes back to sharing
+function tidyForks(){try{const su=setup();su.shots.forEach(sh=>{if(!sh.items.some(i=>i.fork))return;sh.items=sh.items.filter(c=>{if(!c.fork)return true;const o=su.items.find(i=>i.id===c.id);if(!o)return true;const cc=Object.assign({},c);delete cc.fork;
+    if(JSON.stringify(cc)===JSON.stringify(o)){if(sh.hide)sh.hide=sh.hide.filter(x=>x!==c.id);return false;}return true;});});}catch(e){}}
+{const _ch=changed;changed=function(a,b){if(!drag)tidyForks();return _ch(a,b);};}
 const BRANDFF=(()=>{let o='';for(const sh of document.styleSheets){try{for(const r of sh.cssRules)if(r.type===5&&/EB Garamond|Lato/.test(r.cssText))o+=r.cssText;}catch(e){}}return o;})();
 /* ============================================================
    Export
@@ -3758,7 +3785,7 @@ function buildSheet0(sc,su,sh,X){
   const ox=DX+(DW-(b.x1-b.x0)*s)/2,oy=DY+(DH-(b.y1-b.y0)*s)/2;
   const vx0=b.x0-(ox-DX)/s,vy0=b.y0-(oy-DY)/s,vx1=vx0+DW/s,vy1=vy0+DH/s;
   let g=`<rect x="${vx0}" y="${vy0}" width="${vx1-vx0}" height="${vy1-vy0}" fill="${C.bg}"/>`+(X.grid?gridSVG(vx0,vy0,vx1,vy1,C,px):'');
-  if(X.ghost&&!sh._setup)su.shots.forEach(o=>{if(o.id===sh.id)return;g+=assemble(renderItems(o.items.filter(i=>!isBlocking(i)),{C,px,nums:{},ghost:true,beams:false,labels:'min',ghostLabel:o.num,tag:'s'+o.id}));});
+  if(X.ghost&&!sh._setup)su.shots.forEach(o=>{if(o.id===sh.id)return;g+=assemble(renderItems(o.items.filter(i=>!isBlocking(i)&&!i.fork),{C,px,nums:{},ghost:true,beams:false,labels:'min',ghostLabel:o.num,tag:'s'+o.id}));});
   g+=assemble(renderItems(items,{C,px,nums,beams:X.beams,labels:X.labels==='min'?'min':'full',labAuto:X.labels!=='full'&&X.labels!=='min',dims:X.dims,tag:'sheet'}));
   const pw=powerFor(items);const S=P.settings;const cont=S.volts*S.breaker*.8;
   const F="Lato,Helvetica,Arial,sans-serif",M="'Courier New',Courier,monospace",G="'EB Garamond',Garamond,Georgia,serif";
