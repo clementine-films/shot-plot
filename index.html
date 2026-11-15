@@ -776,7 +776,7 @@ function renderItems(items,o){
       if(!o.ghost){const n=o.nums[it.id];const off=(s*.9*SZ+.55);const ang=((it.r||0)+180)*D2R;const bx=it.x+Math.cos(ang)*off,by=it.y+Math.sin(ang)*off;const br=8*px;
         L1.labels+=`<g pointer-events="none">${typeof isOverhead==='function'&&isOverhead(it)?`<text x="${bx}" y="${by-br-2*px}" text-anchor="middle" font-family="${C.font}" font-weight="700" font-size="${fs*.85}" fill="${C.text}" paint-order="stroke" stroke="${C.bg}" stroke-width="${3*px}">↑${esc(fmtFt(+it.height||0))}</text>`:''}<circle cx="${bx}" cy="${by}" r="${br}" fill="${on?C.badge:C.sub}"/><text x="${bx}" y="${by}" dy=".35em" text-anchor="middle" font-family="${C.mono}" font-weight="600" font-size="${fs}" fill="${C.badgeText}">${n}</text>`;
         if(o.labels==='full'){const t1=(it.label?it.label+' · ':'')+L.name.replace(/ \(.*\)/,'');const t2=[it.role,it.watts?fmtW(+it.watts):''].filter(Boolean).join(' · ');
-          L1.labels+=`<text data-lid="${it.id}" data-p="5" data-ax="${bx}" data-ay="${by}" data-ar="${br}" x="${bx+br+3*px}" y="${by-1*px}" font-family="${C.font}" font-size="${fs}" font-weight="600" fill="${C.text}" paint-order="stroke" stroke="${C.bg}" stroke-width="${3*px}">${esc(t1)}</text><text data-lid="${it.id}" x="${bx+br+3*px}" y="${by+fs}" font-family="${C.font}" font-size="${fs*.9}" fill="${C.sub}" paint-order="stroke" stroke="${C.bg}" stroke-width="${3*px}">${esc(t2)}</text>`;}
+          L1.labels+=`<text data-lid="${it.id}" data-p="5" data-ax="${bx}" data-ay="${by}" data-ar="${br}" x="${bx+br+3*px}" y="${by-1*px}" font-family="${C.font}" font-size="${fs}" font-weight="600" fill="${C.text}" paint-order="stroke" stroke="${C.bg}" stroke-width="${3*px}">${esc(t1)}</text><text data-lid="${it.id}" x="${bx+br+3*px}" y="${by+fs}" font-family="${C.font}" font-size="${fs*.9}" fill="${C.sub}" paint-order="stroke" stroke="${C.bg}" stroke-width="${3*px}">${esc(t2)}</text>${(()=>{const t3=typeof thruNote==='function'?thruNote(it,items):'';return t3?`<text data-lid="${it.id}" x="${bx+br+3*px}" y="${by+fs*2}" font-family="${C.font}" font-size="${fs*.85}" font-weight="600" fill="${C.text}" paint-order="stroke" stroke="${C.bg}" stroke-width="${3*px}">${esc(t3)}</text>`:'';})()}`;}
         L1.labels+='</g>';}
       return;
     }
@@ -865,7 +865,7 @@ function gripGlyph(it,L,C,px){
     case 'rolling':return hitR+standLegs(1,C,px,true);
     case 'menace':return `<rect x="-1.4" y="-1" width="2.4" height="2" fill="transparent"/><rect x="-1.2" y="-.8" width="1.6" height="1.6" rx=".1" fill="none" stroke="${C.grip}" stroke-width="${1.4*px}"/><path d="M-1 0 L7 0" stroke="${C.grip}" stroke-width="${2*px}"/><rect x="-1.6" y="-.3" width=".5" height=".6" fill="${C.grip}"/>`;
     case 'frame':{const w=FRAME_SIZES[it.size]||6;const ff=fabricFill(it.fabric||'',C);
-      if(it.orient==='Overhead')return `<rect x="${-w/2}" y="${-w/2}" width="${w}" height="${w}" fill="${ff.fill==='none'?'transparent':ff.fill}" fill-opacity="${ff.fill==='none'?0:ff.op*.5}" stroke="${C.grip}" stroke-width="${1.6*px}" stroke-dasharray="${ff.dash?6*px+' '+3*px:''}"/><path d="M${-w/2} ${-w/2} L${w/2} ${w/2} M${w/2} ${-w/2} L${-w/2} ${w/2}" stroke="${C.grip}" stroke-width="${px}" opacity=".5"/>`;
+      if(it.orient==='Overhead'){const DD=frameDims(it),ha=DD[0]/2,hb=DD[1]/2;return `<rect x="${-ha}" y="${-hb}" width="${2*ha}" height="${2*hb}" fill="${ff.fill==='none'?'transparent':ff.fill}" fill-opacity="${ff.fill==='none'?0:ff.op*.5}" stroke="${C.grip}" stroke-width="${1.6*px}" stroke-dasharray="${ff.dash?6*px+' '+3*px:''}"/><path d="M${-ha} ${-hb} L${ha} ${hb} M${ha} ${-hb} L${-ha} ${hb}" stroke="${C.grip}" stroke-width="${px}" opacity=".5"/>`;}
       return `<rect x="-.5" y="${-w/2-.2}" width="1" height="${w+.4}" fill="transparent"/><rect x="-.09" y="${-w/2}" width=".18" height="${w}" fill="${ff.fill==='none'?C.bg:ff.fill}" fill-opacity="${ff.op}" stroke="${C.grip}" stroke-width="${1.4*px}" ${ff.dash?`stroke-dasharray="${3*px} ${2*px}"`:''}/>`+`<circle cx="-.4" cy="${-w/2+.3}" r=".12" fill="${C.grip}"/><circle cx="-.4" cy="${w/2-.3}" r=".12" fill="${C.grip}"/>`;}
     case 'flag':{const w=FLAG_SIZES[it.size]||2;const t=it.ftype||'';const ff=/net/i.test(t)?{fill:'none',dash:1}:/silk/i.test(t)?{fill:'#f1f4f8',dash:0}:{fill:C.solid,dash:0};
       return `<rect x="-1" y="${-w/2-.2}" width="1.5" height="${w+.4}" fill="transparent"/><rect x="-.07" y="${-w/2}" width=".14" height="${w}" fill="${ff.fill==='none'?C.bg:ff.fill}" stroke="${C.grip}" stroke-width="${1.4*px}" ${ff.dash?`stroke-dasharray="${3*px} ${2*px}"`:''}/><path d="M0 0 L-.8 0" stroke="${C.grip}" stroke-width="${1.2*px}"/>${it.standed!==false?`<g transform="translate(-.8 0)">${standLegs(.5,C,px)}</g>`:''}`;}
@@ -1424,7 +1424,7 @@ function panelItem(){
       <div class="kv"><span>Result</span><span><i class="swatch" style="background:${hex(lightRGB(it))}"></i> ${GELS[it.gel]==='c'?'custom':fk+'K'}${typeof GELS[it.gel]==='number'&&GELS[it.gel]?` (${GELS[it.gel]>0?'+':''}${GELS[it.gel]} mired)`:''}</span></div>
       <div class="f2">${fld('Green / magenta',sel('green',GREENS,it.green||'None'))}${fld('Party colour',inp('party',it.party||'','text','placeholder="e.g. R27"'))}</div></div>
     <div class="grp"><h4>Quality</h4>
-      ${fld('Diffusion, light to heavy',sel('diff',DIFFS,it.diff||'None'))}
+      ${fld('Diffusion on the light, light to heavy',diffSelLight(it))}${lightDiffNote(it)}
       ${it.diff&&it.diff!=='None'?fld('Where it sits',sel('diffAt',DIFFAT,it.diffAt||DIFFAT[0])):''}
       ${fld('Attachment or spill control',sel('modifier',MODS,it.modifier))}
       ${it.modifier==='Egg crate / grid'?fld('Grid angle',sel('gridDeg',['20°','30°','40°','50°','60°'],it.gridDeg||'40°')):''}
@@ -1458,7 +1458,7 @@ function panelItem(){
   else if(L.kind==='set')h+=fld('Label',inp('label',it.label,'text','placeholder="optional"'))+`<div class="f2">${fld('Width (ft)',inp('w',it.w,'number','min=".25" step=".25"'))}${fld('Depth (ft)',inp('h',it.h,'number','min=".25" step=".25"'))}</div>`+(typeof groundFields==='function'?groundFields(it,fld,sel,inp):'');
   else if(L.kind==='grip'){
     h+=fld('Label',inp('label',it.label,'text','placeholder="optional"'));
-    if(it.t==='frame')h+=fld('Size',sel('size',Object.keys(FRAME_SIZES),it.size))+fld('Fabric',sel('fabric',FABRICS,it.fabric))+fld('Orientation',sel('orient',['Vertical','Overhead'],it.orient));
+    if(it.t==='frame')h+=fld('Size',sel('size',Object.keys(FRAME_SIZES),it.size))+fld('Fabric',fabricSel(it))+(frameDual(it)?fld('Use it to',sel('use',['Shoot through','Bounce'],frameUse(it))):'')+fld('Orientation',sel('orient',['Vertical','Overhead'],it.orient))+diffPanel(it);
     if(it.t==='flag'||it.t==='negfill')h+=fld('Size',sel('size',Object.keys(FLAG_SIZES),it.size))+fld('Type',sel('ftype',FLAGTYPES,it.ftype));
     if(it.t==='bounce')h+=fld('Size',sel('size',Object.keys(BOUNCE_SIZES),it.size))+fld('Surface',sel('fabric',['Flexfill 38″ (5-in-1)','Beadboard','Foamcore (white)','Foamcore (black)','Ultrabounce','Bleached muslin','Unbleached muslin','Silver reflector','Gold reflector'],it.fabric))+fld('Side facing the light',sel('side',BSIDES,it.side||'White'));
     if(it.t==='vflat')h+=fld('Side facing',sel('side',['White','Black'],it.side));
@@ -1607,7 +1607,7 @@ function applyField(el,live){
   if((k==='label'||k==='color')&&it.t==='actor')activeItems().forEach(l=>{if(l.t==='line'&&l.owner===it.id)l[k]=v;});
   if(k==='intensity'){const sp=el.parentElement.querySelector('span');if(sp)sp.textContent=v+'%';it.intensity=+v;}
   if(k==='lens'&&el.type==='range'){const sp=el.parentElement.querySelector('span');if(sp)sp.textContent=v+'mm';it.lens=+v;}
-  renderCanvas();if(!live&&['gel','sensor','lens','kelvin','circuit','modifier','style','power','diff','path','withLight','lead'].includes(k))renderPanel();scheduleSave();
+  renderCanvas();if(!live&&['gel','sensor','lens','kelvin','circuit','modifier','style','power','diff','path','withLight','lead','fabric','use','orient','size','r','height','ftype'].includes(k))renderPanel();scheduleSave();
 }
 function panelInput(e){if(e.target.dataset.k&&(e.target.type==='range'||e.target.type==='color'||e.target.tagName==='TEXTAREA'||e.target.type==='text'||e.target.type==='number'))applyField(e.target,true);}
 function panelChange(e){const t=e.target;fromQuick=!!t.closest('#quick');try{
@@ -2363,7 +2363,7 @@ function gripSurfaces(it){const out=[];const a=(it.r||0)*D2R,ux=-Math.sin(a),uy=
   const sideB=s=>/Black/.test(s||'')?null:/shiny/.test(s||'')?{mix:.85,spread:50,eff:1.05}:/Silver/.test(s||'')?{mix:.6,spread:80,eff:.95}:/Gold/.test(s||'')?{mix:.6,spread:80,eff:.9,gold:1}:/Bead/.test(s||'')?{mix:.35,spread:110,eff:.8}:{mix:.25,spread:130,eff:.75};
   if(it.t==='flag'||it.t==='negfill'){const w=FLAG_SIZES[it.size]||2;const t=it.ftype||'';seg(w,/Single/.test(t)?{T:.7}:/Double/.test(t)?{T:.5}:/Silk/.test(t)?{T:.6,through:1}:{T:0});}
   else if(it.t==='bounce'){const w=BOUNCE_SIZES[it.size]||4;const fab=it.fabric||'';const sd=it.side&&it.side!=='White'?it.side:/Silver/.test(fab)?'Silver, matte':/Gold/.test(fab)?'Gold':/black/i.test(fab)?'Black':/Bead/.test(fab)?'Bead':'White';seg(w,{T:0,bounce:sideB(sd)});}
-  else if(it.t==='frame'&&it.orient!=='Overhead'){const w=FRAME_SIZES[it.size]||6;const f=it.fabric||'';if(/Solid/.test(f))seg(w,{T:0});else if(/net/i.test(f))seg(w,{T:/Double/.test(f)?.5:.7});else if(/Ultrabounce/.test(f))seg(w,{T:0,bounce:sideB('White')});else if(/lam/i.test(f))seg(w,{T:0,bounce:sideB('Silver, matte')});else seg(w,{T:Math.pow(2,-(DIFF_STOPS[f]||DIFF_STOPS[f.replace(/^Magic cloth$/,'Magic Cloth')]||1.2)/2),through:1});}
+  else if(it.t==='frame'&&it.orient!=='Overhead'){const w=FRAME_SIZES[it.size]||6;const f=it.fabric||'';if(/Solid/.test(f))seg(w,{T:0});else if(/net/i.test(f))seg(w,{T:/Double/.test(f)?.5:.7});else if(frameBounces(it))seg(w,{T:0,bounce:/lam/i.test(f)?sideB('Silver, matte'):/muslin/i.test(f)?{mix:.12,spread:150,eff:.65,warm:/Unbleached/.test(f)}:sideB('White')});else{const st=fabStops(f);seg(w,{T:Math.pow(2,-st/2),through:1,stops:st,spread:Math.min(90,30+22*st),blur:.4+.5*st,fab:f});}}
   else if(it.t==='vflat'){const k=35*D2R,l=4;[[1],[-1]].forEach(([sg])=>{const ex=-Math.cos(k)*l,ey=sg*Math.sin(k)*l;const wx=it.x+ex*Math.cos(a)-ey*Math.sin(a),wy=it.y+ex*Math.sin(a)+ey*Math.cos(a);out.push({a:{x:it.x,y:it.y},b:{x:wx,y:wy},c:{x:(it.x+wx)/2,y:(it.y+wy)/2},n:{x:-nx,y:-ny},w:l,T:0,bounce:it.side==='Black'?null:sideB('White'),oneSide:1});});}
   else if(it.t==='blackout'){const hw=(+it.w||4)/2,hh=(+it.h||4)/2;const P=(x,y)=>({x:it.x+x*Math.cos(a)-y*Math.sin(a),y:it.y+x*Math.sin(a)+y*Math.cos(a)});const q=[P(-hw,-hh),P(hw,-hh),P(hw,hh),P(-hw,hh)];for(let i=0;i<4;i++)out.push({a:q[i],b:q[(i+1)%4],c:{x:it.x,y:it.y},n:{x:0,y:0},w:4,T:0});}
   return out;}
@@ -2377,8 +2377,8 @@ function beamFx(it,gid,items,o,Lb,b,col,ga){const res={attr:'',defs:'',extra:''}
           const len=Math.min(18,Math.max(2.5,rem*s.bounce.eff+s.w*.8));const sp=s.bounce.spread/2*D2R;const ang=Math.atan2(oy,ox);const bc=s.bounce.gold?'#ffc36b':col;const id='b'+gid+polys.length;const al=Math.min(.85,ga*1.7*inc*s.bounce.eff);
           const p1=[s.c.x+len*Math.cos(ang-sp),s.c.y+len*Math.sin(ang-sp)],p2=[s.c.x+len*Math.cos(ang+sp),s.c.y+len*Math.sin(ang+sp)];
           res.extra+=`<g pointer-events="none"><defs><radialGradient id="${id}" gradientUnits="userSpaceOnUse" cx="${s.c.x}" cy="${s.c.y}" r="${len}"><stop offset="0" stop-color="${bc}" stop-opacity="${al}"/><stop offset=".5" stop-color="${bc}" stop-opacity="${al*.4}"/><stop offset="1" stop-color="${bc}" stop-opacity="0"/></radialGradient><filter id="f${id}" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="${(.25+.5*(1-s.bounce.mix)).toFixed(2)}"/></filter></defs><path d="${fanPath(s.a,s.b,s.c,ang,sp,len)}" fill="url(#${id})" filter="url(#f${id})"/><path d="M${s.c.x} ${s.c.y} l${ox*1.4} ${oy*1.4}" stroke="${bc}" stroke-width="${1.4*px}" stroke-dasharray="${4*px} ${3*px}" opacity=".8"/></g>`;}
-        else if(s.through){const len=Math.min(16,Math.max(2.5,rem*.9));const sp=55*D2R;const ang=Math.atan2(dy,dx);const id='t'+gid+polys.length;const al=Math.min(.7,ga*1.2*s.T);const p1=[s.c.x+len*Math.cos(ang-sp),s.c.y+len*Math.sin(ang-sp)],p2=[s.c.x+len*Math.cos(ang+sp),s.c.y+len*Math.sin(ang+sp)];
-          res.extra+=`<g pointer-events="none"><defs><radialGradient id="${id}" gradientUnits="userSpaceOnUse" cx="${s.c.x}" cy="${s.c.y}" r="${len}"><stop offset="0" stop-color="${col}" stop-opacity="${al}"/><stop offset=".5" stop-color="${col}" stop-opacity="${al*.4}"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></radialGradient><filter id="f${id}" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation=".6"/></filter></defs><path d="${fanPath(s.a,s.b,s.c,ang,sp,len)}" fill="url(#${id})" filter="url(#f${id})"/></g>`;}});});
+        else if(s.through){const len=Math.min(16,Math.max(2.5,rem*.9));const sp=(s.spread||55)*D2R;const ang=Math.atan2(dy,dx);const id='t'+gid+polys.length;const al=Math.min(.7,ga*1.2*s.T);const p1=[s.c.x+len*Math.cos(ang-sp),s.c.y+len*Math.sin(ang-sp)],p2=[s.c.x+len*Math.cos(ang+sp),s.c.y+len*Math.sin(ang+sp)];
+          res.extra+=`<g pointer-events="none"><defs><radialGradient id="${id}" gradientUnits="userSpaceOnUse" cx="${s.c.x}" cy="${s.c.y}" r="${len}"><stop offset="0" stop-color="${col}" stop-opacity="${al}"/><stop offset=".5" stop-color="${col}" stop-opacity="${al*.4}"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></radialGradient><filter id="f${id}" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="${(s.blur||.6).toFixed(2)}"/></filter></defs><path d="${fanPath(s.a,s.b,s.c,ang,sp,len)}" fill="url(#${id})" filter="url(#f${id})"/></g>`;}});});
     if(polys.length){const R=Lb*1.3+2;res.defs+=`<mask id="m${gid}" maskUnits="userSpaceOnUse" x="${-R}" y="${-R}" width="${2*R}" height="${2*R}"><rect x="${-R}" y="${-R}" width="${2*R}" height="${2*R}" fill="#fff"/>${polys.join('')}</mask>`;
       if(soft>0){res.attr=` mask="url(#m${gid})"`;res.wrap=1;res.attr+=` data-soft="1"`;res.attr=` mask="url(#m${gid})" filter="url(#s${gid})"`;}else res.attr+=` mask="url(#m${gid})"`;}
   }catch(e){}return res;}
@@ -2656,7 +2656,7 @@ reorder(FRAME_SIZES,[['4×4',4],['6×6',6],['8×8',8],['12×12',12],['12×20',20
 {const _rq=renderQuick;renderQuick=function(){_rq();const q=$('#quick');if(!q||!q.innerHTML||fromQuick)return;const it=selItem();if(!it||selIds().length!==1)return;
   const opts=(k,list,v)=>`<select class="in" data-k="${k}" style="width:auto">${list.map(o=>`<option ${o===v?'selected':''}>${esc(o)}</option>`).join('')}</select>`;let h='';
   if(it.t==='flag'||it.t==='negfill')h=`<label class="qf">Size${opts('size',Object.keys(FLAG_SIZES),it.size)}</label><label class="qf">Type${opts('ftype',FLAGTYPES,it.ftype)}</label>`;
-  else if(it.t==='frame')h=`<label class="qf">Size${opts('size',Object.keys(FRAME_SIZES),it.size)}</label><label class="qf">Fabric${opts('fabric',FABRICS,it.fabric)}</label>`;
+  else if(it.t==='frame')h=`<label class="qf">Size${opts('size',Object.keys(FRAME_SIZES),it.size)}</label><label class="qf">Fabric${typeof fabricSel==='function'?fabricSel(it,'width:auto'):opts('fabric',FABRICS,it.fabric)}</label>`;
   else if(it.t==='bounce')h=`<label class="qf">Size${opts('size',Object.keys(BOUNCE_SIZES),it.size)}</label>`;
   if(!h)return;const b=q.querySelector('b');if(b)b.insertAdjacentHTML('afterend',h);};}
 // the generic flag and bounce entries duplicate the typed ones above
@@ -3495,6 +3495,204 @@ window.addEventListener('keydown',e=>{const tag=(e.target&&e.target.tagName)||''
 {const _gi=ghostItem;ghostItem=function(pos){const gi=_gi(pos);if(LIB[gi.t]&&LIB[gi.t].kitBuild)gi.r=V.kitRot||0;return gi;};}
 {const _rq=renderQuick;renderQuick=function(){_rq();const q=$('#quick');if(!q||!q.innerHTML||fromQuick)return;if(selIds().length<2||q.querySelector('[data-grot]'))return;const sep=q.querySelector('.qsep');if(sep)sep.insertAdjacentHTML('beforebegin',`<span class="qf" title="Turn the whole selection together (R / Shift+R = 15°)">Turn<button class="btn sm" data-grot="-90">↺ 90°</button><button class="btn sm" data-grot="90">↻ 90°</button></span>`);};}
 document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-grot]');if(b)rotateSel(+b.dataset.grot);});
+/* ============================================================
+   Diffusion: one shared list for lights and frames
+   ============================================================ */
+// st = stop loss, ap = approximate (manufacturer or typical figure), k = diff | bounce | cut
+const DIFFUSION=[
+ {n:'Hampshire Frost',st:.25,lbl:'under ¼ stop',k:'diff',fmt:'Gel roll, or sewn into a rag',wind:'Plastic: rattles and catches wind',use:'The lightest touch. It takes the hard edge off sun or a fresnel and the shadow stays crisp, so the light still reads as direct sun.',care:''},
+ {n:'Opal Frost',st:.5,lbl:'about ½ stop',k:'diff',fmt:'Gel roll (LEE 410), or a rag',wind:'Plastic: noisy, catches wind',use:'Light diffusion that keeps the direction and a little sparkle. A common first step on a hard source.',care:'Tears easily on a frame. Reinforce the edges and grommets with J-lar tape.'},
+ {n:'251 (1/4 white diffusion)',st:.5,ap:1,lbl:'about ½ stop',k:'diff',fmt:'Gel roll or sheet',wind:'Plastic: noisy in wind',use:'Quarter white gel. Gentle softening, mostly clipped right onto the light.',care:''},
+ {n:'China silk',st:.5,ap:1,lbl:'about ½ stop',k:'diff',fmt:'Rag (fabric)',wind:'Fabric: fairly quiet',use:'A very thin silk. Softens slightly and keeps a sheen of direction.',care:''},
+ {n:'Highlight',st:.67,lbl:'about ⅔ stop',k:'diff',fmt:'Rag (fabric)',wind:'Fabric: quiet in wind, good when sound is rolling outside',use:'A middle-weight fabric that softens clearly but still lets the light feel like it comes from somewhere.',care:''},
+ {n:'250 (1/2 white diffusion)',st:.75,ap:1,lbl:'about ¾ stop',k:'diff',fmt:'Gel roll or sheet',wind:'Plastic: noisy in wind',use:'Half white gel. Noticeably softer; the source starts to lose its hard shadow.',care:''},
+ {n:'1/4 silk',st:1,lbl:'about 1 stop',k:'diff',fmt:'Rag (fabric)',wind:'Fabric: quiet',use:'Even, gentle diffusion that keeps skin looking natural.',care:''},
+ {n:'216 (full white diffusion)',st:1.5,ap:1,lbl:'about 1½ stops',k:'diff',fmt:'Gel roll or sheet',wind:'Plastic: noisy in wind',use:'Full white gel. Turns a hard light into a soft one; shadows go soft-edged.',care:''},
+ {n:'1/2 silk',st:1.5,ap:1,lbl:'about 1½ stops',k:'diff',fmt:'Rag (fabric)',wind:'Fabric: quiet',use:'A medium silk: soft, even light with gentle shadow edges.',care:''},
+ {n:'Magic cloth',st:1.5,ap:1,lbl:'about 1½ stops',k:'diff',dual:1,fmt:'Rag (fabric)',wind:'Fabric: quiet',use:'Works both ways: shoot through it for soft diffusion, or bounce into it for a soft fill.',care:''},
+ {n:'1/4 grid cloth',st:1.67,lbl:'about 1⅔ stops',k:'diff',fmt:'Rag (fabric)',wind:'Fabric: quiet; holds up well in wind',use:'Soft and even with a little more control than silk. A workhorse on exteriors.',care:''},
+ {n:'Full silk',st:2,ap:1,lbl:'about 2 stops',k:'diff',alias:['Polysilk','Full silk / Polysilk'],fmt:'Rag (fabric)',wind:'Fabric: quiet',use:'Full silk (or polysilk). Very soft, broad light; takes a lot of the sun’s punch away.',care:''},
+ {n:'1/2 Soft Frost',st:2,lbl:'about 2 stops',k:'diff',fmt:'Gel roll, or a rag',wind:'Plastic: noisy in wind',use:'Heavy, creamy diffusion. Good for making hard midday sun soft on faces.',care:''},
+ {n:'1/2 grid cloth',st:2,ap:1,lbl:'about 2 stops',k:'diff',fmt:'Rag (fabric)',wind:'Fabric: quiet',use:'Heavier grid. Very soft, with the light fairly even across the frame.',care:''},
+ {n:'Full grid cloth',st:2.5,ap:1,lbl:'about 2½ stops',k:'diff',fmt:'Rag (fabric)',wind:'Fabric: quiet',use:'The heaviest grid. Almost no sense of direction left; large, wrapping light.',care:''},
+ {n:'Ultrabounce',st:2.5,ap:1,lbl:'—',k:'bounce',fmt:'Rag (fabric)',wind:'Fabric: catches wind like a sail',use:'Bright white bounce. Use it as fill or a big soft source bounced from a lamp.',care:''},
+ {n:'Bleached muslin',st:2.5,ap:1,lbl:'about 2½ stops if shot through',k:'bounce',dual:1,fmt:'Rag (fabric)',wind:'Fabric: heavy, catches wind',use:'A soft, natural bounce, usually about 12 ft off the subject for an exterior fill. You can also shoot through it.',care:''},
+ {n:'Unbleached muslin',st:3,ap:1,lbl:'about 3 stops if shot through',k:'bounce',dual:1,fmt:'Rag (fabric)',wind:'Fabric: heavy, catches wind',use:'Like bleached muslin but warmer, so the bounce comes back a little golden.',care:''},
+ {n:'Silver lamé',st:0,lbl:'—',k:'bounce',fmt:'Rag (fabric)',wind:'Fabric',use:'A punchy, specular bounce. Throws light a long way.',care:''},
+ {n:'Single net',st:.5,lbl:'about ½ stop',k:'cut',fmt:'Rag (net)',wind:'Net: wind passes through',use:'Cuts the light by about half a stop without changing how soft it is.',care:''},
+ {n:'Double net',st:1,lbl:'about 1 stop',k:'cut',fmt:'Rag (net)',wind:'Net: wind passes through',use:'Cuts the light by about a stop without changing how soft it is.',care:''},
+ {n:'Solid (duvetyne)',st:null,lbl:'blocks it',k:'cut',fmt:'Rag (black fabric)',wind:'Fabric: catches wind',use:'Blocks the light, or adds negative fill when placed beside the subject.',care:''}
+];
+const DIFF_BY={};DIFFUSION.forEach(d=>{DIFF_BY[d.n.toLowerCase()]=d;(d.alias||[]).forEach(a=>DIFF_BY[a.toLowerCase()]=d);});
+function diffInfo(n){return n?DIFF_BY[String(n).toLowerCase()]||null:null;}
+function fabStops(f){const d=diffInfo(f);if(d&&d.st!=null)return d.st;return DIFF_STOPS[f]!=null?DIFF_STOPS[f]:1.2;}
+function fmtStops(x){x=Math.max(0,+x||0);const w=Math.floor(x+1e-6),f=x-w;const F=[[0,''],[.25,'¼'],[1/3,'⅓'],[.5,'½'],[2/3,'⅔'],[.75,'¾'],[1,'']];let b=F[0];F.forEach(q=>{if(Math.abs(q[0]-f)<Math.abs(b[0]-f))b=q;});const W=w+(b[0]===1?1:0);return ((W?W:'')+b[1]||'0')+' stop'+(x>1.05?'s':'');}
+const shortFab=f=>String(f||'').replace(/ \((1\/[24]|full) white diffusion\)/,'').replace(/ \(duvetyne\)/,'');
+
+/* one list: frames (grouped) and lights share the same names and numbers */
+{FABRICS.splice(0,FABRICS.length,...DIFFUSION.map(d=>d.n));
+  DIFFUSION.forEach(d=>{if(d.st!=null&&d.k!=='cut')DIFF_STOPS[d.n]=d.st;});DIFF_STOPS['Magic Cloth']=DIFF_STOPS['Magic cloth'];
+  const seen=new Set(),all=[];[...DIFFS.slice(1),...DIFFUSION.filter(d=>(d.k==='diff'||/muslin/i.test(d.n))).map(d=>d.n)].forEach(n=>{const k=n.toLowerCase();if(!seen.has(k)){seen.add(k);all.push(n);}});
+  all.sort((a,b)=>fabStops(a)-fabStops(b));DIFFS.splice(1,DIFFS.length-1,...all);}
+
+/* frame sizes: add 4×8, keep the true shape for rectangular frames */
+const FRAME_DIMS={'4×8':[4,8],'12×20':[12,20],'20×30':[20,30]};
+{const ks=Object.entries(FRAME_SIZES);if(!('4×8' in FRAME_SIZES))reorder(FRAME_SIZES,[...ks.slice(0,1),['4×8',4],...ks.slice(1)]);}
+function frameDims(it){const D=FRAME_DIMS[it.size];if(D)return D;const w=FRAME_SIZES[it.size]||6;return [w,w];}
+const frameDual=it=>{const d=diffInfo(it.fabric);return !!(d&&d.dual);};
+function frameUse(it){const d=diffInfo(it.fabric);if(!d)return 'Shoot through';if(d.dual)return it.use||(d.k==='bounce'?'Bounce':'Shoot through');return d.k==='bounce'?'Bounce':'Shoot through';}
+function frameBounces(it){const d=diffInfo(it.fabric);if(/lam/i.test(it.fabric||'')||/Ultrabounce/.test(it.fabric||''))return true;return !!(d&&frameUse(it)==='Bounce'&&d.k!=='cut');}
+function gripStops(g){if(g.t==='frame'){const f=g.fabric||'';if(/Solid/.test(f))return null;if(/net/i.test(f))return /Double/.test(f)?1:.5;if(frameBounces(g))return null;return fabStops(f);}
+  if(g.t==='flag'||g.t==='negfill'){const t=g.ftype||'';return /Single/.test(t)?.5:/Double/.test(t)?1:/Silk/.test(t)?1:null;}return null;}
+const isSkyLight=it=>{const L=LIB[it.t];return !!(L&&L.shape==='sun');};
+
+/* menus */
+function fabricSel(it,style){const G=[['Diffusion (shoot through)','diff'],['Bounce','bounce'],['Cut (net or solid)','cut']];let cur=it.fabric;
+  let h=`<select class="in" data-k="fabric" ${style?`style="${style}"`:''}>`;if(cur&&!diffInfo(cur))h+=`<option selected>${esc(cur)}</option>`;
+  G.forEach(([lab,k])=>{h+=`<optgroup label="${lab}">`+DIFFUSION.filter(d=>d.k===k).map(d=>`<option value="${esc(d.n)}" ${diffInfo(cur)===d?'selected':''}>${esc(d.n)}${d.k==='bounce'||d.st==null?'':' · '+d.lbl.replace(/^about /,'~')}</option>`).join('')+'</optgroup>';});return h+'</select>';}
+function diffSelLight(it){const cur=it.diff||'None';return `<select class="in" data-k="diff">`+(DIFFS.includes(cur)?'':`<option selected>${esc(cur)}</option>`)+DIFFS.map(n=>{const d=diffInfo(n);const st=DIFF_STOPS[n];return `<option value="${esc(n)}" ${n===cur?'selected':''}>${esc(n)}${n==='None'?'':' · '+(d?d.lbl.replace(/^about /,'~').replace(/ if shot through/,''):'~'+fmtStops(st))}</option>`;}).join('')+'</select>';}
+
+/* ---------- which frames a light shoots through ---------- */
+function framesInBeam(it,items){const out=[];try{const L=LIB[it.t];if(!L||L.kind!=='light'||it.on===false)return out;items=items||activeItems();
+  const Lb=(+it.throw||10)*(0.35+0.65*effLevel(it));const b=effBeam(it);const half=b>=180?Math.PI:b/2*D2R;const a0=(it.r||0)*D2R,ca=Math.cos(a0),sa=Math.sin(a0);
+  const loc=p=>{const dx=p.x-it.x,dy=p.y-it.y;return {x:dx*ca+dy*sa,y:-dx*sa+dy*ca};};const inB=q=>Math.abs(Math.atan2(q.y,q.x))<=half+.05;const sky=isSkyLight(it);
+  items.forEach(g=>{if(g.id===it.id||g.t==='line')return;const GL=LIB[g.t];if(!GL||GL.kind!=='grip')return;
+    if(g.t==='frame'&&g.orient==='Overhead'){if(!sky)return;const st=gripStops(g);if(st==null)return;const M=loc(g),d=Math.hypot(M.x,M.y);if(d>Lb+frameDims(g)[1]/2||!inB(M))return;out.push({g,st,d});return;}
+    gripSurfaces(g).forEach(s=>{if(!(s.T>0&&s.T<1))return;const A=loc(s.a),B=loc(s.b),M=loc(s.c);const dM=Math.hypot(M.x,M.y);if(dM<.35||Math.min(Math.hypot(A.x,A.y),Math.hypot(B.x,B.y),dM)>Lb)return;if(!(inB(A)||inB(B)||inB(M)))return;
+      if(!out.some(o=>o.g.id===g.id))out.push({g,st:s.stops!=null?s.stops:-2*Math.log2(s.T),d:dM});});});}catch(e){}return out.sort((p,q)=>p.d-q.d);}
+const gripShort=g=>g.t==='frame'?`${g.size} ${shortFab(g.fabric)}${g.orient==='Overhead'?' overhead':''}`:`${g.size} ${g.ftype||''}`.trim();
+function thruNote(it,items){try{if(it.on===false)return '';const parts=[];if(it.diff&&it.diff!=='None')parts.push(shortFab(it.diff)+' on the light');const fr=framesInBeam(it,items);
+  fr.forEach(f=>parts.push('through '+gripShort(f.g)));if(!parts.length)return '';const tot=(DIFF_STOPS[it.diff]||0)+fr.reduce((a,f)=>a+f.st,0);return parts.join(' · ')+' · −'+fmtStops(tot);}catch(e){return '';}}
+
+/* ---------- what sits between a light and a subject ---------- */
+function segX(p1,p2,a,b){const r={x:p2.x-p1.x,y:p2.y-p1.y},q={x:b.x-a.x,y:b.y-a.y};const den=r.x*q.y-r.y*q.x;if(Math.abs(den)<1e-9)return false;const t=((a.x-p1.x)*q.y-(a.y-p1.y)*q.x)/den,u=((a.x-p1.x)*r.y-(a.y-p1.y)*r.x)/den;return t>.02&&t<.98&&u>=0&&u<=1;}
+function inOverhead(g,p){const a=-(g.r||0)*D2R,dx=p.x-g.x,dy=p.y-g.y;const lx=dx*Math.cos(a)-dy*Math.sin(a),ly=dx*Math.sin(a)+dy*Math.cos(a);const D=frameDims(g);return Math.abs(lx)<=D[0]/2&&Math.abs(ly)<=D[1]/2;}
+function onPath(l,a,items){const out=[];(items||activeItems()).forEach(g=>{const GL=LIB[g.t];if(!GL||GL.kind!=='grip'||g.t==='line')return;
+    if(g.t==='frame'&&g.orient==='Overhead'){if(isSkyLight(l)&&inOverhead(g,a)){const st=gripStops(g);out.push({g,st,block:st==null});}return;}
+    const ss=gripSurfaces(g);if(ss.some(s=>segX(l,a,s.a,s.b))){const st=gripStops(g);out.push({g,st,block:st==null});}});return out;}
+{const _fo=fallOut;fallOut=function(){let h=_fo();try{const F=CALC.fall;const l=pick(lightsNow(),F.light),a=pick(actsNow(),F.act);if(!l||!a)return h;const row=(x,y)=>`<div class="kv"><span>${x}</span><b>${y}</b></div>`;
+  let tot=0,x='';if(l.diff&&l.diff!=='None'){const st=DIFF_STOPS[l.diff]||0;tot+=st;x+=row(esc(shortFab(l.diff))+' on the light','−'+fmtStops(st));}
+  onPath(l,a).forEach(p=>{if(p.block){x+=row('Blocked by '+esc(gripShort(p.g)),'no direct light');tot=Infinity;return;}tot+=p.st;x+=row('Through '+esc(gripShort(p.g))+' on the way','−'+fmtStops(p.st));});
+  if(x)h+=`<h4 style="margin-top:10px">Diffusion and grip in the way</h4>`+x+(isFinite(tot)?row('Total loss, before distance','−'+fmtStops(tot)):'')+`<div class="pSub">Stop losses are approximate and vary by brand and how tight the rag is. Meter it on the day.</div>`;}catch(e){}return h;};}
+
+/* ---------- the plot: a light through a frame softens and widens ---------- */
+// (gripSurfaces now sets stops, spread and blur for each diffusion; beamFx reads them)
+{const _bf=beamFx;beamFx=function(it,gid,items,o,Lb,b,col,ga){const res=_bf(it,gid,items,o,Lb,b,col,ga);try{if(!isSkyLight(it))return res;
+  // sun or moon light through an overhead frame: shade inside the footprint, soft glow under it
+  framesInBeam(it,items).filter(f=>f.g.t==='frame'&&f.g.orient==='Overhead').forEach((f,i)=>{const g=f.g;const D=frameDims(g),ar=(g.r||0);const T=Math.pow(2,-f.st/2);const id='oh'+gid+i;
+    res.extra+=`<g pointer-events="none" transform="translate(${g.x} ${g.y}) rotate(${ar})"><defs><filter id="${id}" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="${(.3+.4*f.st).toFixed(2)}"/></filter></defs><rect x="${-D[0]/2}" y="${-D[1]/2}" width="${D[0]}" height="${D[1]}" fill="#000" opacity="${(.35*(1-T)).toFixed(2)}"/><rect x="${-D[0]/2+.4}" y="${-D[1]/2+.4}" width="${D[0]-.8}" height="${D[1]-.8}" fill="${col}" opacity="${(ga*.9*T).toFixed(2)}" filter="url(#${id})"/></g>`;});}catch(e){}return res;};}
+
+/* ---------- sun and moon from the sky: windows, then grip ---------- */
+function ptInPoly(p,q){let c=false;for(let i=0,j=q.length-1;i<q.length;j=i++){if((q[i].y>p.y)!==(q[j].y>p.y)&&p.x<(q[j].x-q[i].x)*(p.y-q[i].y)/(q[j].y-q[i].y)+q[i].x)c=!c;}return c;}
+function segHitsPoly(a,b,q){if(ptInPoly(a,q)||ptInPoly(b,q))return true;for(let i=0;i<q.length;i++)if(segX(a,b,q[i],q[(i+1)%q.length]))return true;return false;}
+function ohHeight(g){if(+g.height>0)return +g.height;const w=frameDims(g)[1];return w>=20?14:w>=12?11:9;}
+function ohCorners(g,sh){const D=frameDims(g),a=(g.r||0)*D2R,c=Math.cos(a),s=Math.sin(a);return [[-1,-1],[1,-1],[1,1],[-1,1]].map(([u,v])=>{const x=u*D[0]/2,y=v*D[1]/2;return {x:g.x+x*c-y*s+(sh?sh.x:0),y:g.y+x*s+y*c+(sh?sh.y:0)};});}
+function vertTop(g){if(g.t==='frame')return Math.min(16,frameDims(g)[1]+1.5);if(g.t==='bounce')return 5;if(g.t==='vflat')return 8;return 6.5;}
+function skyDir(sc,body){const s=Object.assign({},sunOf(sc),{body:body||'sun'});const p=skyPos(s);const th=(getNorth()+p.az)*D2R;return {alt:p.alt,az:p.az,sx:Math.sin(th),sy:-Math.cos(th),Lx:-Math.sin(th),Ly:Math.cos(th),tan:Math.tan(Math.max(p.alt,2)*D2R),s};}
+// where an exterior grip piece throws its shade, for the panel and the plot
+function gripShade(g,sc){sc=sc||scene();if(!/EXT/i.test(sc.ie||''))return null;const k=skyDir(sc);if(k.alt<=0)return null;
+  if(g.t==='frame'&&g.orient==='Overhead'){const d=Math.min(ohHeight(g)/k.tan,40);return {poly:ohCorners(g,{x:k.Lx*d,y:k.Ly*d}),k,over:1};}
+  const ss=gripSurfaces(g).filter(s=>!s.oneSide||1);if(!ss.length)return null;const d=Math.min(vertTop(g)/k.tan,40);const s=ss[0];return {poly:[s.a,s.b,{x:s.b.x+k.Lx*d,y:s.b.y+k.Ly*d},{x:s.a.x+k.Lx*d,y:s.a.y+k.Ly*d}],k};}
+{const _sk=skyBodySVG;skyBodySVG=function(items,o,body,slot,litK){let out=_sk(items,o,body,slot,litK);try{out=skyGripFx(out,items,o,body,litK);}catch(e){}return out;};}
+function skyGripFx(out,items,o,body,litK){const sc=o.tag==='sheet'&&window.__expSc?window.__expSc:scene();const k=skyDir(sc,body);if(k.alt<=0)return out;const moon=body==='moon';const col=moon?'#a9c4ff':'#ffc94d';const px=o.px;const kk=moon?(litK||.5):1;
+  const grips=items.filter(g=>g.t!=='line'&&LIB[g.t]&&LIB[g.t].kind==='grip');if(!grips.length)return out;let add='';
+  const fsz=.42*(o.C&&o.C.fs?1:1);
+  const tag=(x,y,t)=>`<text x="${x}" y="${y}" text-anchor="middle" font-family="${o.C.font}" font-size="${fsz}" font-weight="600" fill="${o.C.text}" paint-order="stroke" stroke="${o.C.bg}" stroke-width="${3*px}" pointer-events="none">${esc(t)}</text>`;
+  /* 1. interiors: light through a window patch, then through or onto grip */
+  out=out.replace(/<path data-win="([^"]+)" d="M([-\d.e]+) ([-\d.e]+) L([-\d.e]+) ([-\d.e]+) L([-\d.e]+) ([-\d.e]+) L([-\d.e]+) ([-\d.e]+)Z"/g,(m,wid,...n)=>{const v=n.slice(0,8).map(Number);const Q=[{x:v[0],y:v[1]},{x:v[2],y:v[3]},{x:v[4],y:v[5]},{x:v[6],y:v[7]}];
+    const len=Math.hypot(Q[3].x-Q[0].x,Q[3].y-Q[0].y);if(len<.3)return m;const Lx=(Q[3].x-Q[0].x)/len,Ly=(Q[3].y-Q[0].y)/len;const polys=[];let fx='';const R=len+26;const U=20;const QX=[{x:Q[0].x-Lx*U,y:Q[0].y-Ly*U},{x:Q[1].x-Lx*U,y:Q[1].y-Ly*U},Q[2],Q[3]];let blur=0;
+    grips.forEach((g,gi)=>{if(g.t==='frame'&&g.orient==='Overhead'){const d=Math.min(ohHeight(g)/k.tan,30);const C4=ohCorners(g,{x:Lx*d,y:Ly*d});if(!C4.some(c=>ptInPoly(c,Q))&&!Q.some(c=>ptInPoly(c,C4)))return;const st=gripStops(g);const T=st==null?0:Math.pow(2,-st/2);
+        polys.push(`<path d="M${C4.map(c=>c.x+' '+c.y).join(' L')}Z" fill="#000" fill-opacity="${(1-T).toFixed(2)}"/>`);if(st!=null){const cx=C4.reduce((a,c)=>a+c.x,0)/4,cy=C4.reduce((a,c)=>a+c.y,0)/4;fx+=tag(cx,cy,(moon?'moon':'sun')+' through '+gripShort(g)+' · −'+fmtStops(st));}return;}
+      gripSurfaces(g).forEach((s,si)=>{if(!segHitsPoly(s.a,s.b,QX))return;const tC0=(s.c.x-Q[0].x)*Lx+(s.c.y-Q[0].y)*Ly;polys.push(`<path d="M${s.a.x} ${s.a.y} L${s.b.x} ${s.b.y} L${s.b.x+Lx*R} ${s.b.y+Ly*R} L${s.a.x+Lx*R} ${s.a.y+Ly*R}Z" fill="#000" fill-opacity="${(1-s.T).toFixed(2)}"/>`);
+        const tC=(s.c.x-Q[0].x)*Lx+(s.c.y-Q[0].y)*Ly;const rem=Math.max(1.5,len-tC);const id='sg'+wid+gi+'_'+si;
+        if(s.through&&tC0<0){blur=Math.max(blur,(s.blur||.6)*1.2);const st=s.stops!=null?s.stops:-2*Math.log2(s.T);fx+=tag(s.c.x,s.c.y-.9,(moon?'moon':'sun')+' through '+gripShort(g)+' · −'+fmtStops(st)+' into the window');}
+        else if(s.through){const sp=(s.spread||55)*D2R;const ang=Math.atan2(Ly,Lx);const L2=Math.min(14,rem+2);const al=Math.min(.6,.42*s.T*kk);
+          fx+=`<g pointer-events="none"><defs><radialGradient id="${id}" gradientUnits="userSpaceOnUse" cx="${s.c.x}" cy="${s.c.y}" r="${L2}"><stop offset="0" stop-color="${col}" stop-opacity="${al}"/><stop offset=".55" stop-color="${col}" stop-opacity="${al*.45}"/><stop offset="1" stop-color="${col}" stop-opacity="0"/></radialGradient><filter id="f${id}" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="${(s.blur||.6).toFixed(2)}"/></filter></defs><path d="${fanPath(s.a,s.b,s.c,ang,sp,L2)}" fill="url(#${id})" filter="url(#f${id})"/></g>`;
+          const st=s.stops!=null?s.stops:-2*Math.log2(s.T);fx+=tag(s.c.x+Lx*1.2,s.c.y+Ly*1.2,(moon?'moon':'sun')+' through '+gripShort(g)+' · −'+fmtStops(st));}
+        else if(s.bounce&&tC0>=0){let nx=s.n.x,ny=s.n.y;if(nx*Lx+ny*Ly>0){nx=-nx;ny=-ny;}if(s.oneSide&&(s.n.x*-Lx+s.n.y*-Ly)<=.05)return;const dn=Lx*nx+Ly*ny;const rx=Lx-2*dn*nx,ry=Ly-2*dn*ny;let ox=nx*(1-s.bounce.mix)+rx*s.bounce.mix,oy=ny*(1-s.bounce.mix)+ry*s.bounce.mix;const ol=Math.hypot(ox,oy)||1;ox/=ol;oy/=ol;
+          const L2=Math.min(14,4+s.w*1.2);const sp=s.bounce.spread/2*D2R;const ang=Math.atan2(oy,ox);const bc=s.bounce.gold||s.bounce.warm?'#ffc36b':col;const al=Math.min(.6,.5*Math.max(.3,Math.abs(dn))*s.bounce.eff*kk);
+          fx+=`<g pointer-events="none"><defs><radialGradient id="${id}" gradientUnits="userSpaceOnUse" cx="${s.c.x}" cy="${s.c.y}" r="${L2}"><stop offset="0" stop-color="${bc}" stop-opacity="${al}"/><stop offset=".5" stop-color="${bc}" stop-opacity="${al*.4}"/><stop offset="1" stop-color="${bc}" stop-opacity="0"/></radialGradient><filter id="f${id}" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation=".5"/></filter></defs><path d="${fanPath(s.a,s.b,s.c,ang,sp,L2)}" fill="url(#${id})" filter="url(#f${id})"/></g>`+tag(s.c.x+ox*1.4,s.c.y+oy*1.4,(moon?'moon':'sun')+' bounced off '+gripShort(g));}});});
+    if(!polys.length&&!fx)return m;const xs=Q.map(q=>q.x),ys=Q.map(q=>q.y);const bx0=Math.min(...xs)-R,by0=Math.min(...ys)-R,bw=Math.max(...xs)-bx0+R,bh=Math.max(...ys)-by0+R;const mid='wm'+wid+(o.tag||'')+(body||'');
+    add+=fx;return `<defs><mask id="${mid}" maskUnits="userSpaceOnUse" x="${bx0}" y="${by0}" width="${bw}" height="${bh}"><rect x="${bx0}" y="${by0}" width="${bw}" height="${bh}" fill="#fff"/>${polys.join('')}</mask>${blur?`<filter id="b${mid}" x="-50%" y="-50%" width="200%" height="200%"><feGaussianBlur stdDeviation="${blur.toFixed(2)}"/></filter>`:''}</defs>`+m+` mask="url(#${mid})"`+(blur?` filter="url(#b${mid})"`:'');});
+  /* 2. exteriors: each grip piece throws its shade on the ground */
+  if(/EXT/i.test(sc.ie||'')){grips.forEach(g=>{const sh=gripShade(g,sc);if(!sh)return;const st=gripStops(g);const T=st==null?0:Math.pow(2,-st/2);const P=sh.poly;const d='M'+P.map(c=>c.x+' '+c.y).join(' L')+'Z';
+      add+=`<g pointer-events="none"><path d="${d}" fill="#000" opacity="${((moon?.14*kk:.24)*(1-T*.75)).toFixed(3)}"/>${st!=null?`<path d="${d}" fill="none" stroke="${col}" stroke-width="${1.2*px}" stroke-dasharray="${4*px} ${3*px}" opacity=".8"/>`:''}</g>`;
+      if(st!=null||sh.over){const cx=P.reduce((a,c)=>a+c.x,0)/P.length,cy=P.reduce((a,c)=>a+c.y,0)/P.length;add+=tag(cx,cy,st!=null?`${moon?'moon':'sun'} through ${gripShort(g)} · −${fmtStops(st)}`:`shade of ${gripShort(g)}`);}});}
+  return out+add;}
+
+/* ---------- panel: softness and an "About this diffusion" box ---------- */
+function softRating(r){return r<.5?['Fairly hard','From here it acts like a small source: shadows keep an edge.']:r<1?['Soft','Shadow edges go soft; the light still has a clear direction.']:r<2?['Very soft','Broad, gentle light with soft shadow edges.']:['Wrapping','So big and close that the light curls around the face.'];}
+function aboutBox(n,ctx){const d=diffInfo(n);if(!d)return '';const row=(a,b)=>`<div class="kv"><span>${a}</span><b>${b}</b></div>`;
+  return `<div class="grp"><h4>About this ${d.k==='bounce'?'bounce':d.k==='cut'?'cut':'diffusion'}: ${esc(d.n)}</h4>${row(d.k==='bounce'?'If shot through':'Light lost',d.lbl+(d.ap?' (approx.)':''))}<div style="font-size:12px;line-height:1.5;margin-top:6px"><b>Comes as:</b> ${esc(d.fmt)}<br><b>In wind:</b> ${esc(d.wind)}<br>${esc(d.use)}${d.care?`<br><b>Handling:</b> ${esc(d.care)}`:''}</div>${ctx==='light'?'':`<div class="pSub" style="margin-top:6px">Guidance paraphrased from a gaffer and grip diffusion guide. Stop figures vary by brand; meter on the day.</div>`}</div>`;}
+function diffPanel(it){if(it.t!=='frame')return '';let h='';const row=(a,b)=>`<div class="kv"><span>${a}</span><b>${b}</b></div>`;
+  if(it.orient==='Overhead')h+=fld('Height (ft)',inp('height',it.height||ohHeight(it),'number','min="4" step="1"'));
+  const d=diffInfo(it.fabric);const st=gripStops(it);const thru=st!=null&&!frameBounces(it)&&!/net/i.test(it.fabric||'');const D=frameDims(it);const S=Math.sqrt(D[0]*D[1]);
+  const oh=it.orient==='Overhead'?Math.max(0,ohHeight(it)-5.5):0;const acts=activeItems().filter(a=>a.t==='actor').map(a=>({a,d:Math.hypot(a.x-it.x,a.y-it.y,oh)})).sort((p,q)=>p.d-q.d);const near=acts[0];
+  const lit=activeItems().filter(l=>LIB[l.t]&&LIB[l.t].kind==='light'&&framesInBeam(l).some(f=>f.g.id===it.id));
+  let g='';
+  if(thru||frameBounces(it)){
+    if(near){const r=S/Math.max(.5,near.d);const [rt,why]=softRating(frameBounces(it)?r*.8:r);g+=row(`${it.size} at ${fmtFt(near.d)} from ${esc(near.a.label||'the actor')}`,rt)+`<div class="pSub" style="margin:2px 0 6px">${why} Size ÷ distance = ${r.toFixed(1)}; bigger or closer is softer.</div>`;}
+    else g+=`<div class="pSub">Add an actor to see how soft this frame is on them.</div>`;
+    const sh=gripShade(it);if(thru&&(lit.length||!sh))g+=row('Lights shooting through it',lit.length?lit.map(l=>esc(l.label||LIB[l.t].name)).join(', '):'none yet');
+    if(sh){const inside=acts.filter(x=>ptInPoly(x.a,sh.poly));g+=row(sh.k.s.body==='moon'?'Moon':'Sun at '+hhmm(sh.k.s.min),inside.length?(thru?'diffusing ':'shading ')+inside.map(x=>esc(x.a.label||'actor')).join(', '):'its shade misses everyone');}
+    else if(thru&&!lit.length)g+=`<div class="pSub">Aim a light so its beam crosses the frame${/EXT/i.test(scene().ie||'')?', or turn on the sun in Sun & Moon':''}. The beam turns softer and wider past the frame.</div>`;
+    const tips=[];if(thru&&st>=1.5&&S<=5&&near&&near.d<=6)tips.push('A heavy fabric on a small frame this close can look fake: the face goes flat while the shadows around it stay hard. Try a lighter grade or a bigger frame.');
+    if(thru&&S>=16&&st<1)tips.push('On a 20× or bigger frame, go one or two grades heavier than you would on a small one: light grades over a big area still let hard sun through.');
+    if(near&&near.d>S*1.5)tips.push('Pulled back this far, the frame acts as a smaller source. The falloff looks more natural, but it wraps less.');
+    else if(near&&near.d<S*.4)tips.push('Very close: as soft as it gets, but the light falls off quickly from the face to the background.');
+    if(frameBounces(it)&&near&&/muslin/i.test(it.fabric)&&(near.d<8||near.d>18))tips.push('Muslin bounce for exterior fill usually sits about 12 ft off the subject.');
+    if(tips.length)g+=`<div style="font-size:12px;line-height:1.5;margin-top:6px">${tips.map(t=>'• '+esc(t)).join('<br>')}</div>`;
+    h+=`<div class="grp"><h4>${thru?'Softness':'Bounce'}</h4>${g}</div>`;}
+  return h+aboutBox(it.fabric);}
+function lightDiffNote(it){let h='';try{const fr=framesInBeam(it);if(fr.length)h+=`<div class="pSub" style="margin:-2px 0 6px">Also shooting through ${fr.map(f=>esc(gripShort(f.g))+' (−'+fmtStops(f.st)+')').join(', ')}.</div>`;
+  const d=diffInfo(it.diff);if(d)h+=`<div class="pSub" style="margin:-2px 0 6px">${esc(it.diff)}: ${d.lbl}${d.ap?' (approx.)':''}. ${esc(d.use)}${d.care?' '+esc(d.care):''}</div>`;}catch(e){}return h;}
+
+/* ---------- Sun & Moon: the sun against each camera ---------- */
+function sunVsCam(c,k){const cx=Math.cos((c.r||0)*D2R),cy=Math.sin((c.r||0)*D2R);const ph=Math.acos(Math.max(-1,Math.min(1,cx*k.sx+cy*k.sy)))/D2R;
+  return ph<25?'Backlight (shooting into the sun)':ph<65?'¾ backlight':ph<115?'Side light':ph<155?'¾ front light':'Front light (flat)';}
+function backWindows(c,s){const cx=Math.cos((c.r||0)*D2R),cy=Math.sin((c.r||0)*D2R);const N=getNorth();const ok=m=>{const p=SKY.sun(sunMs(s,m),+s.lat,+s.lng);if(p.alt<5||p.alt>50)return false;const th=(N+p.az)*D2R;const ph=Math.acos(Math.max(-1,Math.min(1,cx*Math.sin(th)-cy*Math.cos(th))))/D2R;return ph>=25&&ph<=65;};
+  const R=[];let st=null;for(let m=0;m<=1440;m+=10){const y=m<1440&&ok(m);if(y&&st==null)st=m;if(!y&&st!=null){if(m-st>=20)R.push([st,m]);st=null;}}return R;}
+{const _sr=sunReadout;sunReadout=function(){let h=_sr();try{const s=sunOf();if(s.body==='moon')return h;const sc=scene();const k=skyDir(sc,'sun');const row=(a,b)=>`<div class="kv"><span>${a}</span><b>${b}</b></div>`;const cams=camsNow();
+  if(cams.length){h+=`<h4 style="margin-top:10px">Sun against the camera</h4>`;cams.forEach(c=>{const w=backWindows(c,s);h+=row(esc(camName(c)),k.alt>0?(k.alt>60?'Top light (sun high overhead)':sunVsCam(c,k)):'sun is down')+row('¾ backlight for this angle',w.length?w.map(r=>hhmm(r[0])+'–'+hhmm(r[1])).join(', '):'not today at this angle');});}
+  const T=skyTimes(s);if(T.sun.rise!=null)h+=`<div style="font-size:12px;line-height:1.5;margin-top:8px"><b>Scheduling:</b> shoot wides early or late, while the sun is low and gives shape (before ${hhmm(T.g6.am+90)} or after ${hhmm(T.g6.pm-90)}). Save close-ups for midday, when you can soften the high sun with an overhead frame of ½ Soft Frost or silk.</div>`;
+  h+=daylightButton();}catch(e){}return h;};}
+
+/* ---------- Natural daylight setup (exteriors only) ---------- */
+function daylightButton(){const sc=scene();const ext=/EXT/i.test(sc.ie||'');const sel=selItem();const a=sel&&sel.t==='actor'?sel:actsNow()[0];
+  return `<div class="grp" style="margin-top:10px"><h4>Natural daylight setup (exteriors)</h4><div style="font-size:12px;line-height:1.5;margin-bottom:6px">One click puts a daylight kit around ${a?esc(a.label||'the actor'):'a selected actor'}, turned to where the sun is now: diffusion on the backlight side, a 12×12 bleached muslin bounce about 12 ft off for fill, an 8×8 bounce for an eye light, and negative fill on the far side.</div>
+  <button class="btn sm pri" data-dayset="1" ${ext&&a?'':'disabled'}>Place natural daylight setup</button><div class="pSub" style="margin-top:4px">${!ext?`<b>For exterior scenes only.</b> This scene is ${esc(sc.ie||'INT.')}; set it to EXT. to use it.`:!a?'Add or select an actor first.':'For exterior scenes. Uses the sun position set above.'}</div></div>`;}
+function placeDaylight(){const sc=scene();if(!/EXT/i.test(sc.ie||'')){toast('Natural daylight setup is for exterior scenes. Set the scene to EXT. first.');return;}
+  const sel=selItem();const a=sel&&sel.t==='actor'?sel:actsNow()[0];if(!a){toast('Add an actor first');return;}const k=skyDir(sc,'sun');if(k.alt<=0){toast('The sun is down at this time. Pick a daytime hour in Sun & Moon.');return;}
+  const cams=camsNow().slice().sort((p,q)=>distFt(p,a)-distFt(q,a));const cam=cams[0];let vx,vy;if(cam){const d=distFt(cam,a)||1;vx=(cam.x-a.x)/d;vy=(cam.y-a.y)/d;}else{vx=-k.sx;vy=-k.sy;}
+  const nrm=(x,y)=>{const l=Math.hypot(x,y)||1;return [x/l,y/l];};const deg=(x,y)=>Math.round(Math.atan2(y,x)/D2R);const rot=(x,y,t)=>[x*Math.cos(t)-y*Math.sin(t),x*Math.sin(t)+y*Math.cos(t)];
+  snap();const arr=setup().items;const made=[];const put=(t,x,y,r,props,label)=>{const it=newItem(t,x,y,Object.assign({label},props));it.r=r;it.scope='setup';arr.push(it);made.push(it);return it;};
+  // 1. backlight side: diffusion between the sun and the actor
+  if(k.alt>55){const d=ohHeight({size:'12×12'})/k.tan;put('frame',a.x+k.sx*d,a.y+k.sy*d,0,{size:'12×12',fabric:'1/2 Soft Frost',orient:'Overhead',height:ohHeight({size:'12×12'})},'Daylight: overhead diffusion');}
+  else{const big=k.alt>30;const top=big?10.5:8;const D=Math.max(3,Math.min(8,(top-5.5)/k.tan));put('frame',a.x+k.sx*D,a.y+k.sy*D,deg(k.sx,k.sy),{size:big?'8×8':'4×4',fabric:big?'1/2 Soft Frost':'Hampshire Frost',orient:'Vertical'},'Daylight: backlight diffusion');}
+  // 2. fill: 12×12 bleached muslin bounce about 12 ft off, on the side away from the sun, toward camera
+  const [fx,fy]=nrm(-k.sx+.8*vx,-k.sy+.8*vy);put('frame',a.x+fx*12,a.y+fy*12,deg(-fx,-fy),{size:'12×12',fabric:'Bleached muslin',use:'Bounce',orient:'Vertical'},'Daylight: muslin fill');
+  // 3. eye light: 8×8 bounce next to the muslin, a little closer to camera
+  const sgn=(vx*fy-vy*fx)>0?-1:1;const [ex,ey]=rot(fx,fy,sgn*32*D2R);put('frame',a.x+ex*10,a.y+ey*10,deg(-ex,-ey),{size:'8×8',fabric:'Ultrabounce',orient:'Vertical'},'Daylight: eye light');
+  // 4. negative fill on the opposite side
+  let [nx,ny]=[-vy,vx];if(nx*fx+ny*fy>0){nx=-nx;ny=-ny;}put('negfill',a.x+nx*5,a.y+ny*5,deg(-nx,-ny),{},'Daylight: negative fill');
+  V.sel=made[0].id;V.multi=made.map(i=>i.id);changed(true);toast('Natural daylight setup placed around '+(a.label||'the actor')+' (exterior)');}
+document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-dayset]');if(!b||b.disabled)return;e.stopPropagation();placeDaylight();},true);
+
+/* actor panel: the same one-click setup */
+{const _pi=panelItem;panelItem=function(){let h=_pi();try{const it=selItem();if(it&&it.t==='actor'){const ext=/EXT/i.test(scene().ie||'');h=h.replace(/(<div style="display:flex;gap:6px;margin-top:12px;flex-wrap:wrap">)/,`<div class="grp"><h4>Natural daylight setup (exteriors)</h4><button class="btn sm" data-dayset="1" ${ext?'':'disabled'}>Place daylight kit around ${esc(it.label||'this actor')}</button><div class="pSub" style="margin-top:4px">${ext?'Diffusion, a 12×12 muslin bounce, an eye-light bounce and negative fill, turned to the sun. Set the time in Sun & Moon.':`<b>For exterior scenes only.</b> This scene is ${esc(scene().ie||'INT.')}.`}</div></div>$1`);}}catch(e){}return h;};}
+
+/* ---------- library: frames ready to drop, and hover descriptions ---------- */
+const DIFF_PRESETS=[['k_d_hamp4','4×4 Hampshire Frost','4×4','Hampshire Frost'],['k_d_hl8','8×8 Highlight','8×8','Highlight'],['k_d_sf8','8×8 ½ Soft Frost','8×8','1/2 Soft Frost'],['k_d_grid8','8×8 ¼ Grid Cloth','8×8','1/4 grid cloth'],['k_d_sf12','12×12 ½ Soft Frost (overhead)','12×12','1/2 Soft Frost','Overhead'],['k_d_silk20','20×20 Full Silk (overhead)','20×20','Full silk','Overhead'],['k_d_mus12','12×12 Bleached Muslin (bounce)','12×12','Bleached muslin']];
+DIFF_PRESETS.forEach(([k,name,size,fabric,orient])=>{PRESETS[k]={t:'frame',name,cat:'Grip',props:Object.assign({size,fabric,orient:orient||'Vertical'},/muslin/i.test(fabric)?{use:'Bounce'}:{}),nokit:1};});
+{const i=LIBALL.map(e=>e.cat+'|'+e.group).lastIndexOf('Grip|Diffusion & Control');const ents=DIFF_PRESETS.map(([k,name])=>({key:k,cat:'Grip',group:'Diffusion & Control',name}));
+  // libEntries lists every preset on the picksheet; these are not kit, so drop any picksheet copy
+  for(let j=LIBALL.length-1;j>=0;j--)if(LIBALL[j].kit&&PRESETS[LIBALL[j].key]&&PRESETS[LIBALL[j].key].nokit)LIBALL.splice(j,1);
+  if(i>=0)LIBALL.splice(i+1,0,...ents);else LIBALL.push(...ents);}
+{const _le=libEntries;libEntries=function(){return _le().filter(e=>!(e.kit&&PRESETS[e.key]&&PRESETS[e.key].nokit));};}
+const LIB_TIPS={frame:'A fabric on a frame. Pick diffusion to shoot through, a bounce, or a net or solid to cut. Lights and the sun turn softer and wider past it.',flag:'Shapes or cuts light. A silk flag diffuses; nets cut without softening.',negfill:'A black solid beside the subject that takes light away for shape.',bounce:'Reflects light back as fill.',k_rr_silk:'4×4 full silk: about 2 stops, very soft.',k_rr_single:'4×4 single net: cuts about ½ stop without softening.',k_rr_solid:'4×4 solid: blocks the light.',k_rr_lame:'4×4 silver lamé: punchy, specular bounce.'};
+DIFF_PRESETS.forEach(([k,,,f,o])=>{const d=diffInfo(f);if(d)LIB_TIPS[k]=`${d.n}: ${d.lbl}${d.ap?' (approx.)':''}. ${d.use}${d.care?' '+d.care:''}${o?' Rigged overhead.':''}`;});
+{const _rl=renderLib;renderLib=function(){_rl();try{$('#lib').querySelectorAll('[data-k]').forEach(b=>{const t=LIB_TIPS[b.dataset.k];if(t)b.title=b.querySelector('.nm').textContent+'\n'+t;});}catch(e){}};}
+try{renderLib();}catch(e){}
 const BRANDFF=(()=>{let o='';for(const sh of document.styleSheets){try{for(const r of sh.cssRules)if(r.type===5&&/EB Garamond|Lato/.test(r.cssText))o+=r.cssText;}catch(e){}}return o;})();
 /* ============================================================
    Export
