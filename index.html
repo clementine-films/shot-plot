@@ -3756,6 +3756,112 @@ document.addEventListener('keydown',e=>{if(e.key!=='Delete'&&e.key!=='Backspace'
 function tidyForks(){try{const su=setup();su.shots.forEach(sh=>{if(!sh.items.some(i=>i.fork))return;sh.items=sh.items.filter(c=>{if(!c.fork)return true;const o=su.items.find(i=>i.id===c.id);if(!o)return true;const cc=Object.assign({},c);delete cc.fork;
     if(JSON.stringify(cc)===JSON.stringify(o)){if(sh.hide)sh.hide=sh.hide.filter(x=>x!==c.id);return false;}return true;});});}catch(e){}}
 {const _ch=changed;changed=function(a,b){if(!drag)tidyForks();return _ch(a,b);};}
+/* ============================================================
+   Bathroom: fixtures drawn like the real thing, for homes and apartments
+   Every fixture is drawn with its back at the top of the shape (local -y).
+   Floor fixtures dropped by a wall turn so their back sits on the wall;
+   wall-mounted pieces snap onto the wall facing into the room.
+   ============================================================ */
+const BATH_FLOOR=(key,name,w,h,shape,label,ex)=>def(key,Object.assign({cat:'Set',group:'Bathroom',name,kind:'set',shape,backToWall:true,defaults:{w,h,label:label||''}},ex||{}));
+const BATH_WALL=(key,name,w,h,shape,label)=>def(key,{cat:'Set',group:'Bathroom',name,kind:'set',shape,wallSnap:true,wallMount:true,backToWall:true,defaults:{w,h,label:label||''}});
+// existing keys keep working; they just look like the real fixture now
+Object.assign(LIB.toilet,{name:'Toilet (tank + elongated bowl)',shape:'toilet',backToWall:true});LIB.toilet.defaults.w=1.6;LIB.toilet.defaults.h=2.4;LIB.toilet.defaults.label='';
+Object.assign(LIB.bathtub,{name:'Bathtub (alcove, 5 ft)',shape:'tub',backToWall:true});LIB.bathtub.defaults.w=5;LIB.bathtub.defaults.h=2.5;LIB.bathtub.defaults.label='';
+Object.assign(LIB.vanity,{name:'Vanity, single sink',shape:'vanity',backToWall:true});LIB.vanity.defaults.w=2.5;LIB.vanity.defaults.h=1.8;LIB.vanity.defaults.label='';
+Object.assign(LIB.shower,{name:'Shower Stall with glass door (3×3)',shape:'showerstall',backToWall:true});LIB.shower.defaults.label='';
+BATH_FLOOR('tubshower','Tub / Shower Combo (curtain rod)',5,2.5,'tubshower');
+BATH_FLOOR('clawfoot','Clawfoot Tub (freestanding)',5.5,2.6,'clawfoot','',{backToWall:false});
+BATH_FLOOR('walkin','Walk-in Shower (glass panel)',5,3.2,'walkin');
+BATH_FLOOR('neoangle','Corner Shower (neo-angle)',3.2,3.2,'neoangle');
+BATH_FLOOR('toiletround','Toilet (compact, round bowl)',1.5,2.2,'toilet','',{round:1});
+BATH_FLOOR('vanity2','Vanity, double sink',5,1.8,'vanity2');
+BATH_FLOOR('pedsink','Pedestal Sink',1.8,1.5,'pedsink');
+BATH_FLOOR('linen','Linen Cabinet',2,1.4,'linen');
+BATH_FLOOR('hamper','Hamper',1.4,1.4,'hamper','',{backToWall:false});
+BATH_FLOOR('bathmat','Bath Mat',2.2,1.4,'bathmat','',{backToWall:false});
+BATH_WALL('wallsink','Wall-hung Sink',1.8,1.4,'wallsink');
+BATH_WALL('medcab','Medicine Cabinet / Mirror',2,.45,'medcab');
+BATH_WALL('towelbar','Towel Bar with Towel',2,.3,'towelbar');
+BATH_WALL('tphold','Toilet Paper Holder',.55,.3,'tphold');
+BATH_WALL('overtoilet','Over-Toilet Shelf',2.2,.8,'overtoilet');
+practical('pr_vanity','Vanity Light Bar (over the mirror)',{w:180,k:2700,beam:120,thr:5,h:6.8,shape:'tube',s:2.4});
+Object.assign(LIB.pr_vanity,{wallSnap:true,wallMount:true});
+Object.assign(LIB.mirror,{shape:'mirror',backToWall:true});Object.assign(LIB.radiator,{name:'Radiator (cast iron)',shape:'radiator',backToWall:true});
+if(LIB.urinal){LIB.urinal.shape='urinal';LIB.urinal.backToWall=true;}
+
+/* ---------- drawing ---------- */
+const PORC='#eef2f5',WATER='#9fd3ff';
+{const _sg=setGlyph;setGlyph=function(it,L,C,px){const w=+it.w||1,h=+it.h||1;const a=-w/2,b=w/2,T=-h/2,B=h/2;
+  const st=`stroke="${C.setStroke}" stroke-width="${1.3*px}"`,thin=`stroke="${C.setStroke}" stroke-width="${px}"`;
+  const R=(x,y,W,H,rx,f,ex)=>`<rect x="${x}" y="${y}" width="${Math.max(.01,W)}" height="${Math.max(.01,H)}" rx="${rx||0}" fill="${f||C.setFill}" ${ex||st}/>`;
+  const E=(cx,cy,rx,ry,f,ex)=>`<ellipse cx="${cx}" cy="${cy}" rx="${Math.max(.01,rx)}" ry="${Math.max(.01,ry)}" fill="${f||PORC}" ${ex||st}/>`;
+  const faucet=(cx,y0,len)=>`<path d="M${cx} ${y0} V${y0+len}" stroke="${C.setStroke}" stroke-width="${2.6*px}" stroke-linecap="round"/><circle cx="${cx-.16}" cy="${y0+.05}" r=".06" fill="${C.setStroke}"/><circle cx="${cx+.16}" cy="${y0+.05}" r=".06" fill="${C.setStroke}"/>`;
+  const glass=(x1,y1,x2,y2)=>`<path d="M${x1} ${y1} L${x2} ${y2}" stroke="${WATER}" stroke-width="${3*px}" stroke-linecap="round"/>`;
+  const head=(cx,cy,dir)=>`<circle cx="${cx}" cy="${cy}" r=".13" fill="${C.setStroke}"/><path d="M${cx} ${cy} l${-.3} ${.45*dir} M${cx} ${cy} l0 ${.5*dir} M${cx} ${cy} l${.3} ${.45*dir}" stroke="${WATER}" stroke-width="${px}" stroke-dasharray="${2*px} ${2*px}"/>`;
+  const drain=(cx,cy,r)=>`<circle cx="${cx}" cy="${cy}" r="${r||.11}" fill="none" ${thin}/><path d="M${cx-(r||.11)*.7} ${cy} H${cx+(r||.11)*.7} M${cx} ${cy-(r||.11)*.7} V${cy+(r||.11)*.7}" ${thin}/>`;
+  // a tub drawn long side across; faucet and drain at the left end
+  const tub=(W,H,shower)=>{const A=-W/2,Bx=W/2,t=-H/2,bt=H/2;let s=R(A,t,W,H,.12,PORC)+R(A+.25,t+.25,W-.5,H-.5,Math.min(.9,H*.35),WATER,`fill-opacity=".22" ${thin}`)+drain(A+.6,0)+`<path d="M${A+.05} 0 H${A+.42}" stroke="${C.setStroke}" stroke-width="${2.6*px}" stroke-linecap="round"/><circle cx="${A+.14}" cy="-.28" r=".06" fill="${C.setStroke}"/><circle cx="${A+.14}" cy=".28" r=".06" fill="${C.setStroke}"/>`;
+    if(shower){s+=`<path d="M${A} ${bt+.06} H${Bx}" stroke="${C.setStroke}" stroke-width="${1.6*px}" stroke-dasharray="${5*px} ${3*px}"/><path d="M${Bx-.15} ${bt-.05} q.12 -.18 0 -.36 q-.12 -.18 0 -.36 q.12 -.18 0 -.36" fill="none" stroke="${C.setStroke}" stroke-width="${1.2*px}"/>`+`<circle cx="${A+.12}" cy="0" r=".13" fill="${C.setStroke}"/><path d="M${A+.12} 0 l.45 -.3 M${A+.12} 0 l.5 0 M${A+.12} 0 l.45 .3" stroke="${WATER}" stroke-width="${px}" stroke-dasharray="${2*px} ${2*px}"/>`;}
+    return s;};
+  const turnLong=(fn)=>w>=h?fn(w,h):`<g transform="rotate(90)">${fn(h,w)}</g>`;
+  switch(L.shape){
+    case 'toilet':{const tk=Math.min(.75,h*.32);const round=!!L.round;const by=T+tk+(h-tk)/2-.02,ry=(h-tk)/2*.97,rx=w*(round?.42:.38);
+      return R(a+w*.06,T,w*.88,tk,.1,PORC)+R(a+w*.14,T+tk*.22,.28,.09,.03,C.setStroke,`fill-opacity=".7"`)+E(0,by,rx,ry)+E(0,by+.06,rx*.6,ry*(round?.6:.66),WATER,`fill-opacity=".3" ${thin}`)+`<path d="M${-rx*.7} ${T+tk+.08} H${rx*.7}" ${thin}/>`;}
+    case 'tub':return turnLong((W,H)=>tub(W,H,false));
+    case 'tubshower':return turnLong((W,H)=>tub(W,H,true));
+    case 'clawfoot':return turnLong((W,H)=>{const A=-W/2,t=-H/2;return [[A+.45,t+.12],[W/2-.45,t+.12],[A+.45,H/2-.12],[W/2-.45,H/2-.12]].map(([x,y])=>`<circle cx="${x}" cy="${y}" r=".11" fill="${C.setStroke}"/>`).join('')+R(A,t,W,H,H*.48,PORC)+R(A+.22,t+.22,W-.44,H-.44,(H-.44)*.48,WATER,`fill-opacity=".22" ${thin}`)+drain(A+.65,0)+`<path d="M${A-.15} 0 H${A+.4}" stroke="${C.setStroke}" stroke-width="${2.6*px}" stroke-linecap="round"/><circle cx="${A-.15}" cy="-.22" r=".06" fill="${C.setStroke}"/><circle cx="${A-.15}" cy=".22" r=".06" fill="${C.setStroke}"/>`;});
+    case 'showerstall':{const dw=Math.min(2.2,w*.62),hx=b-.12;return R(a,T,w,h,.05,PORC)+R(a+.12,T+.12,w-.24,h-.24,0,WATER,`fill-opacity=".14" ${thin}`)+drain(0,0,.13)+head(0,T+.12,1)+glass(a+.05,B,hx-dw,B)+glass(hx-dw,B,hx,B)+`<path d="M${hx-dw} ${B} A${dw} ${dw} 0 0 0 ${hx} ${B+dw}" fill="none" stroke="${WATER}" stroke-width="${px}" stroke-dasharray="${3*px} ${2*px}"/><path d="M${hx} ${B} V${B+dw}" stroke="${WATER}" stroke-width="${2*px}"/>`;}
+    case 'walkin':{let g='';for(let x=a+.5;x<b-.01;x+=.5)g+=`M${x} ${T} V${B} `;for(let y=T+.5;y<B-.01;y+=.5)g+=`M${a} ${y} H${b} `;
+      return R(a,T,w,h,0,PORC)+`<path d="${g}" stroke="${C.setStroke}" stroke-opacity=".25" stroke-width="${px}"/>`+`<path d="M${a+.3} ${T+.35} H${b-.3}" stroke="${C.setStroke}" stroke-width="${2.2*px}"/>`+head(0,T+.1,1)+glass(a+w*.4,B,b,B)+`<path d="M${a} ${B} H${a+w*.4}" stroke="${C.setStroke}" stroke-opacity=".5" stroke-width="${px}" stroke-dasharray="${2*px} ${2*px}"/>`;}
+    case 'neoangle':{const p=[[a,T],[b,T],[b,T+h*.55],[a+w*.55,B],[a,B]];return `<path d="M${p.map(q=>q.join(' ')).join(' L')}Z" fill="${PORC}" ${st}/>`+`<path d="M${p.map(q=>(q[0]*.88)+' '+(q[1]*.88)).join(' L')}Z" fill="${WATER}" fill-opacity=".14" ${thin}/>`+glass(b,T+h*.55,a+w*.55,B)+drain(-w*.08,-h*.08,.12)+head(a+.15,T+.15,1);}
+    case 'vanity':case 'vanity2':{const n=L.shape==='vanity2'?2:1;let s=R(a,T,w,h,.05)+`<path d="M${a+.08} ${B-.08} H${b-.08}" ${thin} stroke-dasharray="${3*px} ${2*px}"/>`;
+      for(let i=0;i<n;i++){const cx=n===1?0:(i?w/4:-w/4);s+=E(cx,T+h*.55,Math.min(.72,w/n*.3),h*.28)+E(cx,T+h*.57,Math.min(.5,w/n*.2),h*.18,WATER,`fill-opacity=".3" ${thin}`)+faucet(cx,T+.1,h*.18);}return s;}
+    case 'pedsink':case 'wallsink':{const s=`<path d="M${a} ${T} H${b} V${T+h*.3} Q${b} ${B} 0 ${B} Q${a} ${B} ${a} ${T+h*.3}Z" fill="${PORC}" ${st}/>`+E(0,T+h*.55,w*.32,h*.28,WATER,`fill-opacity=".3" ${thin}`)+faucet(0,T+.08,h*.2);
+      return L.shape==='pedsink'?`<circle cx="0" cy="${T+h*.42}" r="${Math.min(.32,w*.18)}" fill="none" ${thin} stroke-dasharray="${2*px} ${2*px}"/>`+s:s;}
+    case 'linen':return R(a,T,w,h,.05)+`<path d="M${a+.1} ${T+h*.33} H${b-.1} M${a+.1} ${T+h*.66} H${b-.1}" ${thin} stroke-dasharray="${3*px} ${2*px}"/><path d="M0 ${B-.05} V${B-h*.3}" ${thin}/>`;
+    case 'overtoilet':return `<rect x="${a}" y="${T}" width="${w}" height="${h}" fill="none" ${st} stroke-dasharray="${4*px} ${2*px}"/><path d="M${a+.1} ${T+h*.5} H${b-.1}" ${thin}/>`;
+    case 'radiator':{let d='';for(let x=a+.15;x<b-.05;x+=.2)d+=`M${x} ${T+.06} V${B-.06} `;return R(a,T,w,h,.06,'#c9ccd0')+`<path d="${d}" ${thin}/><circle cx="${b-.08}" cy="${B+.08}" r=".1" fill="none" ${thin}/>`;}
+    case 'hamper':return `<circle r="${Math.min(w,h)/2}" fill="#d8c9a8" fill-opacity=".6" ${st}/><path d="M${-w*.35} ${-h*.12} H${w*.35} M${-w*.35} ${h*.12} H${w*.35}" ${thin}/>`;
+    case 'bathmat':return R(a,T,w,h,.2,'#b9d3df',`fill-opacity=".55" ${thin}`)+`<rect x="${a+.12}" y="${T+.12}" width="${w-.24}" height="${h-.24}" rx=".12" fill="none" stroke="${C.setStroke}" stroke-opacity=".5" stroke-width="${px}" stroke-dasharray="${2*px} ${2*px}"/>`;
+    case 'medcab':return R(a,T,w,h,.03,PORC)+R(a+.1,T+.08,w-.2,h-.16,0,WATER,`fill-opacity=".45" ${thin}`)+`<path d="M0 ${T+.08} V${B-.08}" ${thin}/>`;
+    case 'mirror':return R(a,T,w,h,.02,WATER,`fill-opacity=".55" stroke="${C.setStroke}" stroke-width="${px}"`);
+    case 'towelbar':return R(a,T,.12,h,0,C.setStroke)+R(b-.12,T,.12,h,0,C.setStroke)+`<path d="M${a+.06} ${B-.06} H${b-.06}" stroke="${C.setStroke}" stroke-width="${1.6*px}"/>`+R(a+w*.18,B-.12,w*.64,.18,.04,'#d7b98e',`fill-opacity=".9" ${thin}`);
+    case 'tphold':return R(a,T,w,.08,0,C.setStroke)+`<circle cx="0" cy="${T+.2}" r=".18" fill="#fff" ${thin}/><circle cx="0" cy="${T+.2}" r=".05" fill="${C.setStroke}"/>`;
+    case 'urinal':return `<path d="M${a} ${T} H${b} V${T+h*.25} Q${b} ${B} 0 ${B} Q${a} ${B} ${a} ${T+h*.25}Z" fill="${PORC}" ${st}/>`+E(0,T+h*.5,w*.28,h*.25,WATER,`fill-opacity=".3" ${thin}`);
+  }return _sg(it,L,C,px);};}
+
+/* ---------- placement: back against the wall ---------- */
+function nearestWallDir(it){let best=null;wallSegs(activeItems()).forEach(([p,q])=>{const len=Math.hypot(q.x-p.x,q.y-p.y);if(len<.5)return;const ux=(q.x-p.x)/len,uy=(q.y-p.y)/len;const t=Math.max(0,Math.min(len,(it.x-p.x)*ux+(it.y-p.y)*uy));const wx=p.x+ux*t,wy=p.y+uy*t;const d=Math.hypot(wx-it.x,wy-it.y);if(d>.01&&(!best||d<best.d))best={d,dx:(wx-it.x)/d,dy:(wy-it.y)/d,wx,wy};});return best;}
+function backToWall(it){const L=LIB[it.t];if(!L||!L.backToWall||L.wallMount)return false;const nw=nearestWallDir(it);if(!nw)return false;const reach=Math.max(+it.w||1,+it.h||1)/2+1.2;if(nw.d>reach)return false;
+  it.r=Math.round(Math.atan2(nw.dx,-nw.dy)/D2R);const off=(+it.h||1)/2+.19;it.x=r2(nw.wx-nw.dx*off);it.y=r2(nw.wy-nw.dy*off);return true;}
+{const _ft=flushToWall;flushToWall=function(it){const L=LIB[it.t];if(L&&L.backToWall&&!L.wallMount&&!V.altDown){const was=it.x+','+it.y+','+it.r;backToWall(it);return was!==it.x+','+it.y+','+it.r;}return _ft(it);};}
+// wall-mounted pieces: face into the room, back on the wall
+{const _sw=snapToWall;snapToWall=function(it,p){const ok=_sw(it,p);try{const L=LIB[it.t];if(ok&&L&&L.backToWall&&L.wallMount&&L.kind==='set'){faceAway(it);it.r=Math.round((((it.r||0)-90)%360+540)%360-180);}}catch(e){}return ok;};}
+// dropped next to a wall from the library: turn and sit flush straight away
+{const _pa=placeAt;placeAt=function(w,keep,alt){const k=V.placing;_pa(w,keep,alt);try{const L=k&&libOf(k);if(L&&L.backToWall&&!L.wallMount&&!alt){const it=selItem();if(it&&it.t===k&&backToWall(it)){renderCanvas();renderQuick&&renderQuick();scheduleSave();}}}catch(e){}};}
+
+/* ---------- two ready-made apartment bathrooms ---------- */
+KIT('kit_bath_apt','Apartment Bathroom (5×8, tub / shower)',5.4,8.4,()=>[
+  kLine('wall',[[-2.5,4],[-2.5,-4],[2.5,-4],[2.5,4],[-2.5,4]]),
+  kItem('tubshower',0,-2.56,{w:4.62,h:2.5}),kItem('toilet',-1.11,-.3,{w:1.6,h:2.4,r:-90}),kItem('tphold',-2.16,.62,{w:.55,h:.3,r:-90}),
+  kItem('vanity',-1.41,2.05,{w:2.5,h:1.8,r:-90}),kItem('medcab',-2.085,2.05,{w:2,h:.45,r:-90}),kItem('pr_vanity',-2.2,2.05,{r:0}),
+  kItem('towelbar',2.16,.2,{w:2,h:.3,r:90}),kItem('bathmat',.95,-.6,{w:2,h:1.2}),kItem('door',.95,4,{w:2.33,r:0,hinge:'Right',swing:'In'})],'Bathroom');
+KIT('kit_bath_primary','Primary Bathroom (8×10, double vanity, walk-in shower)',8.4,10.4,()=>[
+  kLine('wall',[[-4,5],[-4,-5],[4,-5],[4,5],[-4,5]]),
+  kItem('walkin',-1.56,-3.21,{w:4.5,h:3.2}),kItem('toilet',2.6,-3.61,{w:1.6,h:2.4}),kItem('tphold',3.66,-3.4,{w:.55,h:.3,r:90}),
+  kItem('vanity2',2.91,.6,{w:5,h:1.8,r:90}),kItem('mirror',3.735,.6,{w:4.5,h:.15,r:90}),kItem('pr_vanity',3.7,.6,{r:180}),
+  kItem('clawfoot',-2.51,1.4,{w:5.5,h:2.6,r:-90}),kItem('bathmat',.2,.6,{w:2.2,h:1.4,r:90}),kItem('radiator',-2,4.51,{w:3,h:.6,r:180}),
+  kItem('door',1.4,5,{w:2.67,r:0,hinge:'Left',swing:'In'}),kItem('pr_flush',0,0,{})],'Bathroom');
+
+/* ---------- library: one tidy Bathroom group, kits first ---------- */
+{const ORDER=['kit_bath_apt','kit_bath_primary','toilet','toiletround','vanity','vanity2','pedsink','wallsink','bathtub','tubshower','clawfoot','shower','walkin','neoangle','medcab','mirror','towelbar','tphold','overtoilet','linen','radiator','hamper','bathmat','urinal','stall','stalls'];
+  const first=LIBALL.findIndex(e=>!e.kit&&e.cat==='Set'&&e.group==='Bathroom');const rest=LIBALL.filter(e=>!(!e.kit&&e.cat==='Set'&&e.group==='Bathroom'));
+  const ents=ORDER.filter(k=>LIB[k]).map(k=>({key:k,cat:'Set',group:'Bathroom',name:LIB[k].name}));const at=first>=0?first:rest.length;rest.splice(at,0,...ents);
+  // the vanity light bar joins the practicals
+  if(!rest.some(e=>e.key==='pr_vanity')){const pi=rest.map(e=>e.group).lastIndexOf('Practicals');rest.splice(pi>=0?pi+1:rest.length,0,{key:'pr_vanity',cat:'Electric',group:'Practicals',name:LIB.pr_vanity.name,w:LIB.pr_vanity.defaults.watts});}
+  rest.forEach(e=>{if(e.key==='radiator')e.name=LIB.radiator.name;});LIBALL.splice(0,LIBALL.length,...rest);}
+Object.assign(LIB_TIPS,{toilet:'About 30″ deep. Drop it by a wall and the tank turns to the wall.',toiletround:'Compact round bowl, common in older NYC apartments.',vanity:'Cabinet with one sink. The back goes to the wall.',vanity2:'Five-foot vanity with two sinks.',pedsink:'Freestanding pedestal sink; leaves floor space in a small bathroom.',wallsink:'Wall-hung sink; snaps to a wall.',bathtub:'Standard 5 ft alcove tub; faucet and drain at one end.',tubshower:'The classic apartment tub with a shower head and curtain rod.',clawfoot:'Freestanding clawfoot tub on four feet.',shower:'Square stall with a hinged glass door; the dashed arc shows the door swing.',walkin:'Tiled walk-in shower with a fixed glass panel.',neoangle:'Corner shower with an angled glass front.',medcab:'Mirrored medicine cabinet; snaps to a wall. Watch for camera and lights in its reflection.',mirror:'Wall mirror; snaps to a wall. Watch for camera and lights in its reflection.',towelbar:'Towel bar with a towel; snaps to a wall.',tphold:'Toilet paper holder; snaps to a wall.',overtoilet:'Shelf unit over the toilet tank; snaps to a wall.',radiator:'Cast-iron radiator, common in pre-war buildings. Noisy when the heat kicks on: plan sound around it.',kit_bath_apt:'A typical 5×8 apartment bathroom: tub / shower, toilet, vanity with medicine cabinet and light bar, door.',kit_bath_primary:'An 8×10 primary bathroom: walk-in shower, clawfoot tub, double vanity, toilet, radiator.',pr_vanity:'Light bar over a bathroom mirror. A strong motivated source for a bathroom scene.'});
+try{renderLib();}catch(e){}
 const BRANDFF=(()=>{let o='';for(const sh of document.styleSheets){try{for(const r of sh.cssRules)if(r.type===5&&/EB Garamond|Lato/.test(r.cssText))o+=r.cssText;}catch(e){}}return o;})();
 /* ============================================================
    Export
