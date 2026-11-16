@@ -5461,16 +5461,21 @@ function drawSunOverlay(){if(!sunMap||!window.L)return;if(sunOverlay){sunMap.rem
 // the main direction of a set of edges, folded into 0–90°, weighted by length
 function mainAngle(edges){let sx=0,sy=0;edges.forEach(([a,L])=>{const t=a*4*D2R;sx+=Math.cos(t)*L;sy+=Math.sin(t)*L;});return ((Math.atan2(sy,sx)/D2R/4)+90)%90;}
 async function matchBuilding(){const s=sunOf();const hint=$('#sunAlignHint');if(hint)hint.textContent='Looking up the building at the pin…';
-  try{const q=`[out:json][timeout:15];way(around:35,${+s.lat},${+s.lng})[building];out geom;`;const res=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:'data='+encodeURIComponent(q)});const js=await res.json();
-    const ways=(js.elements||[]).filter(w=>w.geometry&&w.geometry.length>2);if(!ways.length){if(hint)hint.textContent='No building outline found at the pin. Move the pin onto the building, or turn the plot with the slider.';return;}
+  try{const q=`[out:json][timeout:15];(way(around:35,${+s.lat},${+s.lng})[building];way(around:90,${+s.lat},${+s.lng})[highway~"^(primary|secondary|tertiary|residential|unclassified|living_street|trunk)$"];);out geom;`;const res=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:'data='+encodeURIComponent(q)});const js=await res.json();
+    const all=(js.elements||[]).filter(w=>w.geometry&&w.geometry.length>1);const roads=all.filter(w=>w.tags&&w.tags.highway);const ways=all.filter(w=>!(w.tags&&w.tags.highway)&&w.geometry.length>2);if(!ways.length){if(hint)hint.textContent='No building outline found at the pin. Move the pin onto the building, or turn the plot with the slider.';return;}
     const inside=(pt,g)=>{let c=false;for(let i=0,j=g.length-1;i<g.length;j=i++){const a=g[i],b=g[j];if(((a.lat>pt.lat)!==(b.lat>pt.lat))&&(pt.lng<(b.lon-a.lon)*(pt.lat-a.lat)/(b.lat-a.lat)+a.lon))c=!c;}return c;};
     const pin={lat:+s.lat,lng:+s.lng};let w=ways.find(w=>inside(pin,w.geometry))||ways.map(w=>({w,d:Math.min(...w.geometry.map(g=>Math.hypot(g.lat-pin.lat,g.lon-pin.lng)))})).sort((a,b)=>a.d-b.d)[0].w;
     sunBldg=w.geometry.map(g=>[g.lat,g.lon]);const ftLon=Math.cos(pin.lat*D2R);
     const bE=[];for(let i=1;i<w.geometry.length;i++){const a=w.geometry[i-1],b=w.geometry[i];const dn=(b.lat-a.lat),de=(b.lon-a.lon)*ftLon;const L=Math.hypot(dn,de);if(L>0)bE.push([Math.atan2(de,dn)/D2R,L]);}
     const pE=[];plotWallPts().forEach(pts=>{for(let i=1;i<pts.length;i++){const a=pts[i-1],b=pts[i];const L=Math.hypot(b.x-a.x,b.y-a.y);if(L>0)pE.push([Math.atan2(b.x-a.x,-(b.y-a.y))/D2R,L]);}});
     if(!pE.length){if(hint)hint.textContent='Draw the walls on the plot first.';return;}
-    const base=mainAngle(pE)-mainAngle(bE);const cur=getNorth();let best=null;for(let k=0;k<4;k++){const n=((base+k*90)%360+360)%360;const d=Math.abs(((n-cur)%360+540)%360-180);if(!best||d<best.d)best={n,d};}
-    snap();setNorth(best.n);changed();renderCalc();toast('Lined up with the building. If the plot sits the wrong way round, use Turn 90°.');}
+    const base=mainAngle(pE)-mainAngle(bE);const cands=[0,1,2,3].map(k=>((base+k*90)%360+360)%360);
+    // with a wall selected: point it at the side of the building it really faces
+    const sel=selItem();const wsel=sel&&(isWall(sel)&&sel.pts.length===2||sel.t==='window'||sel.t==='door');const want=wsel?wallTarget(w.geometry,roads,pin,SUN_FACE):null;let pick,msg;
+    if(want!=null){const o=outwardOf(sel);const th=Math.atan2(o.nx,-o.ny)/D2R;pick=cands.map(n=>({n,d:Math.abs((((th-n)-want)%360+540)%360-180)})).sort((a,b)=>a.d-b.d)[0].n;
+      msg=`Lined up, with the selected ${sel.t==='window'?'window':sel.t==='door'?'door':'wall'} facing ${SUN_FACE==='inside'?'into the building':SUN_FACE==='back'?'the back':'the street'} (${Math.round((want+360)%360)}° ${compass((want+360)%360)}).`;}
+    else{const cur=getNorth();pick=cands.map(n=>({n,d:Math.abs(((n-cur)%360+540)%360-180)})).sort((a,b)=>a.d-b.d)[0].n;msg='Lined up with the building. Select a wall to point it the right way, or use Turn 90°.';}
+    snap();setNorth(pick);changed();renderCalc();toast(msg);}
   catch(e){if(hint)hint.textContent='The building lookup did not respond. Turn the plot with the slider instead.';}}
 // phone compass: the reading along the phone's top edge
 function phoneHeading(){return new Promise(async(res,rej)=>{try{if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'){const p=await DeviceOrientationEvent.requestPermission();if(p!=='granted')return rej('denied');}}catch(e){}
@@ -5480,7 +5485,7 @@ function phoneHeading(){return new Promise(async(res,rej)=>{try{if(typeof Device
 
 {const _cs=calcSunHTML;calcSunHTML=function(){let h=_cs();try{const sel=selItem();const wsel=sel&&(isWall(sel)&&sel.pts.length===2||sel.t==='window'||sel.t==='door');
   let g=`<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--line2)"><b style="font-size:12px">Quicker ways</b>`;
-  if(MAP_OK)g+=`<label class="chk" style="display:block;margin-top:6px"><input type="checkbox" id="sunAlignOn" ${sunAlign?'checked':''}> Line up the plot on the map</label>${sunAlign?`<div class="f2" style="margin-top:6px"><button class="btn sm pri" id="sunMatch">Match the building</button><button class="btn sm" id="sunTurn">Turn 90°</button></div><input type="range" id="sunRot" min="0" max="359.5" step=".5" value="${getNorth()}" style="width:100%;margin-top:6px"><div class="pSub" id="sunAlignHint">Your walls are drawn in orange over the map at the pin. Put the pin on the building, then Match the building, or turn them with the slider until they sit on it.</div>`:''}`;
+  if(MAP_OK)g+=`<label class="chk" style="display:block;margin-top:6px"><input type="checkbox" id="sunAlignOn" ${sunAlign?'checked':''}> Line up the plot on the map</label>${sunAlign?`<div class="f2" style="margin-top:6px"><button class="btn sm pri" id="sunMatch">Match the building</button><button class="btn sm" id="sunTurn">Turn 90°</button></div><input type="range" id="sunRot" min="0" max="359.5" step=".5" value="${getNorth()}" style="width:100%;margin-top:6px"><div class="pSub" id="sunAlignHint">Your walls are drawn in orange over the map at the pin. Put the pin on your room's spot in the building, select a wall and say which way it faces, then Match the building. The slider fine-tunes.</div>`:''}`;
   g+=`<button class="btn sm" id="sunPhone" style="margin-top:8px" ${wsel?'':'disabled'}>📱 Use my phone’s compass</button><div class="pSub" style="margin-top:3px">${wsel?'On location: stand inside, hold the phone flat with its top edge pointing out through the selected wall or window, then tap.':'On location: select a wall or window first.'}</div></div>`;
   const i=h.indexOf('<div class="note" style="margin-top:10px">This shows where the sun');h=i>=0?h.slice(0,i)+g+h.slice(i):h+g;}catch(e){}return h;};}
 {const _mi=sunMapInit;sunMapInit=async function(){await _mi();drawSunOverlay();};}
@@ -5492,6 +5497,28 @@ $('#calc').addEventListener('click',async e=>{const t=e.target;if(!t||!t.id)retu
 $('#calc').addEventListener('change',e=>{const t=e.target;if(t&&t.id==='sunAlignOn'){sunAlign=t.checked;renderCalc();}});
 $('#calc').addEventListener('input',e=>{const t=e.target;if(t&&t.id==='sunRot'){setNorth(+t.value);const n=$('#calc [data-sun="north"]');if(n)n.value=Math.round(getNorth()*10)/10;renderCanvas();drawSunOverlay();clearTimeout(window.__srt);window.__srt=setTimeout(()=>{scheduleSave();calcSky&&calcSky();const o=$('#sunOut');if(o)o.innerHTML=sunReadout();},150);}});
 $('#calc').addEventListener('pointerdown',e=>{if(e.target&&e.target.id==='sunRot')snap();});
+
+/* which way the selected wall should face, as a compass bearing:
+   street = out of the side of the building nearest a street (or nearest the pin), back = the opposite side,
+   inside = from the pin toward the middle of the building (a hallway or inner wall) */
+let SUN_FACE='street';
+function wallTarget(g,roads,pin,face){const cos=Math.cos(pin.lat*D2R);const P=g.map(q=>({x:(q.lon-pin.lng)*cos,y:q.lat-pin.lat}));const c=P.reduce((s,q)=>({x:s.x+q.x/P.length,y:s.y+q.y/P.length}),{x:0,y:0});
+  const brg=(dx,dy)=>(Math.atan2(dx,dy)/D2R+360)%360;if(face==='inside')return brg(c.x,c.y);
+  const R=[];roads.forEach(w=>w.geometry.forEach(q=>R.push({x:(q.lon-pin.lng)*cos,y:q.lat-pin.lat})));
+  let best=null;for(let i=1;i<P.length;i++){const a=P[i-1],b=P[i];const m={x:(a.x+b.x)/2,y:(a.y+b.y)/2};const L=Math.hypot(b.x-a.x,b.y-a.y);if(L<1e-9)continue;
+    let nx=(b.y-a.y)/L,ny=-(b.x-a.x)/L;if((m.x-c.x)*nx+(m.y-c.y)*ny<0){nx=-nx;ny=-ny;}
+    const score=R.length?Math.min(...R.map(q=>Math.hypot(q.x-m.x,q.y-m.y)))-(L*.15):Math.hypot(m.x,m.y);if(!best||score<best.s)best={s:score,b:brg(nx,ny)};}
+  if(!best)return null;return face==='back'?(best.b+180)%360:best.b;}
+// without the map: pick which way the selected wall faces from a list
+const FACE8=[['N',0],['NE',45],['E',90],['SE',135],['S',180],['SW',225],['W',270],['NW',315]];
+{const _cs=calcSunHTML;calcSunHTML=function(){let h=_cs();try{const sel=selItem();const wsel=sel&&(isWall(sel)&&sel.pts.length===2||sel.t==='window'||sel.t==='door');
+  const face=`<div class="f" style="margin-top:6px"><label>${wsel?'The selected wall faces':'Select any wall, window or door, then say which way it faces'}</label><div class="f2" style="grid-template-columns:repeat(8,1fr);gap:3px">${FACE8.map(([n,b])=>`<button class="btn sm" data-face8="${b}" ${wsel?'':'disabled'} style="padding:4px 0">${n}</button>`).join('')}</div></div>`;
+  const pick=MAP_OK&&sunAlign?`<div class="f" style="margin-top:6px"><label>${wsel?'Match so the selected wall faces':'Select a wall, window or door to point it the right way'}</label><select class="in" id="sunFace" ${wsel?'':'disabled'}><option value="street" ${SUN_FACE==='street'?'selected':''}>the street</option><option value="back" ${SUN_FACE==='back'?'selected':''}>the back of the building (courtyard, rear)</option><option value="inside" ${SUN_FACE==='inside'?'selected':''}>into the building (a hallway or inner wall, for a room with no windows)</option></select></div>`:'';
+  const key='<button class="btn sm" id="sunPhone"';const i=h.indexOf(key);if(i>=0)h=h.slice(0,i)+(pick?'':'')+face+h.slice(i);
+  const k2='<input type="range" id="sunRot"';const j=h.indexOf(k2);if(j>=0&&pick)h=h.slice(0,j)+pick+h.slice(j);
+  h=h.replace('On location: select a wall or window first.','On location: select a wall, window or door first. Any wall works, so rooms with no windows can use one too.').replace('pointing out through the selected wall or window, then tap.','pointing straight out from the selected wall (through it, if it has a window), then tap.');}catch(e){}return h;};}
+$('#calc').addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-face8]');if(!b)return;const it=selItem();if(!it)return;const B=+b.dataset.face8;snap();northFromBearing(it,B);changed();renderCalc();toast(`That wall faces ${compass(B)}. North is set.`);});
+$('#calc').addEventListener('change',e=>{if(e.target&&e.target.id==='sunFace')SUN_FACE=e.target.value;});
 const BRANDFF=(()=>{let o='';for(const sh of document.styleSheets){try{for(const r of sh.cssRules)if(r.type===5&&/EB Garamond|Lato/.test(r.cssText))o+=r.cssText;}catch(e){}}return o;})();
 /* ============================================================
    Export
