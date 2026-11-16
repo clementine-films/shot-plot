@@ -4596,7 +4596,11 @@ function mockFrameSVG(o){// o: {items, cam, sc, W, sensor, f, N, focus, bgFallba
       const nx=-uy,ny=ux;const facing=Math.abs(nx*K.ux+ny*K.uy);const col=glass?(night?'#1d2a3a':'#cfe6f7'):shade(base,.75+.3*facing);const gl=glass?`fill-opacity="${night?.85:.55}" stroke="#7fb3d6" stroke-width=".6"`:'';
       const gaps=[];ops.forEach(op=>{const t=(op.x-a.x)*ux+(op.y-a.y)*uy;const d=Math.abs(-(op.x-a.x)*uy+(op.y-a.y)*ux);if(d<.5&&t>-1&&t<L+1){const hw=(+op.w||3)/2;gaps.push({t0:t-hw,t1:t+hw,op});}});gaps.sort((p,q)=>p.t0-q.t0);
       const piece=(t0,t1,z0,z1,fill,ex,lay)=>{t0=Math.max(0,t0);t1=Math.min(L,t1);if(t1-t0<.02)return;const A=at(t0),B=at(t1);const cA=toCam(K,A,0),cB=toCam(K,B,0);let dist=Math.max(.1,(Math.max(cA.d,0)+Math.max(cB.d,0))/2);if(lay!=null&&lay.g){const G=lay.g;const gA=toCam(K,at(Math.max(0,G.t0)),0),gB=toCam(K,at(Math.min(L,G.t1)),0);dist=Math.max(.1,(Math.max(gA.d,0)+Math.max(gB.d,0))/2)-lay.k*.002;}add([toCam(K,A,z0),toCam(K,B,z0),toCam(K,B,z1),toCam(K,A,z1)],fill,dist+.05,ex);};
-      if(openOnly){gaps.forEach(g=>{if(isGlass(g.op))mockWindow(piece,g,wtod);else if(!/arch/i.test(g.op.t)){const gar=/elevator|garage|rollgate/.test(g.op.t);piece(g.t0-.25,g.t1+.25,0,7.25,'#efe9df','',{g,k:0});piece(g.t0,g.t1,0,7,gar?'#8d9196':'#6b5240',`stroke="#3a2c22" stroke-width="1"`,{g,k:1});}});return;}
+      if(openOnly){gaps.forEach(g=>{if(isGlass(g.op))mockWindow(piece,g,wtod);else if(!/arch/i.test(g.op.t)){const gar=/elevator|garage|rollgate/.test(g.op.t);
+          // the frame: two jambs and a header, so an open door shows what's through it
+          piece(g.t0-.25,g.t0,0,7.25,'#efe9df','',{g,k:0});piece(g.t1,g.t1+.25,0,7.25,'#efe9df','',{g,k:0});piece(g.t0,g.t1,7,7.25,'#efe9df','',{g,k:0});
+          const open=doorOpenAt(g.op,o.view&&o.view.phase);if(!open||gar)piece(g.t0,g.t1,0,7,gar?'#8d9196':'#6b5240',`stroke="#3a2c22" stroke-width="1"`,{g,k:1});
+          else doorLeaves(g.op).forEach(([A,B])=>{const P=[toCam(K,A,0),toCam(K,B,0),toCam(K,B,7),toCam(K,A,7)];add(P,'#6b5240',(P[0].d+P[1].d)/2,'stroke="#3a2c22" stroke-width="1"');});}});return;}
       let t=0;gaps.forEach(g=>{piece(t,g.t0,0,top,col,gl);const win=isGlass(g.op);const LL=LIB[g.op.t]||{};
         if(win){piece(g.t0,g.t1,0,2.8,col,gl);piece(g.t0,g.t1,7.2,top,col,gl);piece(g.t0,g.t1,2.8,7.2,night?'#18283a':(ext?'#9fb8c8':'#eaf5ff'),`fill-opacity="${o.bg?(night?.35:.18):1}" stroke="${shade(base,.6)}" stroke-width="1.2"`);}
         else if(/arch/i.test(g.op.t)){piece(g.t0,g.t1,7.6,top,col,gl);}
@@ -4640,7 +4644,7 @@ const mockHasSet=(items,cam)=>{const K=mockCam(cam);return items.some(i=>{if(i.t
 function shotFrames(scenes){const out=[];const keep=[CALC.dof.bg,CALC.dof.tod];scenes.forEach(sc=>{CALC.dof.bg=sceneBg(sc);CALC.dof.tod=sceneTod(sc);(sc.setups||[]).forEach(su=>su.shots.forEach(sh=>{const items=activeItems(su,sh);items.filter(i=>i.t==='camera').forEach(c=>{
   const lo=lensOf(c);const f=(lo&&lo.f)||+c.lens||35;const K=mockCam(c);const acts=items.filter(i=>i.t==='actor').map(a=>({a,c:toCam(K,a,0)})).filter(x=>x.c.d>1&&Math.abs(Math.atan2(x.c.l,x.c.d))<Math.atan((SENSORS[c.sensor]||24.9)/(2*f)));
   const foc=acts.length?Math.hypot(acts.sort((p,q)=>Math.abs(p.c.l)-Math.abs(q.c.l))[0].a.x-c.x,acts[0].a.y-c.y):8;
-  const tgt=acts.length?acts[0].a:null;const path=camPath(items,c);const phases=phaseList(sh,path,actorMoves(items).length>0);
+  const tgt=acts.length?acts[0].a:null;const path=camPath(items,c);const phases=phaseList(sh,path,actorMoves(items).length>0||doorsChange(items));
   phases.forEach(ph=>{const itemsP=ph==='end'?actorEnd(items):items;const tgtP=tgt?(itemsP.find(i=>i.id===tgt.id)||tgt):null;const view=shotView(sh,c,tgtP,ph||'end',sh.size,f,path);const fv=view.f||f;const r=mockFrameSVG({items:itemsP,cam:c,sc,W:560,sensor:c.sensor,f:fv,N:parseFloat(CALC.dof&&CALC.dof.stop)||2.8,focus:view.focus||(tgtP&&ph?Math.max(1,Math.hypot(tgtP.x-view.x,tgtP.y-view.y)):foc),idp:'x'+sh.id+c.id+ph,view,bg:CALC.dof&&CALC.dof.bg,bgDist:Math.max(foc+2,parseFt(CALC.dof&&CALC.dof.bgDist)||15)});
   out.push({sc,su,sh,c,f:fv,phase:ph,note:view.notes.join(' '),svg:r.svg+viewTag(view,r.W)+'</svg>'});});});}));});CALC.dof.bg=keep[0];CALC.dof.tod=keep[1];return out;}
 function openMockFrames(){const all=!!V.mfAll;const scs=all?P.scenes:[scene()];const fr=shotFrames(scs);
@@ -4662,6 +4666,24 @@ function mockWindow(piece,g,tod){const z0=2.8,z1=7.2,fr='#f2efe9';const sky=tod=
   const w=g.t1-g.t0;for(let x=g.t0;x<g.t1-.05;x+=Math.max(.6,w/5)){const hgt=z0+.4+((x*7.3)%1)*1.6;piece(x,Math.min(g.t1,x+Math.max(.5,w/6)),z0,hgt,far,'',{g,k:2});
     if(tod!=='day')piece(x+.15,Math.min(g.t1,x+.3),hgt-.6,hgt-.35,tod==='night'?'#ffd28a':'#f6c58f','',{g,k:3});}
   const mid=(g.t0+g.t1)/2;piece(mid-.05,mid+.05,z0,z1,fr,'',{g,k:4});piece(g.t0,g.t1,(z0+z1)/2-.05,(z0+z1)/2+.05,fr,'',{g,k:4});piece(g.t0-.25,g.t1+.25,z0-.35,z0-.2,'#e3dccf','',{g,k:4});}
+
+/* doors: closed, open, opening during the shot (closed at the start, open at the end) or closing */
+const DOOR_STATES=[['closed','Closed'],['open','Open'],['opening','Opens during the shot'],['closing','Closes during the shot']];
+function doorOpenAt(d,phase){const s=d.doorState||'closed';if(s==='open')return true;if(s==='closed')return false;const end=!phase||phase==='end';return s==='opening'?end:!end;}
+// the open leaves in the world: swung 90° from the hinge to the side the door swings to
+function doorLeaves(d){const st=d.style||'Single swing';if(/Sliding|Roll|arch/i.test(st))return [];const w=+d.w||3;const sy=d.swing==='Out'?1:-1;const W=(lx,ly)=>toW(d,lx,ly);
+  if(st==='Double swing')return [[W(-w/2,0),W(-w/2,sy*w/2)],[W(w/2,0),W(w/2,sy*w/2)]];
+  const hx=d.hinge==='Right'?w/2:-w/2;if(st==='Bifold'){const s=hx>0?-1:1;return [[W(hx,0),W(hx+s*w/4,sy*w/4)],[W(hx+s*w/4,sy*w/4),W(hx,sy*w/2)]];}
+  return [[W(hx,0),W(hx,sy*w)]];}
+function doorsChange(items){return (items||[]).some(d=>d.t==='door'&&/opening|closing/.test(d.doorState||''));}
+{const _pi=panelItem;panelItem=function(){let h=_pi();try{const it=selItem();if(it&&it.t==='door'&&!/data-k="doorState"/.test(h)){const f=fld('In this shot',`<select class="in" data-k="doorState">${DOOR_STATES.map(([v,n])=>`<option value="${v}" ${(it.doorState||'closed')===v?'selected':''}>${n}</option>`).join('')}</select>`)+`<div class="pSub" style="margin-top:-2px">Opens or closes during the shot shows it closed in the start frame and open in the end frame, or the other way round. Each shot keeps its own.</div>`;
+  const key='<div class="f" style="grid-template-columns:96px 1fr"><label>Notes';const i=h.indexOf(key);h=i>=0?h.slice(0,i)+f+h.slice(i):h+f;}}catch(e){}return h;};}
+document.addEventListener('change',e=>{if(e.target&&e.target.dataset&&e.target.dataset.k==='doorState')setTimeout(()=>{renderCanvas();if(typeof CALC!=='undefined'&&CALC.open)renderCalc();},0);});
+// on the plot: a closed door is drawn shut across the opening; one that opens or closes gets a small arrow
+{const _sg=setGlyph;setGlyph=function(it,L,C,px){const g=_sg(it,L,C,px);if(it.t!=='door')return g;const s=it.doorState||'';/* a door never set keeps the usual plan symbol */const w=+it.w||3;
+  if(s==='closed'&&!/arch/i.test(it.style||''))return g.replace(/<path d="M[^"]*" stroke="[^"]*" stroke-width="[^"]*"\/>(?=<path d="M[^"]*A)/,'')+`<path d="M${-w/2} 0 H${w/2}" stroke="${C.wall}" stroke-width="${3*px}"/>`;
+  if(s==='opening'||s==='closing'){const sy=it.swing==='Out'?1:-1;return g+`<text x="0" y="${sy*-.45}" text-anchor="middle" dy=".35em" font-size="${11*px}" font-family="${C.font}" fill="${C.sub}">${s==='opening'?'opens':'closes'}</text>`;}
+  return g;};}
 /* ============================================================
    Mock-up frames, piece by piece, at real size:
    furniture with its parts (table tops and legs, chair seats and backs,
@@ -5016,7 +5038,7 @@ function shotView(sh,cam,target,phase,size,lens,path){sh=sh||{};const ang=sh.ang
   return {t,roll,h,x,y,r,f:fl,anchor,notes,focus,phase,move:sh.move,moves:L,step:k,path:!!path};}
 function dofTarget(c){const D=CALC.dof;const acts=activeItems().filter(i=>i.t==='actor');let a=D.subRef&&acts.find(i=>i.id===D.subRef.id);
   if(!a){const r=(c.r||0)*D2R;a=acts.map(i=>({i,d:(i.x-c.x)*Math.cos(r)+(i.y-c.y)*Math.sin(r),l:Math.abs(-(i.x-c.x)*Math.sin(r)+(i.y-c.y)*Math.cos(r))})).filter(o=>o.d>1).sort((p,q)=>p.l-q.l)[0];a=a&&a.i;}return a||null;}
-function dofView(c,size){const sh=shot();if(!size){const n=dofNums();size=n&&!n.bad?shotSize(n.fh)[0]:null;}const path=camPath(activeItems(),c);const ph=CALC.dof.phase;return shotView(sh,c,dofTarget(c),(path||moveList(sh).length)&&(ph==='start'||/^step/.test(ph||''))?ph:'end',size,CALC.dof.f,path);}
+function dofView(c,size){const sh=shot();if(!size){const n=dofNums();size=n&&!n.bad?shotSize(n.fh)[0]:null;}const path=camPath(activeItems(),c);const ph=CALC.dof.phase;return shotView(sh,c,dofTarget(c),(ph==='start'||/^step/.test(ph||''))?ph:'end',size,CALC.dof.f,path);}
 // a camera move or track drawn on the plot from (or to) this camera: it runs from its first point to its last
 function camPath(items,c){const L=items.filter(i=>i.t==='line'&&(i.kind==='cammove'||i.kind==='track')&&i.pts&&i.pts.length>1).map(l=>({a:l.pts[0],b:l.pts[l.pts.length-1]})).map(p=>({p,d:Math.min(Math.hypot(p.a.x-c.x,p.a.y-c.y),Math.hypot(p.b.x-c.x,p.b.y-c.y))})).filter(o=>o.d<4).sort((p,q)=>p.d-q.d)[0];return L?L.p:null;}
 const isMoving=(v)=>v&&(v.path||(v.moves&&v.moves.length));
@@ -5054,7 +5076,7 @@ function viewProj(x,y,d,W,H,F,h,ct,st,pan){const zr=y-h;const d2=Math.max(.05,d*
 
 /* the depth of field tab: start / end of a tilt, and any note about the angle */
 {const _do=dofOut;dofOut=function(){CALC.dof.phase='end';let h=_do();try{const n0=dofNums();if(!n0.bad){const tag=`<text x="10" y="96%" font-family="Lato,sans-serif" font-size="12" font-weight="700" fill="#fff" paint-order="stroke" stroke="rgba(0,0,0,.65)" stroke-width="3">${n0.f}mm · f/${n0.N}</text>`;const i=h.indexOf('<div class="cGrid"><div>'),j=h.indexOf('</div><div>',i);if(i>=0&&j>i)h=h.slice(0,i)+h.slice(i,j).replace(/<\/svg>/g,tag+'</svg>')+h.slice(j);}}catch(e){}try{const c=dofCam();if(!c)return h;const sh=shot();const v=dofView(c);let x='';
-  const path=camPath(activeItems(),c);const amv=actorMoves(activeItems()).length>0;const PH=phaseList(sh,path,amv);if(PH.length>1){const n=dofNums();if(!n.bad){const L=moveList(sh);
+  const path=camPath(activeItems(),c);const amv=actorMoves(activeItems()).length>0||doorsChange(activeItems());const PH=phaseList(sh,path,amv);if(PH.length>1){const n=dofNums();if(!n.bad){const L=moveList(sh);
     const lab=t=>`<div style="font-size:12px;font-weight:700;margin:2px 0 4px">${t}</div>`;let pre='';
     PH.slice(0,-1).forEach((ph,idx)=>{CALC.dof.phase=ph;let s='';try{s=dofMock(n);}finally{CALC.dof.phase='end';}s=s.replace(/id="([^"]+)"/g,`id="$1_p${idx}"`).replace(/url\(#([^)]+)\)/g,`url(#$1_p${idx})`);
       pre+=lab(esc(ph==='start'?'Start'+(L.length?'':path?' of the camera move':' of the action')+(path&&ph==='start'?' (from the move drawn on the plot)':''):phaseName(L,ph,path)))+s;});
