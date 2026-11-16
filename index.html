@@ -4640,8 +4640,8 @@ const mockHasSet=(items,cam)=>{const K=mockCam(cam);return items.some(i=>{if(i.t
 function shotFrames(scenes){const out=[];const keep=[CALC.dof.bg,CALC.dof.tod];scenes.forEach(sc=>{CALC.dof.bg=sceneBg(sc);CALC.dof.tod=sceneTod(sc);(sc.setups||[]).forEach(su=>su.shots.forEach(sh=>{const items=activeItems(su,sh);items.filter(i=>i.t==='camera').forEach(c=>{
   const lo=lensOf(c);const f=(lo&&lo.f)||+c.lens||35;const K=mockCam(c);const acts=items.filter(i=>i.t==='actor').map(a=>({a,c:toCam(K,a,0)})).filter(x=>x.c.d>1&&Math.abs(Math.atan2(x.c.l,x.c.d))<Math.atan((SENSORS[c.sensor]||24.9)/(2*f)));
   const foc=acts.length?Math.hypot(acts.sort((p,q)=>Math.abs(p.c.l)-Math.abs(q.c.l))[0].a.x-c.x,acts[0].a.y-c.y):8;
-  const tgt=acts.length?acts[0].a:null;const path=camPath(items,c);const phases=path||hasStart(sh.move)?['start','end']:[''];
-  phases.forEach(ph=>{const view=shotView(sh,c,tgt,ph||'end',sh.size,f,path);const fv=view.f||f;const r=mockFrameSVG({items,cam:c,sc,W:560,sensor:c.sensor,f:fv,N:parseFloat(CALC.dof&&CALC.dof.stop)||2.8,focus:view.focus||(tgt&&view.phase==='start'?Math.max(1,Math.hypot(tgt.x-view.x,tgt.y-view.y)):foc),idp:'x'+sh.id+c.id+ph,view,bg:CALC.dof&&CALC.dof.bg,bgDist:Math.max(foc+2,parseFt(CALC.dof&&CALC.dof.bgDist)||15)});
+  const tgt=acts.length?acts[0].a:null;const path=camPath(items,c);const phases=path||hasStart(sh.move)||actorMoves(items).length?['start','end']:[''];
+  phases.forEach(ph=>{const itemsP=ph==='end'?actorEnd(items):items;const tgtP=tgt?(itemsP.find(i=>i.id===tgt.id)||tgt):null;const view=shotView(sh,c,tgtP,ph||'end',sh.size,f,path);const fv=view.f||f;const r=mockFrameSVG({items:itemsP,cam:c,sc,W:560,sensor:c.sensor,f:fv,N:parseFloat(CALC.dof&&CALC.dof.stop)||2.8,focus:view.focus||(tgtP&&ph?Math.max(1,Math.hypot(tgtP.x-view.x,tgtP.y-view.y)):foc),idp:'x'+sh.id+c.id+ph,view,bg:CALC.dof&&CALC.dof.bg,bgDist:Math.max(foc+2,parseFt(CALC.dof&&CALC.dof.bgDist)||15)});
   out.push({sc,su,sh,c,f:fv,phase:ph,note:view.notes.join(' '),svg:r.svg+viewTag(view,r.W)+'</svg>'});});});}));});CALC.dof.bg=keep[0];CALC.dof.tod=keep[1];return out;}
 function openMockFrames(){const all=!!V.mfAll;const scs=all?P.scenes:[scene()];const fr=shotFrames(scs);
   const card=x=>`<div class="mfCard"><div class="mfHead"><b>${esc(x.sh.num)}</b>${x.phase?` · ${x.phase==='start'?'Start':'End'} of ${esc(hasStart(x.sh.move)?x.sh.move.toLowerCase():'the move')}`:''} · ${esc(x.sh.size||'')}${x.c.cam?` · ${esc(x.c.cam)} cam`:''} · ${x.f}mm<span>${esc(x.su.name||'')}</span></div>${x.svg}<div class="mfDesc">${esc(x.sh.desc||'')}${x.note?`<div style="color:#ffcf7a;margin-top:3px">${esc(x.note)}</div>`:''}</div></div>`;
@@ -5050,8 +5050,8 @@ function viewProj(x,y,d,W,H,F,h,ct,st,pan){const zr=y-h;const d2=Math.max(.05,d*
 
 /* the depth of field tab: start / end of a tilt, and any note about the angle */
 {const _do=dofOut;dofOut=function(){CALC.dof.phase='end';let h=_do();try{const n0=dofNums();if(!n0.bad){const tag=`<text x="10" y="96%" font-family="Lato,sans-serif" font-size="12" font-weight="700" fill="#fff" paint-order="stroke" stroke="rgba(0,0,0,.65)" stroke-width="3">${n0.f}mm · f/${n0.N}</text>`;const i=h.indexOf('<div class="cGrid"><div>'),j=h.indexOf('</div><div>',i);if(i>=0&&j>i)h=h.slice(0,i)+h.slice(i,j).replace(/<\/svg>/g,tag+'</svg>')+h.slice(j);}}catch(e){}try{const c=dofCam();if(!c)return h;const sh=shot();const v=dofView(c);let x='';
-  const path=camPath(activeItems(),c);if(path||hasStart(sh.move)){const n=dofNums();if(!n.bad){CALC.dof.phase='start';let s='';try{s=dofMock(n);}finally{CALC.dof.phase='end';}
-    s=s.replace(/id="([^"]+)"/g,'id="$1_st"').replace(/url\(#([^)]+)\)/g,'url(#$1_st)');const nm=hasStart(sh.move)?sh.move.toLowerCase():'camera move';const lab=t=>`<div style="font-size:12px;font-weight:700;margin:2px 0 4px">${t}</div>`;
+  const path=camPath(activeItems(),c);const amv=actorMoves(activeItems()).length>0;if(path||hasStart(sh.move)||amv){const n=dofNums();if(!n.bad){CALC.dof.phase='start';let s='';try{s=dofMock(n);}finally{CALC.dof.phase='end';}
+    s=s.replace(/id="([^"]+)"/g,'id="$1_st"').replace(/url\(#([^)]+)\)/g,'url(#$1_st)');const nm=hasStart(sh.move)?sh.move.toLowerCase():path?'camera move':'action';const lab=t=>`<div style="font-size:12px;font-weight:700;margin:2px 0 4px">${t}</div>`;
     h=h.replace('<div class="cGrid"><div>','<div class="cGrid"><div>'+lab(`Start of the ${esc(nm)}`+(path?' (from the move drawn on the plot)':''))+s+lab(`End of the ${esc(nm)}`));}}
   if(v.notes.length)x+=`<div style="margin:6px 0;padding:6px 8px;border:1px solid #c98a1a;border-radius:6px;color:#ffcf7a;font-size:12px">${v.notes.map(esc).join('<br>')}</div>`;
   if(x)h=h.replace('</svg></div>','</svg>'+x+'</div>');}catch(e){}return h;};}
@@ -5071,6 +5071,16 @@ document.addEventListener('input',e=>{const t=e.target;if(t&&t.dataset&&t.datase
 // the floor from the foot of the backdrop down to the bottom of the frame, following the backdrop's ground line
 function groundPath(P,W,H){const pts=[];for(let x=-120;x<=120;x+=6){const p=P(x,0);if(isFinite(p.x)&&isFinite(p.y))pts.push(p);}if(pts.length<2)return '';pts.sort((a,b)=>a.x-b.x);
   const L=pts[0],R=pts[pts.length-1];return `M${-W} ${L.y.toFixed(1)} `+pts.map(p=>`L${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ')+` L${2*W} ${R.y.toFixed(1)} L${2*W} ${3*H} L${-W} ${3*H}Z`;}
+
+/* actor moves: a character with a move drawn from them starts where they stand on the plot
+   and ends at the far end of their path, facing the way they were walking */
+function actorMoves(items){return (items||[]).filter(l=>l.t==='line'&&l.kind==='actor'&&l.owner&&l.pts&&l.pts.length>1);}
+function actorEnd(items){const mv=actorMoves(items);if(!mv.length)return items;const end={};mv.forEach(l=>{const p=l.pts,z=p[p.length-1],y=p[p.length-2];end[l.owner]={x:z.x,y:z.y,r:Math.atan2(z.y-y.y,z.x-y.x)/D2R};});
+  return items.map(i=>end[i.id]&&i.t!=='line'?Object.assign({},i,end[i.id]):i);}
+let ACT_PHASE=null;
+{const _ai=activeItems;activeItems=function(){const r=_ai.apply(this,arguments);return ACT_PHASE==='end'?actorEnd(r):r;};}
+// the depth of field mock: the end frame shows the characters where their moves finish
+{const _dm=dofMock;dofMock=function(n){if(CALC.dof.phase==='start'||ACT_PHASE)return _dm(n);ACT_PHASE='end';try{return _dm(n);}finally{ACT_PHASE=null;}};}
 /* ============================================================
    Each scene keeps its own mock-up background, picked once and used by
    the depth of field mock and the mock-up frames. Until you pick one it
