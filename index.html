@@ -4577,11 +4577,14 @@ function mockFrameSVG(o){// o: {items, cam, sc, W, sensor, f, N, focus, bgFallba
   const items=o.items;
   // walls, split around doors and windows
   const ops=items.filter(i=>isOpening(i));
-  items.forEach(w=>{if(w.t!=='line'||w.kind!=='wall'||o.bg)return;// with a background picked, the plot's walls stay out of the wayconst m=typeof wallMat==='function'?wallMat(w):null;const base=m&&m.base?m.base:(ext?'#b9b2a6':'#d8d0c2');const glass=m&&m.glass&&!m.blur;const top=m&&m.half?3.5:WALL_H;
+  const openOnly=!!o.bg;// with a background picked, the walls themselves stay out of the way; their windows and doors still show
+  const wtod=typeof sceneTod==='function'?sceneTod(sc):(night?'night':'day');
+  items.forEach(w=>{if(w.t!=='line'||w.kind!=='wall')return;const m=typeof wallMat==='function'?wallMat(w):null;const base=m&&m.base?m.base:(ext?'#b9b2a6':'#d8d0c2');const glass=m&&m.glass&&!m.blur;const top=m&&m.half?3.5:WALL_H;
     for(let k=1;k<w.pts.length;k++){const a=w.pts[k-1],b=w.pts[k];const L=Math.hypot(b.x-a.x,b.y-a.y);if(L<.05)continue;const ux=(b.x-a.x)/L,uy=(b.y-a.y)/L;const at=t=>({x:a.x+ux*t,y:a.y+uy*t});
       const nx=-uy,ny=ux;const facing=Math.abs(nx*K.ux+ny*K.uy);const col=glass?(night?'#1d2a3a':'#cfe6f7'):shade(base,.75+.3*facing);const gl=glass?`fill-opacity="${night?.85:.55}" stroke="#7fb3d6" stroke-width=".6"`:'';
       const gaps=[];ops.forEach(op=>{const t=(op.x-a.x)*ux+(op.y-a.y)*uy;const d=Math.abs(-(op.x-a.x)*uy+(op.y-a.y)*ux);if(d<.5&&t>-1&&t<L+1){const hw=(+op.w||3)/2;gaps.push({t0:t-hw,t1:t+hw,op});}});gaps.sort((p,q)=>p.t0-q.t0);
-      const piece=(t0,t1,z0,z1,fill,ex)=>{t0=Math.max(0,t0);t1=Math.min(L,t1);if(t1-t0<.02)return;const A=at(t0),B=at(t1);const cA=toCam(K,A,0),cB=toCam(K,B,0);const dist=Math.max(.1,(Math.max(cA.d,0)+Math.max(cB.d,0))/2);add([toCam(K,A,z0),toCam(K,B,z0),toCam(K,B,z1),toCam(K,A,z1)],fill,dist+.05,ex);};
+      const piece=(t0,t1,z0,z1,fill,ex,lay)=>{t0=Math.max(0,t0);t1=Math.min(L,t1);if(t1-t0<.02)return;const A=at(t0),B=at(t1);const cA=toCam(K,A,0),cB=toCam(K,B,0);let dist=Math.max(.1,(Math.max(cA.d,0)+Math.max(cB.d,0))/2);if(lay!=null&&lay.g){const G=lay.g;const gA=toCam(K,at(Math.max(0,G.t0)),0),gB=toCam(K,at(Math.min(L,G.t1)),0);dist=Math.max(.1,(Math.max(gA.d,0)+Math.max(gB.d,0))/2)-lay.k*.002;}add([toCam(K,A,z0),toCam(K,B,z0),toCam(K,B,z1),toCam(K,A,z1)],fill,dist+.05,ex);};
+      if(openOnly){gaps.forEach(g=>{if(isGlass(g.op))mockWindow(piece,g,wtod);else if(!/arch/i.test(g.op.t)){const gar=/elevator|garage|rollgate/.test(g.op.t);piece(g.t0-.25,g.t1+.25,0,7.25,'#efe9df','',{g,k:0});piece(g.t0,g.t1,0,7,gar?'#8d9196':'#6b5240',`stroke="#3a2c22" stroke-width="1"`,{g,k:1});}});return;}
       let t=0;gaps.forEach(g=>{piece(t,g.t0,0,top,col,gl);const win=isGlass(g.op);const LL=LIB[g.op.t]||{};
         if(win){piece(g.t0,g.t1,0,2.8,col,gl);piece(g.t0,g.t1,7.2,top,col,gl);piece(g.t0,g.t1,2.8,7.2,night?'#18283a':(ext?'#9fb8c8':'#eaf5ff'),`fill-opacity="${o.bg?(night?.35:.18):1}" stroke="${shade(base,.6)}" stroke-width="1.2"`);}
         else if(/arch/i.test(g.op.t)){piece(g.t0,g.t1,7.6,top,col,gl);}
@@ -4625,11 +4628,11 @@ const mockHasSet=(items,cam)=>{const K=mockCam(cam);return items.some(i=>{if(i.t
 function shotFrames(scenes){const out=[];const keep=[CALC.dof.bg,CALC.dof.tod];scenes.forEach(sc=>{CALC.dof.bg=sceneBg(sc);CALC.dof.tod=sceneTod(sc);(sc.setups||[]).forEach(su=>su.shots.forEach(sh=>{const items=activeItems(su,sh);items.filter(i=>i.t==='camera').forEach(c=>{
   const lo=lensOf(c);const f=(lo&&lo.f)||+c.lens||35;const K=mockCam(c);const acts=items.filter(i=>i.t==='actor').map(a=>({a,c:toCam(K,a,0)})).filter(x=>x.c.d>1&&Math.abs(Math.atan2(x.c.l,x.c.d))<Math.atan((SENSORS[c.sensor]||24.9)/(2*f)));
   const foc=acts.length?Math.hypot(acts.sort((p,q)=>Math.abs(p.c.l)-Math.abs(q.c.l))[0].a.x-c.x,acts[0].a.y-c.y):8;
-  const tgt=acts.length?acts[0].a:null;const phases=hasStart(sh.move)?['start','end']:[''];
-  phases.forEach(ph=>{const view=shotView(sh,c,tgt,ph||'end',sh.size,f);const fv=view.f||f;const r=mockFrameSVG({items,cam:c,sc,W:560,sensor:c.sensor,f:fv,N:parseFloat(CALC.dof&&CALC.dof.stop)||2.8,focus:view.focus||(tgt&&view.phase==='start'?Math.max(1,Math.hypot(tgt.x-view.x,tgt.y-view.y)):foc),idp:'x'+sh.id+c.id+ph,view,bg:CALC.dof&&CALC.dof.bg,bgDist:Math.max(foc+2,parseFt(CALC.dof&&CALC.dof.bgDist)||15)});
+  const tgt=acts.length?acts[0].a:null;const path=camPath(items,c);const phases=path||hasStart(sh.move)?['start','end']:[''];
+  phases.forEach(ph=>{const view=shotView(sh,c,tgt,ph||'end',sh.size,f,path);const fv=view.f||f;const r=mockFrameSVG({items,cam:c,sc,W:560,sensor:c.sensor,f:fv,N:parseFloat(CALC.dof&&CALC.dof.stop)||2.8,focus:view.focus||(tgt&&view.phase==='start'?Math.max(1,Math.hypot(tgt.x-view.x,tgt.y-view.y)):foc),idp:'x'+sh.id+c.id+ph,view,bg:CALC.dof&&CALC.dof.bg,bgDist:Math.max(foc+2,parseFt(CALC.dof&&CALC.dof.bgDist)||15)});
   out.push({sc,su,sh,c,f:fv,phase:ph,note:view.notes.join(' '),svg:r.svg+viewTag(view,r.W)+'</svg>'});});});}));});CALC.dof.bg=keep[0];CALC.dof.tod=keep[1];return out;}
 function openMockFrames(){const all=!!V.mfAll;const scs=all?P.scenes:[scene()];const fr=shotFrames(scs);
-  const card=x=>`<div class="mfCard"><div class="mfHead"><b>${esc(x.sh.num)}</b>${x.phase?` · ${x.phase==='start'?'Start':'End'} of ${esc(x.sh.move.toLowerCase())}`:''} · ${esc(x.sh.size||'')}${x.c.cam?` · ${esc(x.c.cam)} cam`:''} · ${x.f}mm<span>${esc(x.su.name||'')}</span></div>${x.svg}<div class="mfDesc">${esc(x.sh.desc||'')}${x.note?`<div style="color:#ffcf7a;margin-top:3px">${esc(x.note)}</div>`:''}</div></div>`;
+  const card=x=>`<div class="mfCard"><div class="mfHead"><b>${esc(x.sh.num)}</b>${x.phase?` · ${x.phase==='start'?'Start':'End'} of ${esc(hasStart(x.sh.move)?x.sh.move.toLowerCase():'the move')}`:''} · ${esc(x.sh.size||'')}${x.c.cam?` · ${esc(x.c.cam)} cam`:''} · ${x.f}mm<span>${esc(x.su.name||'')}</span></div>${x.svg}<div class="mfDesc">${esc(x.sh.desc||'')}${x.note?`<div style="color:#ffcf7a;margin-top:3px">${esc(x.note)}</div>`:''}</div></div>`;
   const grid=fr.length?fr.map(card).join(''):'<div class="pSub">No shots have a camera yet. Add a camera to a shot to get its frame.</div>';
   openModal(`<h3>Mock-up frames</h3><div class="pSub" style="margin-bottom:8px">What each camera sees, built from the plot: furniture, gear in frame and the actors, in front of each scene's background, with depth of field at the stop in your depth of field plan. The plot's walls aren't drawn, so they never block the background. Planning mock-ups, not renders.</div>
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap"><label class="chk"><input type="checkbox" id="mfAll" ${all?'checked':''}> All scenes</label>${all?'':mockBgControls(scene(),'mf')}<span style="flex:1"></span><button class="btn sm pri" id="mfPrint">Print or save as PDF</button><button class="btn sm" onclick="closeModal()">Close</button></div>
@@ -4637,9 +4640,16 @@ function openMockFrames(){const all=!!V.mfAll;const scs=all?P.scenes:[scene()];c
   $('#mfAll').onchange=e=>{V.mfAll=e.target.checked;openMockFrames();};
   document.querySelectorAll('[data-mfbg]').forEach(s=>s.onchange=e=>{const sc=scene();snap();if(e.target.dataset.mfbg==='bg')sc.mockBg=e.target.value;else sc.mockTod=e.target.value;scheduleSave&&scheduleSave();openMockFrames();});
   $('#mfPrint').onclick=()=>{const w=window.open('','_blank');if(!w){toast('Allow pop-ups to print the mock-up frames');return;}
-    w.document.write(`<!doctype html><html><head><title>${esc(P.title||'Shot Plot')} · Mock-up frames</title><style>body{font-family:Lato,Helvetica,sans-serif;margin:24px;color:#111}h1{font-size:18px;margin:0 0 4px}.sub{font-size:11px;margin-bottom:14px}.g{display:grid;grid-template-columns:1fr 1fr;gap:14px}.c{break-inside:avoid;border:1px solid #bbb;border-radius:6px;overflow:hidden}.h{padding:5px 8px;font-size:12px;display:flex}.h span{margin-left:auto}.d{padding:5px 8px;font-size:11px;min-height:1em}@page{margin:12mm}</style></head><body><h1>${esc(P.title||'')} · Mock-up frames</h1><div class="sub">${esc(scs.map(s=>'Scene '+s.num+' '+(s.ie||'')+' '+(s.loc||'')+' – '+(s.tod||'')).join(' · '))} · built from the plot, planning mock-ups, not renders</div><div class="g">${fr.map(x=>`<div class="c"><div class="h"><b>${esc(x.sh.num)}</b>${x.phase?`&nbsp;· ${x.phase==='start'?'Start':'End'} of ${esc(x.sh.move.toLowerCase())}`:''}&nbsp;· ${esc(x.sh.size||'')} · ${x.f}mm<span>${esc(x.su.name||'')}</span></div>${x.svg}<div class="d">${esc(x.sh.desc||'')}${x.note?`<div style="color:#8a5a00;margin-top:2px">${esc(x.note)}</div>`:''}</div></div>`).join('')}</div><script>setTimeout(()=>print(),300)<\/script></body></html>`);w.document.close();};}
+    w.document.write(`<!doctype html><html><head><title>${esc(P.title||'Shot Plot')} · Mock-up frames</title><style>body{font-family:Lato,Helvetica,sans-serif;margin:24px;color:#111}h1{font-size:18px;margin:0 0 4px}.sub{font-size:11px;margin-bottom:14px}.g{display:grid;grid-template-columns:1fr 1fr;gap:14px}.c{break-inside:avoid;border:1px solid #bbb;border-radius:6px;overflow:hidden}.h{padding:5px 8px;font-size:12px;display:flex}.h span{margin-left:auto}.d{padding:5px 8px;font-size:11px;min-height:1em}@page{margin:12mm}</style></head><body><h1>${esc(P.title||'')} · Mock-up frames</h1><div class="sub">${esc(scs.map(s=>'Scene '+s.num+' '+(s.ie||'')+' '+(s.loc||'')+' – '+(s.tod||'')).join(' · '))} · built from the plot, planning mock-ups, not renders</div><div class="g">${fr.map(x=>`<div class="c"><div class="h"><b>${esc(x.sh.num)}</b>${x.phase?`&nbsp;· ${x.phase==='start'?'Start':'End'} of ${esc(hasStart(x.sh.move)?x.sh.move.toLowerCase():'the move')}`:''}&nbsp;· ${esc(x.sh.size||'')} · ${x.f}mm<span>${esc(x.su.name||'')}</span></div>${x.svg}<div class="d">${esc(x.sh.desc||'')}${x.note?`<div style="color:#8a5a00;margin-top:2px">${esc(x.note)}</div>`:''}</div></div>`).join('')}</div><script>setTimeout(()=>print(),300)<\/script></body></html>`);w.document.close();};}
 {const m=$('#exportMenu');if(m&&!m.querySelector('[data-x="mockframes"]')){const ref=m.querySelector('[data-x="shotlist"]');ref.insertAdjacentHTML('afterend','<button data-x="mockframes">Mock-up frames…<small>What each camera sees, built from the plot; print or save as PDF</small></button>');}
   m.addEventListener('click',e=>{const b=e.target.closest('[data-x="mockframes"]');if(!b)return;e.stopPropagation();m.classList.remove('open');openMockFrames();},true);}
+
+/* a window from the plot: frame, mullions and the outside, which changes with the time of day */
+function mockWindow(piece,g,tod){const z0=2.8,z1=7.2,fr='#f2efe9';const sky=tod==='night'?'#121c2e':tod==='dusk'?'#e9a074':'#bcdcf2';const far=tod==='night'?'#0b111c':tod==='dusk'?'#6d5a6e':'#93a9b8';
+  piece(g.t0-.2,g.t1+.2,z0-.25,z1+.2,fr,'',{g,k:0});piece(g.t0,g.t1,z0,z1,sky,'',{g,k:1});
+  const w=g.t1-g.t0;for(let x=g.t0;x<g.t1-.05;x+=Math.max(.6,w/5)){const hgt=z0+.4+((x*7.3)%1)*1.6;piece(x,Math.min(g.t1,x+Math.max(.5,w/6)),z0,hgt,far,'',{g,k:2});
+    if(tod!=='day')piece(x+.15,Math.min(g.t1,x+.3),hgt-.6,hgt-.35,tod==='night'?'#ffd28a':'#f6c58f','',{g,k:3});}
+  const mid=(g.t0+g.t1)/2;piece(mid-.05,mid+.05,z0,z1,fr,'',{g,k:4});piece(g.t0,g.t1,(z0+z1)/2-.05,(z0+z1)/2+.05,fr,'',{g,k:4});piece(g.t0-.25,g.t1+.25,z0-.35,z0-.2,'#e3dccf','',{g,k:4});}
 /* ============================================================
    Mock-up frames, piece by piece, at real size:
    furniture with its parts (table tops and legs, chair seats and backs,
@@ -4968,8 +4978,8 @@ function moveAmt(sh,f){const s=MOVE_AMT[sh.move];if(!s)return 0;let v=numOr(sh.m
 // where the lens is aimed on the subject, by shot size (feet off the floor)
 function sizeAimZ(size){return /ECU|^CU|MCU/.test(size||'')?5.35:/^MS/.test(size||'')?4.7:/MWS|^FS/.test(size||'')?3.6:/WS|EWS/.test(size||'')?3.2:4.6;}
 const numOr=(v,d)=>v!==undefined&&v!==null&&v!==''&&isFinite(+v)?+v:d;
-function shotView(sh,cam,target,phase,size,lens){sh=sh||{};const ang=sh.angle||'Eye level';const notes=[];
-  let h=+cam.height||5,x=cam.x,y=cam.y,t=0,roll=0,focus=null;const tz=sizeAimZ(size||sh.size);
+function shotView(sh,cam,target,phase,size,lens,path){sh=sh||{};const ang=sh.angle||'Eye level';const notes=[];
+  let h=+cam.height||5,x=cam.x,y=cam.y,t=0,roll=0,focus=null;if(path){x=path.b.x;y=path.b.y;}const tz=sizeAimZ(size||sh.size);
   const dist=target?Math.max(.5,Math.hypot(target.x-x,target.y-y)):8;const aim=Math.atan2(tz-h,dist)/D2R;const who=target&&target.label?target.label:'the subject';
   const manual=null;
   if(ang==='Overhead'&&manual===null){t=-90;if(target){x=target.x;y=target.y;}if(h<8){notes.push(`Overhead: shown from 10' straight over ${who}. Set the camera height on the plot to change it.`);h=10;}else notes.push(`Overhead: straight down over ${who} from ${fmtFt(h)}.`);focus=Math.max(1,h-5.6);}
@@ -4979,19 +4989,23 @@ function shotView(sh,cam,target,phase,size,lens){sh=sh||{};const ang=sh.angle||'
   else if(ang==='Ground'){t=aim;if(h>2)notes.push(`Ground angle, but the camera is at ${fmtFt(h)}. Set it to 1' or lower on the plot.`);}
   if(ang==='Dutch')roll=numOr(sh.dutch,15);
   let r=cam.r||0,fl=null;const anchor={x,y,r,ux:Math.cos(r*D2R),uy:Math.sin(r*D2R)};
+  if(phase==='start'&&path){x=path.a.x;y=path.a.y;if(target&&sh.move==='Arc'){const be=(p)=>Math.atan2(target.y-p.y,target.x-p.x)/D2R;r+=be(path.a)-be(path.b);}}
   if(phase==='start'&&hasStart(sh.move)){const f0=+lens||+cam.lens||35;const a=moveAmt(sh,f0);const ux=anchor.ux,uy=anchor.uy;
-    switch(sh.move){case 'Pan left':r+=a;break;case 'Pan right':case 'Whip pan':r-=a;break;case 'Tilt up':t-=a;break;case 'Tilt down':t+=a;break;
+    if(path&&['Push in','Pull out','Dolly / track','Arc'].includes(sh.move));else switch(sh.move){case 'Pan left':r+=a;break;case 'Pan right':case 'Whip pan':r-=a;break;case 'Tilt up':t-=a;break;case 'Tilt down':t+=a;break;
       case 'Push in':x-=ux*a;y-=uy*a;break;case 'Pull out':x+=ux*a;y+=uy*a;break;case 'Dolly / track':x+=uy*a;y-=ux*a;break;case 'Crane / jib':h=Math.max(.5,h-a);break;
       case 'Arc':{const c0=target||{x:x+ux*8,y:y+uy*8};const vx=x-c0.x,vy=y-c0.y,q=a*D2R;x=c0.x+vx*Math.cos(q)-vy*Math.sin(q);y=c0.y+vx*Math.sin(q)+vy*Math.cos(q);r+=a;break;}
       case 'Zoom in':case 'Zoom out':fl=Math.max(4,a);break;}}
   t=Math.max(-90,Math.min(90,t));if(t<=-89.5)t=-89.5;
-  return {t,roll,h,x,y,r,f:fl,anchor,notes,focus,phase,move:sh.move};}
+  return {t,roll,h,x,y,r,f:fl,anchor,notes,focus,phase,move:sh.move,path:!!path};}
 function dofTarget(c){const D=CALC.dof;const acts=activeItems().filter(i=>i.t==='actor');let a=D.subRef&&acts.find(i=>i.id===D.subRef.id);
   if(!a){const r=(c.r||0)*D2R;a=acts.map(i=>({i,d:(i.x-c.x)*Math.cos(r)+(i.y-c.y)*Math.sin(r),l:Math.abs(-(i.x-c.x)*Math.sin(r)+(i.y-c.y)*Math.cos(r))})).filter(o=>o.d>1).sort((p,q)=>p.l-q.l)[0];a=a&&a.i;}return a||null;}
-function dofView(c,size){const sh=shot();if(!size){const n=dofNums();size=n&&!n.bad?shotSize(n.fh)[0]:null;}return shotView(sh,c,dofTarget(c),hasStart(sh&&sh.move)&&CALC.dof.phase==='start'?'start':'end',size,CALC.dof.f);}
-const viewActive=v=>v&&(Math.abs(v.t)>.5||v.roll||v.notes.length||(v.phase==='start'&&hasStart(v.move)));
+function dofView(c,size){const sh=shot();if(!size){const n=dofNums();size=n&&!n.bad?shotSize(n.fh)[0]:null;}const path=camPath(activeItems(),c);return shotView(sh,c,dofTarget(c),(path||hasStart(sh&&sh.move))&&CALC.dof.phase==='start'?'start':'end',size,CALC.dof.f,path);}
+// a camera move or track drawn on the plot from (or to) this camera: it runs from its first point to its last
+function camPath(items,c){const L=items.filter(i=>i.t==='line'&&(i.kind==='cammove'||i.kind==='track')&&i.pts&&i.pts.length>1).map(l=>({a:l.pts[0],b:l.pts[l.pts.length-1]})).map(p=>({p,d:Math.min(Math.hypot(p.a.x-c.x,p.a.y-c.y),Math.hypot(p.b.x-c.x,p.b.y-c.y))})).filter(o=>o.d<4).sort((p,q)=>p.d-q.d)[0];return L?L.p:null;}
+const isMoving=(v)=>v&&(v.path||hasStart(v.move));
+const viewActive=v=>v&&(Math.abs(v.t)>.5||v.roll||v.notes.length||(v.phase==='start'&&(v.path||hasStart(v.move))));
 function viewTag(v,W){if(!v)return '';const bits=[];if(Math.abs(v.t)>.5)bits.push(v.t<=-89?'looking straight down':`tilted ${Math.abs(Math.round(v.t))}° ${v.t>0?'up':'down'}`);if(v.roll)bits.push(`Dutch ${Math.round(v.roll)}°`);
-  if(v.phase==='start'&&hasStart(v.move))bits.push('start of the '+v.move.toLowerCase());
+  if(v.phase==='start'&&(v.path||hasStart(v.move)))bits.push('start of the '+(hasStart(v.move)?v.move.toLowerCase():'move'));
   let o='';if(bits.length){const t=bits.join(' · ');o+=`<rect x="${W-18-t.length*6.6}" y="8" rx="5" width="${t.length*6.6+10}" height="22" fill="rgba(0,0,0,.6)"/><text x="${W-13}" y="23" text-anchor="end" font-family="Lato,sans-serif" font-size="12" font-weight="700" fill="#ffcf7a">${t}</text>`;}
   return o;}
 // a person seen from a tilted camera: P(z) is where a point on their centre line at height z lands, S(z,u) the same point u feet to the side
@@ -5022,15 +5036,17 @@ function viewProj(x,y,d,W,H,F,h,ct,st,pan){const zr=y-h;const d2=Math.max(.05,d*
   o+=`<text x="${W-10}" y="${H-10}" text-anchor="end" font-family="Lato,sans-serif" font-size="11" fill="#fff" paint-order="stroke" stroke="rgba(0,0,0,.6)" stroke-width="3">Placed as on the plot · ◎ = in focus · mock-up, not a render</text></svg>`;return o;};}
 
 /* the depth of field tab: start / end of a tilt, and any note about the angle */
-{const _do=dofOut;dofOut=function(){let h=_do();try{const c=dofCam();if(!c)return h;const sh=shot();const v=dofView(c);let x='';
-  if(hasStart(sh.move)){const ph=CALC.dof.phase==='start'?'start':'end';x+=`<div class="f2" style="margin:8px 0">${['start','end'].map(p=>`<button class="btn sm ${ph===p?'pri':''}" data-dofphase="${p}">${p==='start'?'Start':'End'} of the ${sh.move.toLowerCase()}</button>`).join('')}</div>`;}
+{const _do=dofOut;dofOut=function(){CALC.dof.phase='end';let h=_do();try{const c=dofCam();if(!c)return h;const sh=shot();const v=dofView(c);let x='';
+  const path=camPath(activeItems(),c);if(path||hasStart(sh.move)){const n=dofNums();if(!n.bad){CALC.dof.phase='start';let s='';try{s=dofMock(n);}finally{CALC.dof.phase='end';}
+    s=s.replace(/id="([^"]+)"/g,'id="$1_st"').replace(/url\(#([^)]+)\)/g,'url(#$1_st)');const nm=hasStart(sh.move)?sh.move.toLowerCase():'camera move';const lab=t=>`<div style="font-size:12px;font-weight:700;margin:2px 0 4px">${t}</div>`;
+    h=h.replace('<div class="cGrid"><div>','<div class="cGrid"><div>'+lab(`Start of the ${esc(nm)}`+(path?' (from the move drawn on the plot)':''))+s+lab(`End of the ${esc(nm)}`));}}
   if(v.notes.length)x+=`<div style="margin:6px 0;padding:6px 8px;border:1px solid #c98a1a;border-radius:6px;color:#ffcf7a;font-size:12px">${v.notes.map(esc).join('<br>')}</div>`;
   if(x)h=h.replace('</svg></div>','</svg>'+x+'</div>');}catch(e){}return h;};}
 document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-dofphase]');if(!b)return;CALC.dof.phase=b.dataset.dofphase;renderCalc();});
 
 /* shot tab: one box for how far the move goes, worded for the move you picked */
 function shotTiltFields(sh){const s=MOVE_AMT[sh.move];if(!s)return '';const cam=(sh.items||[]).find(i=>i.t==='camera')||activeItems().find(i=>i.t==='camera');const f=cam?(+cam.lens||35):35;
-  return `${fld(s[0],`<input class="in" data-o="shot" data-k="moveAmt" value="${esc(sh.moveAmt==null?'':String(sh.moveAmt))}" placeholder="${moveAmt({move:sh.move},f)}" inputmode="decimal">`)}<div class="pSub" style="margin-top:-2px">The plot is where the move ends; this says where it starts. The mock-ups show both.</div>`;}
+  return `${fld(s[0],`<input class="in" data-o="shot" data-k="moveAmt" value="${esc(sh.moveAmt==null?'':String(sh.moveAmt))}" placeholder="${moveAmt({move:sh.move},f)}" inputmode="decimal">`)}<div class="pSub" style="margin-top:-2px">${cam&&camPath(activeItems(),cam)&&['Push in','Pull out','Dolly / track','Arc'].includes(sh.move)?'The camera move drawn on the plot sets where it starts and ends.':'The plot is where the move ends; this says where it starts.'} The mock-ups show both.</div>`;}
 document.addEventListener('change',e=>{const t=e.target;if(t&&t.dataset&&t.dataset.o==='shot'&&['angle','move'].includes(t.dataset.k)){setTimeout(()=>{renderPanel();if(CALC.open)renderCalc();},0);}},false);
 document.addEventListener('input',e=>{const t=e.target;if(t&&t.dataset&&t.dataset.o==='shot'&&['moveAmt'].includes(t.dataset.k)&&CALC.open){clearTimeout(window.__tlt);window.__tlt=setTimeout(()=>{const a=document.activeElement;const k=a&&a.dataset&&a.dataset.k;renderCalc();},250);}},false);
 
@@ -5056,6 +5072,78 @@ function mockBgControls(sc,k){const bg=sceneBg(sc),tod=sceneTod(sc);
 // the depth of field tab reads and writes the scene's background
 {const _rc=renderCalc;renderCalc=function(){try{const sc=scene();if(sc){CALC.dof.bg=sceneBg(sc);CALC.dof.tod=sceneTod(sc);}}catch(e){}_rc();};}
 document.addEventListener('change',e=>{const k=e.target&&e.target.dataset&&e.target.dataset.c;if(k!=='dof.bg'&&k!=='dof.tod')return;const sc=scene();if(!sc)return;snap();if(k==='dof.bg')sc.mockBg=e.target.value;else sc.mockTod=e.target.value;if(typeof scheduleSave==='function')scheduleSave();},true);
+/* ============================================================
+   Set pieces in the mock-ups, built from their parts in their real
+   materials (wood, steel, enamel, fabric, glass, leaves) instead of
+   plain boxes, each with a soft contact shadow on the floor.
+   Local axes: x across the piece's width, y across its depth with the
+   back at −y and the front at +y.
+   ============================================================ */
+const MAT={wood:'#a07850',dark:'#5e4330',light:'#c9a77c',white:'#eef0f1',enamel:'#f4f5f6',steel:'#b7bec5',black:'#26282b',glass:'#9fc3d9',fabric:'#7b8794',green:'#4f8a5b',leaf:'#3f7a45',terra:'#b8643c',card:'#b98d5a',red:'#b23a30',gray:'#8c9196'};
+{const _ms=mockSet;mockSet=function(it,L,ctx){if(isOpening(it)||it.t==='north'||L.shape==='kit')return;
+  const w=+it.w||2,h=+it.h||2;if(!FLAT.has(it.t)&&L.shape!=='odd'){const z=MH[it.t];if(!z||z[0]===0){const e=.12;quadL(ctx,it,[[-w/2-e,-h/2-e,.01],[w/2+e,-h/2-e,.01],[w/2+e,h/2+e,.01],[-w/2-e,h/2+e,.01]],'#000','fill-opacity=".16"');}}
+  try{if(mockDetail(it,L,ctx,w,h))return;}catch(e){}return _ms(it,L,ctx);};}
+
+function mockDetail(it,L,ctx,w,h){const a=-w/2,b=w/2,T=-h/2,B=h/2;const z=MH[it.t]||[0,2.5];const H=z[1];
+  const box=(x0,x1,y0,y1,z0,z1,c)=>boxL(ctx,it,x0,x1,y0,y1,z0,z1,c);
+  const face=(x0,x1,z0,z1,c,ex)=>quadL(ctx,it,[[x0,B+.012,z0],[x1,B+.012,z0],[x1,B+.012,z1],[x0,B+.012,z1]],c,ex||'');// a panel on the front
+  const cyl=(cx,cy,r,z0,z1,c,n)=>{n=n||14;ctx.extrude([...Array(n)].map((_,i)=>W3(it,cx+r*Math.cos(i*2*Math.PI/n),cy+r*Math.sin(i*2*Math.PI/n))),z0,z1,c);};
+  const blob=(lx,ly,zc,r,c)=>bill(ctx,W3(it,lx,ly),zc,(k,X,Y)=>`<circle cx="${X.toFixed(1)}" cy="${Y.toFixed(1)}" r="${Math.max(1,r*k).toFixed(1)}" fill="${c}"/><circle cx="${(X-r*k*.3).toFixed(1)}" cy="${(Y-r*k*.3).toFixed(1)}" r="${Math.max(1,r*k*.55).toFixed(1)}" fill="${shade(c,1.18)}" opacity=".7"/>`);
+  const drawers=(n,x0,x1,z0,z1,c)=>{const s=(z1-z0)/n;for(let i=0;i<n;i++){face(x0+.06,x1-.06,z0+i*s+.05,z0+(i+1)*s-.05,shade(c,1.08),`stroke="${shade(c,.6)}" stroke-width=".8"`);const m=(x0+x1)/2;face(m-.2,m+.2,z0+(i+.5)*s-.03,z0+(i+.5)*s+.03,'#d8c9a8');}};
+  switch(it.t){
+  case 'bookshelf':{const c=MAT.dark;box(a,a+.08,T,B,0,H,c);box(b-.08,b,T,B,0,H,c);box(a,b,T,T+.05,0,H,shade(c,.8));box(a,b,T,B,H-.08,H,c);box(a,b,T,B,0,.25,c);
+    const cols=['#8a3b33','#2f5d7a','#c9a44a','#3f6b4a','#d8d2c4','#5a3f6b','#b8643c'];let i=0;for(let s=.25;s<H-.6;s+=(H-.4)/5){box(a+.08,b-.08,T+.05,B,s,s+.06,c);
+      for(let x=a+.12;x<b-.2;){const bw=.08+((i*37)%7)/60,bh=.55+((i*13)%5)/18;box(x,x+bw,T+.1,B-.12,s+.06,Math.min(s+.06+bh,s+(H-.4)/5-.05),cols[i%cols.length]);x+=bw+.01;i++;}}return 1;}
+  case 'dresser':box(a,b,T,B,.3,H,MAT.wood);box(a+.05,b-.05,T+.05,B-.05,0,.3,MAT.dark);drawers(3,a,b,.35,H-.08,MAT.wood);box(a-.03,b+.03,T,B+.03,H-.06,H,MAT.dark);return 1;
+  case 'nightstand':box(a,b,T,B,.4,H,MAT.wood);[[a+.08,T+.08],[b-.08,T+.08],[a+.08,B-.08],[b-.08,B-.08]].forEach(([x,y])=>box(x-.06,x+.06,y-.06,y+.06,0,.4,MAT.dark));drawers(1,a,b,H-.7,H-.1,MAT.wood);return 1;
+  case 'wardrobe':box(a,b,T,B,0,H,MAT.wood);face(a+.06,-.03,.3,H-.15,shade(MAT.wood,1.06),`stroke="${MAT.dark}" stroke-width=".8"`);face(.03,b-.06,.3,H-.15,shade(MAT.wood,1.06),`stroke="${MAT.dark}" stroke-width=".8"`);face(-.12,-.07,H/2-.4,H/2+.4,'#d8c9a8');face(.07,.12,H/2-.4,H/2+.4,'#d8c9a8');return 1;
+  case 'tvconsole':box(a,b,T,B,.35,H,MAT.dark);[[a+.15,T+.15],[b-.15,T+.15],[a+.15,B-.15],[b-.15,B-.15]].forEach(([x,y])=>box(x-.05,x+.05,y-.05,y+.05,0,.35,MAT.black));face(a+.1,-.03,.45,H-.1,shade(MAT.dark,1.15),`stroke="${MAT.black}" stroke-width=".6"`);face(.03,b-.1,.45,H-.1,shade(MAT.dark,1.15),`stroke="${MAT.black}" stroke-width=".6"`);return 1;
+  case 'sidetable':box(a,b,T,B,H-.1,H,MAT.wood);[[a+.1,T+.1],[b-.1,T+.1],[a+.1,B-.1],[b-.1,B-.1]].forEach(([x,y])=>box(x-.05,x+.05,y-.05,y+.05,0,H-.1,MAT.dark));box(a+.1,b-.1,T+.1,B-.1,.5,.56,MAT.dark);return 1;
+  case 'coffeetable':box(a,b,T,B,H-.12,H,MAT.light);[[a+.12,T+.12],[b-.12,T+.12],[a+.12,B-.12],[b-.12,B-.12]].forEach(([x,y])=>box(x-.06,x+.06,y-.06,y+.06,0,H-.12,MAT.dark));box(a+.12,b-.12,T+.12,B-.12,.35,.4,MAT.dark);return 1;
+  case 'table':case 'diningtable':case 'conftable':case 'fourtop':case 'twotop':box(a,b,T,B,H-.12,H,MAT.wood);[[a+.2,T+.2],[b-.2,T+.2],[a+.2,B-.2],[b-.2,B-.2]].forEach(([x,y])=>box(x-.07,x+.07,y-.07,y+.07,0,H-.12,MAT.dark));return 1;
+  case 'fridge':{const c=MAT.steel;box(a,b,T,B,0,H,c);face(a+.04,b-.04,H*.68,H-.06,shade(c,1.06),`stroke="${shade(c,.65)}" stroke-width=".8"`);face(a+.04,b-.04,.12,H*.66,shade(c,1.06),`stroke="${shade(c,.65)}" stroke-width=".8"`);face(b-.25,b-.18,H*.72,H*.92,'#5c6166');face(b-.25,b-.18,H*.35,H*.62,'#5c6166');return 1;}
+  case 'stove':box(a,b,T,B,0,H-.05,MAT.enamel);box(a,b,T,B,H-.05,H,MAT.black);box(a,b,T,T+.25,H,H+.6,MAT.enamel);face(a+.25,b-.25,.5,H-.9,'#2a2c30',`stroke="#888" stroke-width=".8"`);face(a+.1,b-.1,H-.45,H-.3,'#cfd4d8');
+    [[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([u,v])=>cyl(u*w/4,v*h/5,.28,H,H+.02,'#3a3c40',10));return 1;
+  case 'sink':box(a,b,T,B,0,H-.1,MAT.white);box(a-.04,b+.04,T,B+.04,H-.1,H,'#d3ccc1');quadL(ctx,it,[[-w/3,T+.3,H+.005],[w/3,T+.3,H+.005],[w/3,B-.25,H+.005],[-w/3,B-.25,H+.005]],'#9aa3ab');box(-.04,.04,T+.12,T+.2,H,H+1,MAT.steel);box(-.04,.04,T+.12,T+.55,H+.95,H+1.03,MAT.steel);
+    face(a+.06,-.03,.25,H-.25,shade(MAT.white,.97),`stroke="#aab" stroke-width=".6"`);face(.03,b-.06,.25,H-.25,shade(MAT.white,.97),`stroke="#aab" stroke-width=".6"`);return 1;
+  case 'dishwasher':box(a,b,T,B,0,H,MAT.steel);face(a+.04,b-.04,.15,H-.3,shade(MAT.steel,1.05),`stroke="#777" stroke-width=".6"`);face(a+.2,b-.2,H-.5,H-.42,'#5c6166');return 1;
+  case 'washer':case 'dryer':case 'washers':case 'dryers':{const stack=/s$/.test(it.t)&&it.t==='dryers';box(a,b,T,B,0,H,MAT.white);const n=Math.max(1,Math.round(w/2.3));for(let i=0;i<n;i++){const cx=a+(i+.5)*w/n;const zc=it.t==='washer'||it.t==='washers'?H*.45:H*.5;
+      bill(ctx,Object.assign(W3(it,cx,B+.02)),zc,(k,X,Y)=>`<circle cx="${X.toFixed(1)}" cy="${Y.toFixed(1)}" r="${(Math.min(.75,w/n*.32)*k).toFixed(1)}" fill="#3b4a56" stroke="#c9ced3" stroke-width="${Math.max(1,.08*k).toFixed(1)}"/>`);}face(a+.05,b-.05,H-.35,H-.08,'#d9dde0');return 1;}
+  case 'microwave':box(a,b,T,B,z[0],H,MAT.black);face(a+.1,b-.45,z[0]+.12,H-.12,'#1a2026');face(b-.38,b-.08,z[0]+.12,H-.12,'#3a3c40');return 1;
+  case 'filecab':box(a,b,T,B,0,H,MAT.gray);drawers(4,a,b,.1,H-.05,MAT.gray);return 1;
+  case 'copier':box(a,b,T,B,0,H-.6,'#d9dde0');box(a,b,T,B,H-.6,H,'#c3c8cc');face(a+.1,b-.1,.2,H-.9,'#cfd3d6',`stroke="#999" stroke-width=".6"`);return 1;
+  case 'cubicle':{const c='#8c96a0',t=.12;box(a,b,T,T+t,0,H,c);box(a,a+t,T,B,0,H,c);box(b-t,b,T,B,0,H,c);box(a+t,b-t,T+t,T+2.4,2.4,2.5,'#c9c3b8');box(-1,0,T+.3,T+.4,2.5,3.6,MAT.black);return 1;}
+  case 'workstation':case 'studentdesk':box(a,b,T,B,H-.08,H,'#c9c3b8');[[a+.1,T+.1],[b-.1,T+.1],[a+.1,B-.1],[b-.1,B-.1]].forEach(([x,y])=>box(x-.04,x+.04,y-.04,y+.04,0,H-.08,'#555a60'));if(it.t==='workstation')box(-.7,.7,T+.15,T+.25,H+.3,H+1.3,MAT.black);return 1;
+  case 'plant':cyl(0,0,Math.min(w,h)*.3,0,1.2,MAT.terra,12);cyl(0,0,Math.min(w,h)*.32,1.1,1.25,shade(MAT.terra,.85),12);[[0,0,2.5,.9],[-.35,.1,2.1,.6],[.35,-.1,2.2,.6],[.1,.3,2.9,.55]].forEach(([x,y,zc,r])=>blob(x,y,zc,r*Math.min(1.4,Math.max(w,h)/1.6),MAT.leaf));return 1;
+  case 'tree':{const r=Math.max(w,h)/2;box(-.35,.35,-.35,.35,0,H*.55,'#5a4632');[[0,0,H*.72,r*.75],[-r*.35,r*.1,H*.62,r*.55],[r*.35,-r*.1,H*.64,r*.55],[0,0,H*.88,r*.5]].forEach(([x,y,zc,rr])=>blob(x,y,zc,rr,'#3e6a33'));return 1;}
+  case 'bush':case 'hedge':{const n=Math.max(1,Math.round(w/1.6));for(let i=0;i<n;i++){const x=a+(i+.5)*w/n;blob(x,0,H*.5,Math.min(H*.55,w/n*.65),'#46753a');}return 1;}
+  case 'car':case 'truck':{const big=it.t==='truck';const body=it.color||(big?'#e8e6e1':'#5b6470');const lng=w>=h,X=lng?w:h,Y=lng?h:w;const bx=(x0,x1,y0,y1,z0,z1,c)=>lng?box(x0,x1,y0,y1,z0,z1,c):box(y0,y1,x0,x1,z0,z1,c);
+    bx(-X/2,X/2,-Y/2,Y/2,.7,big?4.6:2.7,body);if(big){bx(X/2-3.2,X/2,-Y/2+.1,Y/2-.1,4.6,7.2,body);bx(X/2-.15,X/2,-Y/2+.4,Y/2-.4,5.4,6.8,MAT.glass);}else{bx(-X/4,X/4+.4,-Y/2+.25,Y/2-.25,2.7,4.4,shade(body,.9));bx(-X/4+.15,X/4+.25,-Y/2+.22,Y/2-.22,2.85,4.25,MAT.glass);}
+    [[-X/2+1.4,-Y/2],[X/2-1.4,-Y/2],[-X/2+1.4,Y/2],[X/2-1.4,Y/2]].forEach(([x,y])=>bx(x-.75,x+.75,y-(y<0?.05:-.05)-.3,y-(y<0?.05:-.05)+.3,0,1.5,'#1b1b1b'));bx(X/2-.05,X/2+.02,-Y/2+.3,-Y/2+.8,1.6,2.1,'#fff2cf');bx(X/2-.05,X/2+.02,Y/2-.8,Y/2-.3,1.6,2.1,'#fff2cf');return 1;}
+  case 'box':case 'boxes':{const n=it.t==='boxes'?3:1;for(let i=0;i<n;i++){const x0=a+i*w/n;box(x0+.03,x0+w/n-.03,T,B,0,Math.min(H,1.4+(i%2)*.6),MAT.card);}return 1;}
+  case 'rug':quadL(ctx,it,[[a,T,.02],[b,T,.02],[b,B,.02],[a,B,.02]],'#7a4a3a');quadL(ctx,it,[[a+.35,T+.35,.025],[b-.35,T+.35,.025],[b-.35,B-.35,.025],[a+.35,B-.35,.025]],'#a8694f');quadL(ctx,it,[[a+.7,T+.7,.03],[b-.7,T+.7,.03],[b-.7,B-.7,.03],[a+.7,B-.7,.03]],'#c7a07a');return 1;
+  case 'bathtub':case 'tubshower':box(a,b,T,B,0,H,MAT.enamel);quadL(ctx,it,[[a+.2,T+.2,H+.005],[b-.2,T+.2,H+.005],[b-.2,B-.2,H+.005],[a+.2,B-.2,H+.005]],'#c9d6de');return 1;
+  case 'ottoman':box(a,b,T,B,.2,H,MAT.fabric);[[a+.1,T+.1],[b-.1,T+.1],[a+.1,B-.1],[b-.1,B-.1]].forEach(([x,y])=>box(x-.05,x+.05,y-.05,y+.05,0,.2,MAT.dark));return 1;
+  case 'coatrack':box(-.05,.05,-.05,.05,0,H,MAT.dark);standLegs(ctx,W3(it,0,0),.7,1);[0,1,2,3].forEach(i=>{const t=i*Math.PI/2;line3(ctx,Object.assign(W3(it,0,0),{z:H-.3}),Object.assign(W3(it,Math.cos(t)*.4,Math.sin(t)*.4),{z:H-.1}),.05,MAT.dark);});return 1;
+  case 'column':cyl(0,0,Math.min(w,h)/2,0,H,'#d7cfc2',16);return 1;
+  case 'stairs':{const n=Math.max(4,Math.round(H/.6));for(let i=0;i<n;i++){const y0=B-(i+1)*h/n;box(a,b,y0,B-i*h/n,0,(i+1)*H/n,i%2?'#a68a6b':'#b39878');}return 1;}
+  case 'bench':box(a,b,T,B,H-.15,H,MAT.wood);box(a,b,T,T+.1,H,H+1.2,MAT.wood);[a+.3,b-.3].forEach(x=>box(x-.06,x+.06,T,B,0,H-.15,MAT.black));return 1;
+  case 'dumpster':box(a,b,T,B,.3,H-.2,'#2e5d3a');box(a-.05,b+.05,T-.05,B+.05,H-.2,H,MAT.black);[a+.4,b-.4].forEach(x=>box(x-.2,x+.2,-.2,.2,0,.3,MAT.black));return 1;
+  case 'trashbin':case 'recycle':case 'trashcan':case 'wastebasket':cyl(0,0,Math.min(w,h)/2,0,H,it.t==='recycle'?'#2f6b9a':it.t==='trashcan'?'#3a5a3f':'#5c6166',12);cyl(0,0,Math.min(w,h)/2+.03,H-.08,H,MAT.black,12);return 1;
+  case 'hydrant':cyl(0,0,.35,0,2,MAT.red,10);cyl(0,0,.42,1.9,2.3,MAT.red,10);box(-.55,.55,-.12,.12,1.2,1.45,MAT.red);return 1;
+  case 'fence':{for(let x=a;x<=b+.01;x+=Math.max(.5,w/Math.round(w/.5))){box(x-.06,x+.06,-.06,.06,0,H,'#e8e4dc');}box(a,b,-.04,.04,H*.25,H*.25+.3,'#e8e4dc');box(a,b,-.04,.04,H*.75,H*.75+.3,'#e8e4dc');return 1;}
+  case 'streetlamp':box(-.12,.12,-.12,.12,0,H,'#2f3236');box(-.12,1.6,-.12,.12,H-.2,H,'#2f3236');box(1.2,1.9,-.3,.3,H-.6,H-.2,'#2f3236');quadL(ctx,it,[[1.2,-.3,H-.61],[1.9,-.3,H-.61],[1.9,.3,H-.61],[1.2,.3,H-.61]],'#fff2cf');return 1;
+  case 'pooltable':box(a+.3,b-.3,T+.3,B-.3,0,2.2,MAT.dark);box(a,b,T,B,2.2,2.6,MAT.dark);quadL(ctx,it,[[a+.3,T+.3,2.605],[b-.3,T+.3,2.605],[b-.3,B-.3,2.605],[a+.3,B-.3,2.605]],'#2f7a4a');return 1;
+  case 'lectern':case 'hoststand':box(a+.1,b-.1,T+.1,B-.1,0,H-.3,MAT.wood);quadL(ctx,it,[[a,T,H],[b,T,H],[b,B,H-.4],[a,B,H-.4]],MAT.dark);return 1;
+  case 'aisle':{box(a,b,-.15,.15,0,H,'#c3c8cc');const cols=['#c94a3a','#e2b84a','#3f6f4a','#2f6b9a','#e07a3a','#f2efe9'];let i=0;for(let s=.3;s<H-.5;s+=1.2){[-1,1].forEach(sd=>{box(a,b,sd*.15,sd*(h/2),s,s+.06,'#9aa1a7');for(let x=a+.1;x<b-.3;x+=.42){box(x,x+.34,sd>0?.2:-(h/2)+.1,sd>0?h/2-.1:-.2,s+.06,s+.06+.55+((i*7)%4)/12,cols[i%6]);i++;}});}return 1;}
+  case 'checkout':case 'reception':box(a,b,T+.1,B,0,H-.1,it.t==='checkout'?'#5c6166':MAT.wood);box(a,b,T,B,H-.1,H,'#d3ccc1');if(it.t==='checkout')box(-.4,.4,T+.2,T+.6,H,H+1,MAT.black);return 1;
+  case 'delicase':box(a,b,T,B,0,2.6,MAT.white);box(a,b,T,B,2.6,H,MAT.glass);return 1;
+  case 'atm':box(a,b,T,B,0,H,'#3a3f45');face(a+.25,b-.25,H-1.6,H-.7,'#7fb3d6');face(a+.3,b-.3,H-2.3,H-1.9,'#20242a');return 1;
+  case 'crib':box(a,b,T,B,1,1.3,MAT.white);for(let x=a;x<=b+.01;x+=.35){box(x-.03,x+.03,T,T+.06,0,H,MAT.white);box(x-.03,x+.03,B-.06,B,0,H,MAT.white);}box(a,b,T,B,H-.1,H,MAT.white);return 1;
+  case 'boulder':cyl(0,0,Math.min(w,h)/2,0,H*.6,'#8a8780',9);cyl(0,0,Math.min(w,h)/2.6,H*.6,H,'#9a978f',9);return 1;
+  case 'clothesrack':box(a,b,-.04,.04,H-.1,H,STAND);[a,b].forEach(x=>box(x-.04,x+.04,-.04,.04,0,H,STAND));for(let x=a+.2;x<b-.2;x+=.28)box(x-.04,x+.04,-.6,.6,H-2.8,H-.15,['#8a3b33','#2f5d7a','#d8d2c4','#3f6b4a','#c9a44a'][Math.abs(Math.round(x*7))%5]);return 1;
+  }
+  return 0;}
 const BRANDFF=(()=>{let o='';for(const sh of document.styleSheets){try{for(const r of sh.cssRules)if(r.type===5&&/EB Garamond|Lato/.test(r.cssText))o+=r.cssText;}catch(e){}}return o;})();
 /* ============================================================
    Export
