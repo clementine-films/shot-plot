@@ -4994,12 +4994,13 @@ function shotView(sh,cam,target,phase,size,lens,path){sh=sh||{};const ang=sh.ang
   let h=+cam.height||5,x=cam.x,y=cam.y,t=0,roll=0,focus=null;if(path){x=path.b.x;y=path.b.y;}const tz=sizeAimZ(size||sh.size);
   const dist=target?Math.max(.5,Math.hypot(target.x-x,target.y-y)):8;const aim=Math.atan2(tz-h,dist)/D2R;const who=target&&target.label?target.label:'the subject';
   const manual=null;
-  if(ang==='Overhead'&&manual===null){t=-90;if(target){x=target.x;y=target.y;}if(h<8){notes.push(`Overhead: shown from 10' straight over ${who}. Set the camera height on the plot to change it.`);h=10;}else notes.push(`Overhead: straight down over ${who} from ${fmtFt(h)}.`);focus=Math.max(1,h-5.6);}
+  const amt=numOr(sh.angAmt,null);
+  if(ang==='Overhead'&&manual===null){t=amt!==null?-Math.abs(amt):-90;if(target){x=target.x;y=target.y;}if(h<8){notes.push(`Overhead: shown from 10' straight over ${who}. Set the camera height on the plot to change it.`);h=10;}else notes.push(`Overhead: straight down over ${who} from ${fmtFt(h)}.`);focus=Math.max(1,h-5.6);}
   else if(manual!==null)t=manual;
-  else if(ang==='High'){t=aim;if(h<=tz+.3)notes.push(`High angle, but the camera is at ${fmtFt(h)}, at or below ${who}'s eye line. Raise the camera height on the plot.`);}
-  else if(ang==='Low'){t=aim;if(h>=tz-.3)notes.push(`Low angle, but the camera is at ${fmtFt(h)}, at or above ${who}'s eye line. Lower the camera height on the plot.`);}
-  else if(ang==='Ground'){t=aim;if(h>2)notes.push(`Ground angle, but the camera is at ${fmtFt(h)}. Set it to 1' or lower on the plot.`);}
-  if(ang==='Dutch')roll=numOr(sh.dutch,15);
+  else if(ang==='High'){t=amt!==null?-Math.abs(amt):aim;if(h<=tz+.3)notes.push(`High angle, but the camera is at ${fmtFt(h)}, at or below ${who}'s eye line. Raise the camera height on the plot.`);}
+  else if(ang==='Low'){t=amt!==null?Math.abs(amt):aim;if(h>=tz-.3)notes.push(`Low angle, but the camera is at ${fmtFt(h)}, at or above ${who}'s eye line. Lower the camera height on the plot.`);}
+  else if(ang==='Ground'){t=amt!==null?Math.abs(amt):aim;if(h>2)notes.push(`Ground angle, but the camera is at ${fmtFt(h)}. Set it to 1' or lower on the plot.`);}
+  if(ang==='Dutch')roll=amt!==null?amt:numOr(sh.dutch,15);
   let r=cam.r||0,fl=null;const anchor={x,y,r,ux:Math.cos(r*D2R),uy:Math.sin(r*D2R)};
   if(phase==='start'&&path){x=path.a.x;y=path.a.y;if(target&&sh.move==='Arc'){const be=(p)=>Math.atan2(target.y-p.y,target.x-p.x)/D2R;r+=be(path.a)-be(path.b);}}
   if(phase==='start'&&hasStart(sh.move)){const f0=+lens||+cam.lens||35;const a=moveAmt(sh,f0);const ux=anchor.ux,uy=anchor.uy;
@@ -5057,10 +5058,15 @@ function viewProj(x,y,d,W,H,F,h,ct,st,pan){const zr=y-h;const d2=Math.max(.05,d*
 document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-dofphase]');if(!b)return;CALC.dof.phase=b.dataset.dofphase;renderCalc();});
 
 /* shot tab: one box for how far the move goes, worded for the move you picked */
-function shotTiltFields(sh){const s=MOVE_AMT[sh.move];if(!s)return '';const cam=(sh.items||[]).find(i=>i.t==='camera')||activeItems().find(i=>i.t==='camera');const f=cam?(+cam.lens||35):35;
+function shotTiltFields(sh){const cam=(sh.items||[]).find(i=>i.t==='camera')||activeItems().find(i=>i.t==='camera');return angleField(sh,cam)+moveField(sh,cam);}
+// one box for the angle, worded for the angle picked; blank means the app works it out
+const ANG_AMT={High:'How far it looks down (°)',Low:'How far it looks up (°)',Ground:'How far it looks up (°)',Overhead:'How far it looks down (°, 90 = straight down)',Dutch:'How far the frame rolls (°, − rolls the other way)'};
+function angleField(sh,cam){const lab=ANG_AMT[sh.angle];if(!lab)return '';let ph='';try{if(sh.angle==='Dutch')ph='15';else if(sh.angle==='Overhead')ph='90';else if(cam){const v=shotView(Object.assign({},sh,{angAmt:'',move:'Static'}),cam,dofTarget(cam),'end');ph=Math.abs(v.t)<.5?'auto: level with the subject':`auto: ${Math.abs(Math.round(v.t))}° ${v.t<0?'down':'up'}, aimed at the subject`;}}catch(e){}
+  return `${fld(lab,`<input class="in" data-o="shot" data-k="angAmt" value="${esc(sh.angAmt==null?'':String(sh.angAmt))}" placeholder="${ph}" inputmode="decimal">`)}`;}
+function moveField(sh,cam){const s=MOVE_AMT[sh.move];if(!s)return '';const f=cam?(+cam.lens||35):35;
   return `${fld(s[0],`<input class="in" data-o="shot" data-k="moveAmt" value="${esc(sh.moveAmt==null?'':String(sh.moveAmt))}" placeholder="${moveAmt({move:sh.move},f)}" inputmode="decimal">`)}<div class="pSub" style="margin-top:-2px">${cam&&camPath(activeItems(),cam)&&['Push in','Pull out','Dolly / track','Arc'].includes(sh.move)?'The camera move drawn on the plot sets where it starts and ends.':'The plot is where the move ends; this says where it starts.'} The mock-ups show both.</div>`;}
 document.addEventListener('change',e=>{const t=e.target;if(t&&t.dataset&&t.dataset.o==='shot'&&['angle','move'].includes(t.dataset.k)){setTimeout(()=>{renderPanel();if(CALC.open)renderCalc();},0);}},false);
-document.addEventListener('input',e=>{const t=e.target;if(t&&t.dataset&&t.dataset.o==='shot'&&['moveAmt'].includes(t.dataset.k)&&CALC.open){clearTimeout(window.__tlt);window.__tlt=setTimeout(()=>{const a=document.activeElement;const k=a&&a.dataset&&a.dataset.k;renderCalc();},250);}},false);
+document.addEventListener('input',e=>{const t=e.target;if(t&&t.dataset&&t.dataset.o==='shot'&&['moveAmt','angAmt'].includes(t.dataset.k)&&CALC.open){clearTimeout(window.__tlt);window.__tlt=setTimeout(()=>{const a=document.activeElement;const k=a&&a.dataset&&a.dataset.k;renderCalc();},250);}},false);
 
 // the floor from the foot of the backdrop down to the bottom of the frame, following the backdrop's ground line
 function groundPath(P,W,H){const pts=[];for(let x=-120;x<=120;x+=6){const p=P(x,0);if(isFinite(p.x)&&isFinite(p.y))pts.push(p);}if(pts.length<2)return '';pts.sort((a,b)=>a.x-b.x);
