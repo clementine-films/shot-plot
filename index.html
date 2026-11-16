@@ -5299,16 +5299,43 @@ function mockParts(it,L,ctx,w,h){const a=-w/2,b=w/2,T=-h/2,B=h/2;const H=mhBase(
   }
   return 0;}
 
-/* ---------- reshape: becomes a custom shape with draggable corners ---------- */
-function outlineOf(it){const L=LIB[it.t]||{};const w=+it.w||2,h=+it.h||2;let loc;
-  if(L.shape==='odd'){try{const g=oddGeom(it,L);let p=samplePath(g.d,32);if(p&&g.tx){const m=g.tx.match(/translate\(([-\d.e]+) ([-\d.e]+)\)/);if(m)p=p.map(q=>({x:q.x+ +m[1],y:q.y+ +m[2]}));}if(p)loc=p.map(q=>[q.x,q.y]);}catch(e){}}
-  if(!loc&&/round|stool|ottomanround|hightop|clawfoot|pedsink/.test(it.t))loc=[...Array(16)].map((_,i)=>[w/2*Math.cos(i*Math.PI/8),h/2*Math.sin(i*Math.PI/8)]);
-  if(!loc)loc=[[-w/2,-h/2],[w/2,-h/2],[w/2,h/2],[-w/2,h/2]];
-  return loc.map(([x,y])=>W3(it,x,y));}
-function otypeFor(t){return /couch|loveseat|futon|sectional|armchair|ottoman|bed/.test(t)?'Sofa / upholstered':/booth|banquette/.test(t)?'Booth seat':/counter|reception|vanity|bar/.test(t)?'Counter':/stage|deck|riser|platform/.test(t)?'Platform / riser':/shelf|dresser|wardrobe|cabinet|linen|filecab|fridge|console|stand/.test(t)?'Cabinet / storage':'Table';}
-function reshapeSel(){const it=selItem();if(!it||it.t==='line')return;const f=findItem(it.id);if(!f)return;snap();const pts=outlineOf(it);pts.push(Object.assign({},pts[0]));
-  const ln=newLine('shape',pts);ln.otype=otypeFor(it.t);ln.label=it.label||(LIB[it.t]&&LIB[it.t].name)||'';if(it.color)ln.color=it.color;ln.scope=it.scope;
-  f.arr.splice(f.i,1,ln);V.sel=ln.id;changed();renderPanel&&renderPanel();toast('Now a custom shape: drag any corner, click an edge to add one. Undo to go back.');}
+/* ---------- reshape: the piece keeps what it is, only its outline changes ----------
+   it.poly holds the outline as fractions of the piece's width and depth, so stretching the
+   piece still works; the plot clips the piece's own drawing to the outline. */
+function polyPts(it){const w=+it.w||2,h=+it.h||2;return (it.poly||[]).map(([u,v])=>[u*w,v*h]);}
+function polyD(it){const p=polyPts(it);return p.length?'M'+p.map(q=>q[0].toFixed(3)+' '+q[1].toFixed(3)).join(' L')+'Z':'';}
+function startReshape(){if(!selItem()||selItem().t==='line')return;snap();const it=selItem();
+  it.poly=/round|stool|hightop|clawfoot|pedsink|ottomanround/.test(it.t)?[...Array(16)].map((_,i)=>[r2(.5*Math.cos(i*Math.PI/8)),r2(.5*Math.sin(i*Math.PI/8))]):[[-.5,-.5],[.5,-.5],[.5,.5],[-.5,.5]];
+  changed();renderPanel();toast('Drag a corner to reshape. Click the + on an edge to add a corner; double-click a corner to remove it.');}
+function resetShape(){if(!selItem()||!selItem().poly)return;snap();const it=selItem();delete it.poly;changed();renderPanel();}
+// after an edit, refit the piece's box around its outline so its drawing still covers it
+function refitPoly(it){const w=+it.w||2,h=+it.h||2;const P=it.poly.map(([u,v])=>[u*w,v*h]);const xs=P.map(q=>q[0]),ys=P.map(q=>q[1]);
+  const x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);const nw=Math.max(.25,x1-x0),nh=Math.max(.25,y1-y0),cx=(x0+x1)/2,cy=(y0+y1)/2;
+  const c=W3({x:it.x,y:it.y,r:it.r,fx:it.fx,fy:it.fy},cx,cy);it.x=r2(c.x);it.y=r2(c.y);it.w=r2(nw);it.h=r2(nh);it.poly=P.map(([x,y])=>[Math.round((x-cx)/nw*1000)/1000,Math.round((y-cy)/nh*1000)/1000]);}
+// the plot: the piece's own drawing, clipped to the outline, with the outline drawn on top
+{const _sg=setGlyph;setGlyph=function(it,L,C,px){const g=_sg(it,L,C,px);if(!it.poly||!it.poly.length||L.kind!=='set')return g;const d=polyD(it);const id='cp'+String(it.id).replace(/\W/g,'');
+  return `<defs><clipPath id="${id}"><path d="${d}"/></clipPath></defs><path d="${d}" fill="${C.setFill}"/><g clip-path="url(#${id})">${g}</g><path d="${d}" fill="none" stroke="${C.setStroke}" stroke-width="${1.4*px}" stroke-linejoin="round"/>`;};}
+// handles: a dot on every corner, a + on every edge
+{const _eh=extraHandles;extraHandles=function(it,px){const base=_eh(it,px);if(!it.poly)return base;const P=polyPts(it).map(([x,y])=>W3(it,x,y));let o='';
+  P.forEach((q,i)=>{const n=P[(i+1)%P.length];const m={x:(q.x+n.x)/2,y:(q.y+n.y)/2};o+=`<g data-h="pe" data-i="${i}" style="cursor:copy"><circle cx="${m.x}" cy="${m.y}" r="${5*px}" fill="#fff" stroke="#bd5103" stroke-width="${1.2*px}"/><path d="M${m.x-2.6*px} ${m.y} H${m.x+2.6*px} M${m.x} ${m.y-2.6*px} V${m.y+2.6*px}" stroke="#bd5103" stroke-width="${1.4*px}"/><title>Drag to add a corner here</title></g>`;});
+  P.forEach((q,i)=>{o+=`<circle data-h="pv" data-i="${i}" cx="${q.x}" cy="${q.y}" r="${5.5*px}" fill="#f2a93b" stroke="#111" stroke-width="${px}" style="cursor:move"><title>Drag to reshape. Double-click to remove this corner.</title></circle>`;});
+  return base+o;};}
+{const _sh=startHandleDrag;startHandleDrag=function(h,it,w){const k=h&&h.dataset&&h.dataset.h;if(k!=='pv'&&k!=='pe')return _sh(h,it,w);snap();it=selItem()||it;let i=+h.dataset.i;
+  if(k==='pv'){const now=Date.now();const lp=window.__lastPv;window.__lastPv={i,id:it.id,t:now};if(lp&&lp.i===i&&lp.id===it.id&&now-lp.t<450){window.__lastPv=null;if(it.poly.length<=3){toast('A shape needs at least three corners');return;}it.poly.splice(i,1);refitPoly(it);changed();return;}}
+  if(k==='pe'){const P=it.poly;const a=P[i],b=P[(i+1)%P.length];P.splice(i+1,0,[(a[0]+b[0])/2,(a[1]+b[1])/2]);i=i+1;}
+  const ww=+it.w||2,hh=+it.h||2;const o={x:it.x,y:it.y,r:it.r,fx:it.fx,fy:it.fy,w:ww,h:hh};
+  const mv=e=>{const p=toWorld(e);let l=toL(o,p);if(o.fx)l.x=-l.x;if(o.fy)l.y=-l.y;const sn=v=>V.snap&&!e.altKey?Math.round(v*4)/4:Math.round(v*100)/100;it.poly[i]=[sn(l.x)/ww,sn(l.y)/hh];renderCanvas();};
+  const up=()=>{window.removeEventListener('pointermove',mv);window.removeEventListener('pointerup',up);refitPoly(it);changed();};
+  window.addEventListener('pointermove',mv);window.addEventListener('pointerup',up);};}
+// the mock-ups: the outline built up in the piece's own colour, with a backrest along the back for seating
+{const _ms=mockSet;mockSet=function(it,L,ctx){if(!it.poly||!it.poly.length)return _ms(it,L,ctx);const [lo,hi,bz]=placedZ(it,ctx.items);const kz=(hi-lo)/Math.max(.01,bz[1]-bz[0]);MOCK_Z={b:bz[0],k:kz,d:lo-bz[0]};try{polyMock(it,L,ctx);}finally{MOCK_Z=null;}};}
+function polyMock(it,L,ctx){{const P=polyPts(it);const H=mhBase(it.t)[1];const col=mockColor(it);
+  const seat=/couch|loveseat|futon|sectional|booth|banquette|armchair/.test(it.t);const table=/table|desk|twotop|fourtop|picnic/.test(it.t);const Wp=P.map(([x,y])=>W3(it,x,y));
+  quadL(ctx,it,P.map(([x,y])=>[x*1.04,y*1.04,.01]),'#000','fill-opacity=".16"');
+  const cen=P.reduce((s,q)=>[s[0]+q[0]/P.length,s[1]+q[1]/P.length],[0,0]);const inset=(d)=>P.map(q=>{const dx=cen[0]-q[0],dy=cen[1]-q[1],l=Math.hypot(dx,dy)||1;return W3(it,q[0]+dx/l*d,q[1]+dy/l*d);});
+  if(seat){ctx.extrude(Wp,0,1.15,shade(col,.9));ctx.extrude(inset(.15),1.15,it.t==='booth'?1.5:1.45,shade(col,1.08));const h=+it.h||2;P.forEach((a,i)=>{const b=P[(i+1)%P.length];if(a[1]<=-h*.3&&b[1]<=-h*.3){ctx.extrude([W3(it,a[0],a[1]),W3(it,b[0],b[1]),W3(it,b[0],b[1]+.6),W3(it,a[0],a[1]+.6)],1.4,it.t==='booth'?3.6:2.8,shade(col,.85));}});}
+  else if(table){ctx.extrude(Wp,H-.12,H,it.t==='coffeetable'?MAT.light:MAT.wood);const c=P.reduce((s,q)=>[s[0]+q[0]/P.length,s[1]+q[1]/P.length],[0,0]);P.forEach(q=>{const x=q[0]+(c[0]-q[0])*.12,y=q[1]+(c[1]-q[1])*.12;boxL(ctx,it,x-.07,x+.07,y-.07,y+.07,0,H-.12,'#5e4330');});}
+  else ctx.extrude(Wp,mhBase(it.t)[0],H,col);}}
 
 /* ---------- the panel ---------- */
 function manipGroup(it){const L=LIB[it.t];if(!L||L.kind!=='set'||isOpening(it)||it.t==='line'||L.shape==='kit'||it.t==='north')return '';const b=mhBase(it.t);
@@ -5318,11 +5345,11 @@ function manipGroup(it){const L=LIB[it.t];if(!L||L.kind!=='set'||isOpening(it)||
   g+=`<div class="f2" style="margin-top:6px">${fld('Height (ft)',inp('zh',fmtNum(b[1]-b[0])))}${fld('Sits this high (ft)',inp('z0',fmtNum(b[0])))}</div>`;
   g+=`<label class="chk"><input type="checkbox" data-k="stack" ${it.stack?'checked':''}> Sits on the piece under it (a lamp on a dresser, a TV on a console)</label>`;
   for(let i=0;i<parts.length;i+=2)g+=`<div class="f2">${parts[i]}${parts[i+1]||''}</div>`;
-  g+=`<button class="btn sm" data-reshape="1" style="margin-top:6px" title="Turn the outline into corners you can drag">✎ Reshape the outline</button><div class="pSub">Reshaping turns it into a custom shape: drag any corner, click an edge to add one. Height and parts show in the mock-ups.</div></div>`;return g;}
+  g+=it.poly?`<div class="f2" style="margin-top:6px"><span style="font-size:12px;align-self:center">Reshaping: drag the corner dots on the plan.</span><button class="btn sm" data-reshape="reset">Back to its usual shape</button></div>`:`<button class="btn sm" data-reshape="1" style="margin-top:6px" title="Add corners you can drag">✎ Reshape the outline</button>`;g+=`<div class="pSub">It stays the same piece, with its name and look. Height and parts show in the mock-ups.</div></div>`;return g;}
 const fmtNum=v=>String(Math.round(v*100)/100);
 {const _pi=panelItem;panelItem=function(){let h=_pi();try{const it=selItem();if(it){const g=manipGroup(it);if(g){const key='<div class="f" style="grid-template-columns:96px 1fr"><label>Notes';const i=h.indexOf(key);h=i>=0?h.slice(0,i)+g+h.slice(i):h+g;}}}catch(e){}return h;};}
 document.addEventListener('click',e=>{const t=e.target.closest&&e.target.closest('[data-flip],[data-reshape]');if(!t||!t.closest('#panel'))return;const it=selItem();if(!it)return;
-  if(t.dataset.reshape){reshapeSel();return;}snap();const k=t.dataset.flip==='x'?'fx':'fy';if(it[k])delete it[k];else it[k]=true;changed();if(typeof CALC!=='undefined'&&CALC.open)renderCalc();});
+  if(t.dataset.reshape){if(t.dataset.reshape==='reset')resetShape();else startReshape();return;}snap();const it2=selItem()||it;const k=t.dataset.flip==='x'?'fx':'fy';if(it2[k])delete it2[k];else it2[k]=true;changed();if(typeof CALC!=='undefined'&&CALC.open)renderCalc();});
 document.addEventListener('change',e=>{const k=e.target&&e.target.dataset&&e.target.dataset.k;if(!k||!/^(zh|z0|stack|p_)/.test(k)||!e.target.closest('#panel'))return;setTimeout(()=>{if(typeof CALC!=='undefined'&&CALC.open)renderCalc();},0);});
 const BRANDFF=(()=>{let o='';for(const sh of document.styleSheets){try{for(const r of sh.cssRules)if(r.type===5&&/EB Garamond|Lato/.test(r.cssText))o+=r.cssText;}catch(e){}}return o;})();
 /* ============================================================
