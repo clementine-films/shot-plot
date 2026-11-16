@@ -316,6 +316,21 @@ body.narrow #left{left:0} body.narrow #right{right:0}
 .dofPickRow{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin:-2px 0 10px}
 .dofRef{font-size:12px;font-weight:600;color:var(--text);background:rgba(90,35,128,.18);border:1px solid #8a5bb0;border-radius:999px;padding:2px 9px}
 #cv.dofPicking,#cv.dofPicking *{cursor:crosshair!important}
+/* print hub */
+.hDet{border:1px solid var(--line,#3a3f46);border-radius:8px;margin:0 0 8px;background:rgba(255,255,255,.02)}
+.hDet>summary{cursor:pointer;padding:8px 10px;font-weight:700;font-size:13px;list-style:none}
+.hDet>summary::before{content:'▸ ';}
+.hDet[open]>summary::before{content:'▾ ';}
+.hBody{padding:0 10px 10px}
+.hHead{font-weight:700;font-size:12px;letter-spacing:.06em;text-transform:uppercase;margin:10px 0 6px}
+.hCard{border:1px solid var(--line,#3a3f46);border-radius:7px;padding:7px 8px;margin:0 0 7px}
+.hT{font-weight:700;font-size:12.5px;margin-bottom:5px;display:flex;align-items:center;gap:6px}
+.hB{display:inline-flex;align-items:center;justify-content:center;min-width:20px;height:20px;border-radius:10px;background:#bd5103;color:#fff;font-size:11px;font-weight:700;padding:0 5px}
+.hRow{display:flex;flex-wrap:wrap;gap:6px 8px}
+.hf{display:flex;flex-direction:column;font-size:11px;gap:2px;width:118px}
+.hf.wide{width:100%}
+.hf .in{width:100%;box-sizing:border-box;font-size:12px;padding:4px 6px}
+.hf .in::placeholder{color:#f0b98a;opacity:1}
 </style>
 </head>
 <body>
@@ -5822,6 +5837,90 @@ function mountOf(it){const m=it.mount||'flat';return {m,tilt:m==='flat'?0:Math.m
   g+=`<div class="pSub" style="margin-top:-2px">Right and left are as you face the screen.</div></div>`;
   const key='<div class="f" style="grid-template-columns:96px 1fr"><label>Notes';const i=h.indexOf(key);h=i>=0?h.slice(0,i)+g+h.slice(i):h+g;}}catch(e){}return h;};}
 document.addEventListener('change',e=>{const k=e.target&&e.target.dataset&&e.target.dataset.k;if(!/^(mount|mTilt|mSwivel|mOut)$/.test(k||''))return;setTimeout(()=>{if(k==='mount'&&UI.R)renderPanel();renderCanvas();if(typeof CALC!=='undefined'&&CALC.open)renderCalc();},0);});
+/* ============================================================
+   Eyelines (per actor, per shot; can be hidden), numbered tape marks with distances,
+   and a note on every item.
+   ============================================================ */
+const OV=Object.assign({eyelines:true,markDist:true},(()=>{try{return JSON.parse(localStorage.getItem('lplot.ov'))||{};}catch(e){return {};}})());
+const saveOV=()=>{try{localStorage.setItem('lplot.ov',JSON.stringify(OV));}catch(e){}};
+const EYE_MODES=[['','No eyeline'],['face','Where they face'],['at','Looking at…'],['off','Off screen']];
+function eyeTargets(it){return activeItems().filter(i=>i.id!==it.id&&i.t!=='line'&&(i.t==='actor'||i.t==='camera'||(LIB[i.t]&&(LIB[i.t].kind==='set'||LIB[i.t].kind==='light'))&&(i.label||i.t==='tv'||i.t==='window'||i.t==='door')));}
+function eyeTargetName(i){return i.t==='actor'?(i.label||'actor'):i.t==='camera'?`${i.cam||'A'} camera (lens)`:(i.label||LIB[i.t].name.replace(/ \(.*\)/,''));}
+function eyelineSVG(a,items,C,px){const m=a.eye;if(!m)return '';const col=a.color||'#ff7a7a';const r=(a.r||0)*D2R;let ux=Math.cos(r),uy=Math.sin(r),len=m==='off'?7:4,tgt=null,lab='';
+  if(m==='at'){tgt=items.find(i=>i.id===a.eyeAt)||activeItems().find(i=>i.id===a.eyeAt);if(!tgt)return '';const dx=tgt.x-a.x,dy=tgt.y-a.y,d=Math.hypot(dx,dy);if(d<.5)return '';ux=dx/d;uy=dy/d;len=d-(tgt.t==='actor'?.9:.6);}
+  if(m==='off')lab=a.eyeNote?`${a.eyeNote} (off screen)`:'off screen';else if(m==='face'&&a.eyeNote)lab=a.eyeNote;
+  const x0=a.x+ux*.75,y0=a.y+uy*.75,x1=a.x+ux*Math.max(1,len),y1=a.y+uy*Math.max(1,len);const ah=.42,nx=-uy,ny=ux;
+  let g=`<path d="M${x0} ${y0} L${x1} ${y1}" stroke="${col}" stroke-width="${2*px}" stroke-dasharray="${2*px} ${4*px}" stroke-linecap="round" fill="none" pointer-events="none"/>`;
+  g+=`<path d="M${x1} ${y1} L${x1-ux*ah+nx*ah*.55} ${y1-uy*ah+ny*ah*.55} M${x1} ${y1} L${x1-ux*ah-nx*ah*.55} ${y1-uy*ah-ny*ah*.55}" stroke="${col}" stroke-width="${2*px}" stroke-linecap="round" fill="none" pointer-events="none"/>`;
+  if(m==='off')g+=`<path d="M${x1} ${y1} L${x1+ux*2} ${y1+uy*2}" stroke="${col}" stroke-width="${1.2*px}" stroke-dasharray="${1*px} ${5*px}" fill="none" pointer-events="none"/>`;
+  if(lab){const fs=Math.max(.3,9*px);const tx=x1+ux*.5,ty=y1+uy*.5;g+=`<text x="${tx}" y="${ty+fs*.35}" text-anchor="${ux<-.3?'end':ux>.3?'start':'middle'}" font-family="${C.font}" font-style="italic" font-weight="700" font-size="${fs}" fill="${col}" paint-order="stroke" stroke="${C.bg}" stroke-width="${3*px}" pointer-events="none">${esc(lab)}</text>`;}
+  return g;}
+function markDistSVG(m,items,C,px){const c=typeof camFor==='function'?camFor(m,items):null;if(!c)return '';const fs=Math.max(.28,8*px);const col=m.color||'#ffd166';
+  return `<text x="${m.x}" y="${m.y+.6+fs}" text-anchor="middle" font-family="${C.font}" font-weight="700" font-size="${fs}" fill="${C.text||'#fff'}" paint-order="stroke" stroke="${C.bg}" stroke-width="${3*px}" pointer-events="none">${esc(ft1(Math.hypot(m.x-c.x,m.y-c.y)))} to ${esc(c.cam||'A')}</text>`;}
+{const _ri=renderItems;renderItems=function(items,o){const L=_ri(items,o);try{if(!o||o.ghost)return L;const sheet=o.tag==='sheet';const X=sheet?(window.__X||xo()):null;
+  const eyes=sheet?X.eyelines!==false:OV.eyelines;const md=!sheet&&OV.markDist&&!!o.dimSel;let add='';
+  if(eyes)items.filter(i=>i.t==='actor'&&i.eye).forEach(a=>{add+=eyelineSVG(a,items,o.C,o.px);});
+  if(md)items.filter(i=>i.t==='mark').forEach(m=>{add+=markDistSVG(m,items,o.C,o.px);});
+  if(add)L.labels=(L.labels||'')+add;}catch(e){}return L;};}
+/* panel: eyeline on actors, who a tape mark is for, a note on every item */
+function eyePanel(it){const tg=eyeTargets(it);return `<div class="grp"><h4>Eyeline</h4>${fld('Eyeline',`<select class="in" data-k="eye">${EYE_MODES.map(([v,l])=>`<option value="${v}" ${(it.eye||'')===v?'selected':''}>${l}</option>`).join('')}</select>`)}
+  ${it.eye==='at'?fld('Looking at',`<select class="in" data-k="eyeAt"><option value="">Pick…</option>${tg.map(i=>`<option value="${i.id}" ${it.eyeAt===i.id?'selected':''}>${esc(eyeTargetName(i))}</option>`).join('')}</select>`):''}
+  ${it.eye==='off'||it.eye==='face'?fld(it.eye==='off'?'What they look at':'Label (optional)',inp('eyeNote',it.eyeNote||'','text','placeholder="the TV, MAYA in the doorway…"')):''}
+  ${it.eye==='off'||it.eye==='face'?'<div class="pSub">Turn the actor to aim it. The eyeline follows the way they face.</div>':''}<div class="pSub">Show or hide every eyeline from <b>Layers</b>. Export has its own switch.</div></div>`;}
+function markPanel(it){const acts=activeItems().filter(i=>i.t==='actor');const c=typeof camFor==='function'?camFor(it,activeItems()):null;
+  return `<div class="grp"><h4>Mark</h4>${fld('Whose mark',`<select class="in" data-k="who"><option value="">Anyone</option>${acts.map(a=>`<option value="${esc(a.label||'')}" ${it.who===a.label?'selected':''}>${esc(a.label||'actor')}</option>`).join('')}</select>`)}
+  <div class="pSub">${c?`${ft1(Math.hypot(it.x-c.x,it.y-c.y))} from ${esc(c.cam||'A')} camera. The tape takes the actor’s color.`:'Place a camera to see the distance.'}</div></div>`;}
+{const _pi=panelItem;panelItem=function(){let h=_pi();const it=selItem();if(!it||it.t==='line')return h;
+  if(it.t==='actor')h+=eyePanel(it);if(it.t==='mark')h+=markPanel(it);
+  if(!/data-k="note"/.test(h))h+=`<div class="grp"><h4>Note</h4><textarea class="in" data-k="note" rows="2" placeholder="Prints with the plan: under the item, or as a lettered list (choose in Export)">${esc(it.note||'')}</textarea></div>`;return h;};}
+{const _af=applyField;applyField=function(el,live){const r=_af(el,live);try{const k=el&&el.dataset&&el.dataset.k;const it=selItem();if(!it)return r;
+  if(k==='who'&&it.t==='mark'){const a=activeItems().find(i=>i.t==='actor'&&i.label===it.who);if(a)it.color=a.color;const same=activeItems().filter(i=>i.t==='mark'&&i.who===it.who&&it.who);if(it.who&&(!it.label||/^\d+$/.test(it.label)))it.label=`${it.who} ${same.indexOf(it)+1}`;renderCanvas();if(!live)renderPanel();}
+  if(k==='eye'||k==='eyeAt'){renderCanvas();if(!live)renderPanel();}}catch(e){}return r;};}
+/* Layers pop: overlay switches */
+{const _rl=renderLayerPop;renderLayerPop=function(){_rl();const p=$('#layerPop');if(!p||!p.classList.contains('open'))return;
+  p.insertAdjacentHTML('beforeend',`<div style="font:500 16px 'EB Garamond',Garamond,serif;margin:10px 0 4px">On the plan</div><label class="chk" style="display:block;margin:3px 0"><input type="checkbox" data-ov="eyelines" ${OV.eyelines?'checked':''}> Eyelines</label><label class="chk" style="display:block;margin:3px 0"><input type="checkbox" data-ov="markDist" ${OV.markDist?'checked':''}> Distances on tape marks</label>`);};}
+document.addEventListener('change',e=>{const k=e.target&&e.target.dataset&&e.target.dataset.ov;if(!k)return;OV[k]=e.target.checked;saveOV();renderCanvas();});
+/* ============================================================
+   Groups (select together, turn and resize together), editing many items at once,
+   and My items (save a piece or a group to reuse in any project).
+   ============================================================ */
+function grpMembers(g){return activeItems().filter(i=>i.grp===g).map(i=>i.id);}
+/* clicking any member picks up the whole group; Alt-click picks one piece inside it */
+cv.addEventListener('pointerdown',e=>{if(e.button||e.shiftKey||e.altKey||V.placing||V.tool!=='select'||e.target.closest('[data-h]'))return;const g=e.target.closest('[data-id]');if(!g)return;const f=findItem(g.dataset.id);if(!f||!f.it.grp)return;
+  const m=grpMembers(f.it.grp);if(m.length<2)return;const cur=selIds();if(m.every(id=>cur.includes(id)))return;V.sel=f.it.id;V.multi=m;V.rightTab='item';renderPanel();},true);
+cv.addEventListener('pointerdown',e=>{if(!e.altKey||e.button||V.placing||V.tool!=='select')return;const g=e.target.closest('[data-id]');if(!g)return;const f=findItem(g.dataset.id);if(!f||!f.it.grp)return;V.sel=f.it.id;V.multi=[];renderPanel();},true);
+function selCenter(items){const xs=[],ys=[];items.forEach(it=>{if(it.t==='line')it.pts.forEach(q=>{xs.push(q.x);ys.push(q.y);});else{xs.push(it.x);ys.push(it.y);}});return {x:(Math.min(...xs)+Math.max(...xs))/2,y:(Math.min(...ys)+Math.max(...ys))/2};}
+function selItemsFresh(){return selIds().map(id=>findItem(id)).filter(Boolean).map(f=>f.it);}
+function turnSel(deg){if(!deg)return;snap();const its=selItemsFresh();if(!its.length)return;const c=selCenter(its);const a=deg*D2R,ca=Math.cos(a),sa=Math.sin(a);const rot=q=>{const dx=q.x-c.x,dy=q.y-c.y;q.x=r2(c.x+dx*ca-dy*sa);q.y=r2(c.y+dx*sa+dy*ca);};
+  its.forEach(it=>{if(it.t==='line'){it.pts.forEach(rot);return;}rot(it);it.r=Math.round((((it.r||0)+deg)%360+360)%360*10)/10;});
+  activeItems().forEach(l=>{if(l.t==='line'&&l.owner&&its.some(i=>i.id===l.owner)&&!its.includes(l))l.pts.forEach(rot);});changed();}
+function sizeSel(pct){const f=(+pct||100)/100;if(f<=0||Math.abs(f-1)<.001)return;snap();const its=selItemsFresh();if(!its.length)return;const c=selCenter(its);const sc=q=>{q.x=r2(c.x+(q.x-c.x)*f);q.y=r2(c.y+(q.y-c.y)*f);};
+  its.forEach(it=>{if(it.t==='line'){it.pts.forEach(sc);return;}sc(it);const L=LIB[it.t]||{};
+    if(it.w!=null&&!isNaN(+it.w))it.w=r2(+it.w*f);if(it.h!=null&&!isNaN(+it.h))it.h=r2(+it.h*f);
+    if(it.w==null&&typeof scalable==='function'&&scalable(it))it.sz=Math.round(szOf(it)*f*100)/100;});
+  activeItems().forEach(l=>{if(l.t==='line'&&l.owner&&its.some(i=>i.id===l.owner)&&!its.includes(l))l.pts.forEach(sc);});changed();}
+function groupSel(){const ids=selIds();if(ids.length<2)return;snap();const g='g'+rid();ids.forEach(id=>{const f=findItem(id);if(f)f.it.grp=g;});changed();toast(`Grouped ${ids.length} items. Click any of them to pick up the group; Alt-click picks one.`);}
+function ungroupSel(){snap();selIds().forEach(id=>{const f=findItem(id);if(f)delete f.it.grp;});changed();toast('Ungrouped');}
+function selIsGroup(){const its=selItemsFresh();return its.length>1&&its[0].grp&&its.every(i=>i.grp===its[0].grp);}
+/* quick bar for several items */
+{const _rq=renderQuick;renderQuick=function(){_rq();const q=$('#quick');if(!q||!P)return;const ids=selIds();if(ids.length<2||V.placing||V.draft)return;const g=selIsGroup();
+  q.innerHTML=`<b>${g?'Group of ':''}${ids.length} items</b><span class="qm">${g?'Alt-click to pick one piece':'drag to move together'}</span><span class="qsep"></span>
+   <button class="btn sm" data-gq="${g?'ungroup':'group'}">${g?'Ungroup':'Group'}</button><span class="qsep"></span>
+   <label class="qf">Turn<button class="btn sm" data-gq="ccw" title="Turn 15° counter-clockwise">↺ 15°</button><button class="btn sm" data-gq="cw" title="Turn 15° clockwise">↻ 15°</button><input class="in" id="gTurn" type="number" placeholder="°" style="width:54px" title="Type degrees and press Enter. + is clockwise"></label>
+   <label class="qf">Size %<input class="in" id="gSize" type="number" placeholder="100" style="width:62px" title="Type a percent and press Enter: 50 halves everything, 200 doubles it"></label><span class="qsep"></span>
+   <button class="btn sm" data-act="mylib" title="Save these pieces together as one item in your library">Save to my library</button><button class="btn sm" data-act="dup">Duplicate</button><button class="btn sm danger" data-act="del">Delete</button>`;};}
+$('#quick').addEventListener('click',e=>{const b=e.target.closest('[data-gq]');if(!b)return;e.stopPropagation();const k=b.dataset.gq;if(k==='group')groupSel();else if(k==='ungroup')ungroupSel();else if(k==='cw')turnSel(15);else if(k==='ccw')turnSel(-15);});
+$('#quick').addEventListener('keydown',e=>{if(e.key!=='Enter')return;if(e.target.id==='gTurn'){turnSel(+e.target.value||0);e.target.value='';}else if(e.target.id==='gSize'){sizeSel(+e.target.value||100);e.target.value='';}});
+/* editing many at once: a change in the panel goes to every selected item that has that setting */
+const MULTI_SKIP=new Set(['x','y','label','text','num','scope','cam','id','eye','eyeAt','who','grp','pts','owner','fork']);
+{const _af=applyField;applyField=function(el,live){const r=_af(el,live);try{const k=el&&el.dataset&&el.dataset.k;if(!k||el.dataset.o||MULTI_SKIP.has(k))return r;const ids=selIds();if(ids.length<2)return r;const it=selItem();if(!it)return r;
+  let n=0;ids.forEach(id=>{if(id===it.id)return;const f=findItem(id);if(!f)return;const o=f.it;const L=LIB[o.t]||{};if(o.t===it.t||(k in o)||(L.defaults&&k in L.defaults)){o[k]=clone(it[k]);n++;}});if(n){renderCanvas();scheduleSave();}}catch(e){}return r;};}
+{const _pi=panelItem;panelItem=function(){const h=_pi();const ids=P?selIds():[];if(ids.length<2)return h;const its=selItemsFresh();const it=selItem();const same=its.filter(i=>i.t===(it&&it.t)).length;
+  return `<div class="note" style="margin:0 0 10px"><b>Editing ${ids.length} items.</b> A change here goes to every selected item that has the same setting${same<ids.length?` (${same} of them are this type)`:''}. Turn and resize them together from the bar above the plan.</div>`+h;};}
+/* ---- My library (saving lives in shapes.js): a Mine chip in the library shows only your saved pieces ---- */
+{const _rl=renderLib;renderLib=function(){if(V.libCat==='Mine'){const keep=V.libQ;_rl();const cats=$('#libCats');const mine=LIBALL.filter(e=>e.group==='My library');
+    $('#lib').innerHTML=mine.length?`<div class="libGroup">My library</div>`+mine.map(e=>`<button class="libItem ${V.placing===e.key?'on':''}" data-k="${e.key}" draggable="true" title="${esc(e.name)}">${libIcon(e.key)}<span class="nm">${esc(e.name)}</span><span class="mydel" data-mydel="${e.key}" title="Remove from my library" style="margin-left:auto;padding:0 6px;opacity:.8">✕</span></button>`).join(''):`<div class="empty" style="padding:10px;line-height:1.5">Nothing saved yet. Select a piece (or several) on the plan and choose <b>Save to my library</b>. It keeps every setting and works in any project in this browser.</div>`;}
+  else _rl();const cats=$('#libCats');if(cats&&!cats.querySelector('[data-cat="Mine"]')){const n=LIBALL.filter(e=>e.group==='My library').length;const all=cats.querySelector('[data-cat="All"]');(all||cats.firstChild).insertAdjacentHTML('afterend',`<button class="cat ${V.libCat==='Mine'?'on':''}" data-cat="Mine" title="Pieces and groups you saved">Mine${n?' ('+n+')':''}</button>`);}};}
 const BRANDFF=(()=>{let o='';for(const sh of document.styleSheets){try{for(const r of sh.cssRules)if(r.type===5&&/EB Garamond|Lato/.test(r.cssText))o+=r.cssText;}catch(e){}}return o;})();
 /* ============================================================
    Export
@@ -5844,7 +5943,7 @@ function buildSheet0(sc,su,sh,X){
   const T=dark?{bg:'#15171a',ink:'#e3e6ea',sub:'#e3e6ea',band:'#23272c',rule:'#3a3f46',head:'#0c0d0f',off:'#5f6670',track:'#2a2e34'}:{bg:'#ffffff',ink:'#1d2024',sub:'#1d2024',band:'#f1f3f5',rule:'#c9ced5',head:'#16181b',off:'#9ca3af',track:'#eef0f3'};
   const Wd=1650,Ht=1275;const items=sheetItems(su,sh,X);const nums=lightNumbers(items);
   const hasShot=X.f_size||X.f_move||X.f_cam||X.f_cast||X.f_desc||X.f_blocking||X.f_intent||X.f_notes;
-  const side=X.layout==='sheet'&&(sh._setup||hasShot||X.f_scene||X.f_script||X.lightKey||X.powerBlock||X.legend);
+  const side=X.layout==='sheet'&&(sh._setup||hasShot||X.f_scene||X.f_script||X.lightKey||X.powerBlock||X.legend||X.camKey||X.resetList);
   const K=X.sideText==='std'?1:X.sideText==='xl'?1.36:1.2,CW=500*K;
   const DX=30,DY=X.header?110:30,DW=side?Math.round(Wd-30-CW-30-DX):Wd-60,DH=Ht-DY-48;
   const b=bbox(items,2.5);const s=Math.min(DW/(b.x1-b.x0),DH/(b.y1-b.y0));const px=1/s;
@@ -5853,20 +5952,30 @@ function buildSheet0(sc,su,sh,X){
   let g=`<rect x="${vx0}" y="${vy0}" width="${vx1-vx0}" height="${vy1-vy0}" fill="${C.bg}"/>`+(X.grid?gridSVG(vx0,vy0,vx1,vy1,C,px):'');
   if(X.ghost&&!sh._setup)su.shots.forEach(o=>{if(o.id===sh.id)return;g+=assemble(renderItems(o.items.filter(i=>!isBlocking(i)&&!i.fork),{C,px,nums:{},ghost:true,beams:false,labels:'min',ghostLabel:o.num,tag:'s'+o.id}));});
   g+=assemble(renderItems(items,{C,px,nums,beams:X.beams,labels:X.labels==='min'?'min':'full',labAuto:X.labels!=='full'&&X.labels!=='min',dims:X.dims,tag:'sheet'}));
+  g+=sheetPlotExtras(su,sh,items,X,{C,px});
   const pw=powerFor(items);const S=P.settings;const cont=S.volts*S.breaker*.8;
   const F="Lato,Helvetica,Arial,sans-serif",M="'Courier New',Courier,monospace",G="'EB Garamond',Garamond,Georgia,serif";
   let t='';const RX=1120,RW=500;let y=DY;const HtI=DY+(Ht-DY)/K;const YMAX=HtI-(X.legend?78:24);
   const txt=(x,y,s,o)=>`<text x="${x}" y="${y}" font-family="${o&&o.mono?M:o&&o.gar?G:F}" font-size="${(o&&o.size)||13}" font-weight="${o&&o.gar?500:(o&&o.w)||400}" fill="${(o&&o.c)||T.ink}" ${o&&o.anchor?`text-anchor="${o.anchor}"`:''}>${esc(s)}</text>`;
   let head='';
   if(X.header)head=`<rect x="0" y="0" width="${Wd}" height="${creditLine()?100:86}" fill="${T.head}"/>`+txt(30,38,fitTitle(P.title).t,{size:fitTitle(P.title).s,gar:1,c:'#fff'})+(creditLine()?txt(30,90,creditLine(),{size:13,c:'#ffffff'}):'')+`<text x="30" y="65" font-size="15" fill="#f0935a"><tspan font-family="${G}" font-weight="500" font-size="17">Scene ${esc(sc.num)}</tspan><tspan font-family="${M}" font-size="13" dx="12">${esc(sceneHeading(sc))}</tspan></text>`
-     +txt(Wd-30,38,sh._setup?su.name:`Shot ${sh.num}`,{size:30,gar:1,c:'#fff',anchor:'end'})+txt(Wd-30,64,sh._setup?`Setup page${turnTag(su)} · ${su.shots.length} shot${su.shots.length===1?'':'s'} · ${new Date().toLocaleDateString()}`:`${su.name}${turnTag(su)} · ${new Date().toLocaleDateString()}`,{size:13,c:'#ffffff',anchor:'end'})+(X._pg?txt(Wd/2,74,X._pg,{size:12,c:'#ffffff',anchor:'middle'}):'');
+     +txt(Wd-30,38,sh._setup?su.name:`Shot ${sh.num}`,{size:30,gar:1,c:'#fff',anchor:'end'})+txt(Wd-30,64,sh._setup?`Setup page${turnTag(su)} · ${su.shots.length} shot${su.shots.length===1?'':'s'} · ${revTag()}`:`${su.name}${turnTag(su)} · ${revTag()}`,{size:13,c:'#ffffff',anchor:'end'})+(X._pg?txt(Wd/2,74,X._pg,{size:12,c:'#ffffff',anchor:'middle'}):'');
   let frame=`<rect x="${DX}" y="${DY}" width="${DW}" height="${DH}" fill="none" stroke="${T.rule}"/>`;
   frame+=txt(DX+262,DY+DH+21,[X.grid?'Grid: 1 square = 1 ft · bold lines every 5 ft':'',sh._setup?'Every camera position in this setup, labelled by shot':X.ghost&&su.shots.length>1?`faded cameras = other shots in ${su.name}`:'',!X.header?`${P.title} · Sc ${sc.num} · ${sh._setup?su.name:'Shot '+sh.num}${X._pg?' · '+X._pg:''}`:''].filter(Boolean).join(' · '),{size:11,c:T.sub});
   frame+=txt(DX+262,DY+DH+39,'Planning reference for placement only. Not an exact representation of the lighting or framing on set.',{size:12,c:T.sub});
+  frame+=sheetPageExtras(sc,su,sh,X,{DX,DY,DW,DH,s,T,C,txt});
   if(side){
     const room=n=>y+n<=YMAX;
     const sec=(title)=>{if(!room(60))return false;t+=`<rect x="${RX}" y="${y}" width="${RW}" height="24" fill="${T.band}"/>`+txt(RX+10,y+17,title,{size:15,gar:1,c:T.ink});y+=42;return true;};
     const para=(label,val,max,mono)=>{if(!val)return;const lines=wrapText(val,mono?52:58).slice(0,max||4);if(!room(18))return;t+=txt(RX+10,y,label,{size:12,c:T.sub});lines.forEach(l=>{if(!room(4))return;t+=txt(RX+130,y,l,{size:mono?11.5:12.5,mono});y+=mono?16:18;});y+=4;};
+    const blk=(title,rows)=>{if(!rows||!rows.length)return;let started=false,i=0;const W=Math.round(62/ (K>1.25?1.08:1));
+      for(;i<rows.length;i++){const r=rows[i];const hl=wrapText(r.head,W-6),dl=(r.lines||[]).flatMap(l=>wrapText(l,W));const need=hl.length*17+dl.length*15+6;
+        if(!started){if(!room(60+need))break;sec(title);started=true;}if(!room(need))break;
+        if(r.badge!=null)t+=`<circle cx="${RX+18}" cy="${y-4}" r="9" fill="${r.fill||C.badge}"/>`+txt(RX+18,y,String(r.badge),{size:11,w:700,c:r.badgeInk||C.badgeText,anchor:'middle'});
+        if(r.swatch)t+=`<rect x="${RX+RW-22}" y="${y-11}" width="12" height="12" fill="${r.swatch}" stroke="${T.ink}" stroke-width=".5"/>`;
+        hl.forEach(l=>{t+=txt(RX+36,y,l,{size:12.5,w:700,c:r.off?T.off:T.ink});y+=17;});dl.forEach(l=>{t+=txt(RX+36,y-2,l,{size:11.5,c:r.off?T.off:T.ink});y+=15;});y+=6;}
+      if(i<rows.length&&X.__spill)X.__spill.push({title:title+(started?' (continued)':''),rows:rows.slice(i)});else if(i<rows.length&&room(16)){t+=txt(RX+36,y,`+ ${rows.length-i} more (shown on the next page when you export)`,{size:11});y+=18;}
+      if(started)y+=6;};
     if(sh.frame&&IMG[sh.frame]&&sec('Storyboard frame')){const iw=RW-20,ih=Math.min(300,iw*(sh.frameA||.5625));t+=`<image href="${IMG[sh.frame]}" x="${RX+10}" y="${y-10}" width="${iw}" height="${ih}" preserveAspectRatio="xMidYMid meet"/>`;y+=ih+10;}
     if(X.f_scene&&sc.desc&&sec('Scene '+sc.num)){para('What happens',sc.desc,6);y+=6;}
     if(sh._setup&&sec('Shots in this setup')){
@@ -5882,16 +5991,11 @@ function buildSheet0(sc,su,sh,X){
       rows.forEach(([k,v])=>{const ls=wrapText(v,58);t+=txt(RX+10,y,k,{size:12,c:T.sub});ls.slice(0,3).forEach(l=>{t+=txt(RX+130,y,l,{size:12.5,w:600});y+=18;});y+=2;});
       if(X.f_desc)para('Description',sh.desc,3);if(X.f_blocking)para('Blocking',sh.blocking,5);if(X.f_intent)para('Lighting intent',su.notes,4);if(X.f_ltime&&typeof setupTimeText==='function')para('Est. lighting time',setupTimeText(su),2);if(X.f_notes)para('Notes',sh.notes,3);y+=6;}
     if(X.f_script&&!sh._setup){const ct=coverText(sh);if(ct&&sec('Script — lines this shot covers')){para('Sides',ct,14,true);y+=6;}}
-    if(X.lightKey&&sec('Light key')){
-      const lights=items.filter(i=>LIB[i.t]&&LIB[i.t].kind==='light');
-      t+=txt(RX+10,y,'#',{size:10.5,w:700,c:T.sub})+txt(RX+36,y,'FIXTURE',{size:10.5,w:700,c:T.sub})+txt(RX+230,y,'ROLE',{size:10.5,w:700,c:T.sub})+txt(RX+335,y,'COLOR / MOD',{size:10.5,w:700,c:T.sub})+txt(RX+RW-10,y,'W · CKT',{size:10.5,w:700,c:T.sub,anchor:'end'});y+=20;
-      let shown=0;lights.forEach(l=>{if(!room(X.powerBlock?150:24))return;shown++;const L=LIB[l.t];const on=l.on!==false;t+=`<circle cx="${RX+18}" cy="${y-4}" r="9" fill="${on?C.badge:T.off}"/>`+txt(RX+18,y,nums[l.id],{size:11,w:700,c:C.badgeText,anchor:'middle'});
-        const nm=(l.label?l.label+' — ':'')+L.name.replace(/ \(.*\)/,'');t+=txt(RX+36,y,nm.length>30?nm.slice(0,29)+'…':nm,{size:11.5,w:600,c:on?T.ink:T.off})+txt(RX+230,y,(l.role||'').slice(0,15)+(on?'':' (off)'),{size:11.5,c:on?T.ink:T.off});
-        const cm=[GELS[l.gel]==='c'?'color gel':(effKelvin(l)+'K'),l.gel!=='None'&&GELS[l.gel]!=='c'?l.gel:'',l.intensity<100?l.intensity+'%':''].filter(Boolean).join(' · ');const det=[l.modifier!=='None'?l.modifier:'',...lightBits(l),l.diff&&l.diff!=='None'&&l.diffAt&&l.diffAt!==DIFFAT[0]?l.diffAt.toLowerCase():'',typeof isOverhead==='function'&&isOverhead(l)?('overhead at '+fmtFt(+l.height||0)+(l.rig&&typeof rigOf==='function'&&rigOf(l)?' on '+LIB[rigOf(l).t].name.split(' (')[0].toLowerCase():'')):'',l.tilt&&l.tilt!=='Level'?l.tilt.toLowerCase():''].filter(Boolean).join(' · ');
-        t+=`<rect x="${RX+335}" y="${y-11}" width="10" height="10" fill="${hex(lightRGB(l))}" stroke="${T.off}" stroke-width=".5"/>`+txt(RX+350,y,cm.length>22?cm.slice(0,21)+'…':cm,{size:10.5});
-        t+=txt(RX+RW-10,y,`${l.watts?fmtW(+l.watts):'—'}${l.circuit?' · '+l.circuit:''}`,{size:11,anchor:'end'});y+=21;if(det){t+=txt(RX+36,y-5,det.length>86?det.slice(0,85)+'…':det,{size:10,c:T.sub});y+=13;}});
-      if(lights.length>shown){t+=txt(RX+36,y,`+ ${lights.length-shown} more…`,{size:11,c:T.sub});y+=20;}
-      if(!lights.length){t+=txt(RX+10,y,'No fixtures placed.',{size:12,c:T.sub});y+=20;}y+=8;}
+    if(X.camKey&&!sh._setup)blk('Camera key',camKeyRows(su,sh,X));
+    if(X.lightKey){const rows=lightKeyRows(items,nums,X,su,sh,C,T);blk('Light key',rows.length?rows:[{head:'No fixtures placed.',lines:[]}]);}
+    if(X.resetList&&!sh._setup){const rr=resetRows(su,sh);if(rr)blk(rr.title,rr.rows);}
+    if(X.itemNotes==='list')blk('Notes on the plan',noteRows(items));
+    if(X.revInfo&&revCur()&&!sh._setup)blk('Revision '+revCur().l,revRows(su,sh));
     if(X.powerBlock&&sec('Power')){
       t+=txt(RX+10,y+10,fmtW(pw.total),{size:24,w:700})+txt(RX+170,y+10,(pw.total/S.volts).toFixed(1)+' A',{size:24,w:700})+txt(RX+330,y+10,`${pw.total?Math.ceil(pw.total/cont):0} × ${S.breaker}A`,{size:24,w:700});y+=28;
       t+=txt(RX+10,y,'total draw',{size:10.5,c:T.sub})+txt(RX+170,y,`@ ${S.volts}V`,{size:10.5,c:T.sub})+txt(RX+330,y,'circuits at 80%',{size:10.5,c:T.sub});y+=24;
@@ -6003,6 +6107,7 @@ async function makeExportPDF(X,onPage){const plan=exportPlan(X);const {pages}=pl
     if(p.kind==='contents')({svg,links}=contentsSVG(X,plan,p.part));
     else if(p.kind==='overview')({svg,links}=await overviewSVG(X,plan,p));
     else if(p.kind==='setup')svg=buildSheet(p.sc,p.su,setupShot(p.su),Object.assign({},X,{ghost:false,_pg:pg}));
+    else if(p.kind==='cont')svg=contSVG(X,p,pg);
     else svg=buildSheet(p.sc,p.su,p.sh,Object.assign({},X,{_pg:pages.length>1?pg:''}));
     const cv=await svgImg(svg,sc);const j=await canvasJpeg(cv,.86);j.links=links;out.push(j);await new Promise(r=>setTimeout(r,0));}
   return {blob:await buildPDF(out,P.title+' — Shot plot'),plan};}
@@ -6015,10 +6120,10 @@ async function runExport(){const X=xo();
 function pickList(X){const pk=new Set(X.pick||scene().setups.flatMap(su=>su.shots.map(s=>s.id)));
   return `<div class="pickList">${P.scenes.map(sc=>{const ids=sc.setups.flatMap(su=>su.shots.map(s=>s.id));return `<label class="chk pkSc"><input type="checkbox" data-pk="${ids.join(',')}" ${ids.length&&ids.every(i=>pk.has(i))?'checked':''}> <b>Scene ${esc(sc.num)}</b> <span class="pSub">${esc(sceneHeading(sc))}</span></label>`+sc.setups.map(su=>`<div class="pkSu">${esc(su.name)}</div><div class="pkShots">${su.shots.map(sh=>`<label class="chk"><input type="checkbox" data-pk="${sh.id}" ${pk.has(sh.id)?'checked':''}> ${esc(sh.num)}</label>`).join('')}</div>`).join('');}).join('')}</div>`;}
 function openExport(){
-  const INFO=[['header','Title bar (production, scene, shot #)'],['f_scene','Scene description'],['f_size','Shot size & angle'],['f_move','Movement'],['f_cam','Camera, lens & support'],['f_cast','Cast'],['f_desc','Shot description'],['f_blocking','Blocking notes'],['f_intent','Lighting intent'],['f_ltime','Estimated lighting time for the setup'],['f_notes','Shot notes'],['f_script','Script lines linked to the shot'],['lightKey','Light key (numbered fixture table)'],['powerBlock','Power summary'],['legend','Legend']];
-  const LAY=[['grid','Grid'],['beams','Light beams'],['dims','Wall sizes'],['ghost','Other shots’ cameras (faded)'],['blocking','Actors, marks & actor moves'],['grip','Grip'],['power','Power & cable runs']];
+  const INFO=[['header','Title bar (production, scene, shot #)'],['f_scene','Scene description'],['f_size','Shot size & angle'],['f_move','Movement'],['f_cam','Camera, lens & support'],['f_cast','Cast'],['f_desc','Shot description'],['f_blocking','Blocking notes'],['f_intent','Lighting intent'],['f_ltime','Estimated lighting time for the setup'],['f_notes','Shot notes'],['f_script','Script lines linked to the shot'],['lightKey','Light key (numbered fixture table)'],['camKey','Camera key (lens, stop, filters, focus, marks)'],['resetList','Reset list (what the crew changes from the shot before)'],['revInfo','Revision note'],['powerBlock','Power summary'],['legend','Legend']];
+  const LAY=[['grid','Grid'],['beams','Light beams'],['dims','Wall sizes'],['ghost','Other shots’ cameras (faded)'],['blocking','Actors, marks & actor moves'],['grip','Grip'],['power','Power & cable runs'],['scaleBar','Scale bar'],['compass','North arrow & sun direction'],['focusDim','Camera-to-subject distance'],['markDist','Distances on tape marks'],['eyelines','Eyelines'],['revClouds','Revision clouds around changes']];
   const draw=()=>{const X=xo();const chk=([k,l],cls)=>`<label class="chk ${cls||''}"><input type="checkbox" data-xk="${k}" ${X[k]?'checked':''}> ${l}</label>`;const seg=(k,opts)=>`<div class="seg">${opts.map(([v,l])=>`<button data-xs="${k}" data-v="${v}" class="${String(X[k])===String(v)?'on':''}">${l}</button>`).join('')}</div>`;
-    openModal(`<h3>Export shot sheets</h3><div class="xGrid"><div class="xOpts ${X.layout==='diagram'?'dis':''}">
+    openModal(`<h3>Export shot sheets</h3><div class="xGrid"><div class="xOpts ${X.layout==='diagram'?'dis':''}"><div class="xSec">Before you print</div>${hubTopHTML()}
       <div class="xSec">What to export</div>${seg('scope',[['shot','This shot'],['setup','This setup'],['scene','This scene'],...((P.days||[]).length?[['day','Shooting day']]:[]),['project','Whole project'],['pick','Choose…']])}
       ${X.scope==='day'?`<select class="in" data-xsel="dayId" style="margin-top:6px"><option value="">Pick a day…</option>${(P.days||[]).map(d=>`<option value="${d.id}" ${X.dayId===d.id?'selected':''}>${esc(dayLabel(d))} — ${shotsOnDay(d.id).length} shots</option>`).join('')}</select>`:''}${(P.days||[]).length?'':'<div class="pSub" style="margin-top:4px">Add shooting days (Breakdown ▸ Days) to export by day.</div>'}
       ${X.scope==='pick'?pickList(X):''}
@@ -6029,14 +6134,14 @@ function openExport(){
       
       
       <div class="xSec">Credits on every page</div><div class="xCred">${CREDIT_ROLES.map(([k,l])=>`<label class="pSub" style="margin:0">${l}<input class="in" data-xcred="${k}" value="${esc((P.credits||{})[k]||'')}" placeholder="Name"></label>`).join('')}</div><div class="xSec">Sheet layout</div>${seg('layout',[['sheet','Diagram + info'],['diagram','Diagram only']])}${seg('theme',[['paper','White (print)'],['dark','Dark']])}<div class="pSub" style="margin:6px 0 2px">Text size beside the diagram</div>${seg('sideText',[['std','Standard'],['lg','Large'],['xl','Extra large']])}
-      <div class="xSec">On the diagram</div>${LAY.map(x=>chk(x)).join('')}<div style="height:6px"></div>${seg('labels',[['auto','Auto'],['full','Full'],['min','Numbers only']])+`<div class="pSub" style="margin-top:4px">Auto keeps every label it can place clearly and shows just the number for the few it can’t. Their details are in the light key.</div>`}
+      <div class="xSec">On the diagram</div>${LAY.map(x=>chk(x)).join('')}<div style="height:6px"></div>${seg('labels',[['auto','Auto'],['full','Full'],['min','Numbers only']])+`<div class="pSub" style="margin-top:4px">Auto keeps every label it can place clearly and shows just the number for the few it can’t. Their details are in the light key.</div>`}<div class="pSub" style="margin:8px 0 2px">Notes on items</div>${seg('itemNotes',[['off','Off'],['plot','Under the item'],['list','Lettered list beside the plan']])}
       <div class="xSec">Info fields <button class="addMini" data-xall="1" style="margin-left:6px">all</button> <button class="addMini" data-xall="0">none</button></div>${chk(INFO[0])}${INFO.slice(1).map(x=>chk(x,'infoF')).join('')}
       </div><div class="xPrev"><img id="xImg" alt="Preview of the exported sheet"><div class="pSub" style="margin-top:6px">${X.format==='pdf'?(()=>{const pl=exportPlan(X);return `This PDF: <b>${pl.pages.length} page${pl.pages.length===1?'':'s'}</b> · ${pl.rows.length} shot${pl.rows.length===1?'':'s'}${pl.pages.some(p=>p.kind==='setup')?` · ${pl.pages.filter(p=>p.kind==='setup').length} setup page${pl.pages.filter(p=>p.kind==='setup').length===1?'':'s'}`:''}. `;})():''}Preview of shot ${esc(shot().num)}. Your choices are remembered for this project.</div></div></div>
       <div class="mFoot"><button class="btn" data-close>Cancel</button><button class="btn pri" id="xGo">${X.format==='pdf'?'Export PDF':X.scope==='shot'?'Export '+X.format.toUpperCase():'Export '+exportRows(X).length+' '+X.format.toUpperCase()+'s'}</button></div>`,'wide');
     $('#xImg').src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(buildSheet(scene(),setup(),shot(),X));
     const mb=$('#modalBox');const keep=()=>{const o=mb.querySelector('.xOpts');return o?o.scrollTop:0;};const set=(k,v)=>{const st=keep();P.exportOpts=Object.assign(xo(),{[k]:v});scheduleSave();draw();const o=$('#modalBox .xOpts');if(o)o.scrollTop=st;};
-    mb.onchange=e=>{if(e.target.dataset.xcred){P.credits=P.credits||{};P.credits[e.target.dataset.xcred]=e.target.value.trim();changed(false);openExport();return;}if(e.target.dataset.xsel){set(e.target.dataset.xsel,e.target.value);return;}const pk=e.target.dataset.pk;if(pk){const X2=xo();let cur=X2.pick||scene().setups.flatMap(su=>su.shots.map(s=>s.id));const ids=pk.split(',');cur=e.target.checked?[...new Set(cur.concat(ids))]:cur.filter(i=>!ids.includes(i));set('pick',cur);return;}const k=e.target.dataset.xk;if(k)set(k,e.target.checked);};
-    mb.onclick=e=>{const b=e.target.closest('[data-xs]');if(b){const k=b.dataset.xs;if(k==='scope'&&b.dataset.v!=='shot'&&xo().format==='png')P.exportOpts=Object.assign(xo(),{format:'pdf'});set(k,k==='scale'||k==='ovN'?+b.dataset.v:b.dataset.v);return;}
+    mb.onchange=e=>{if(hubChange(e))return;if(e.target.dataset.xcred){P.credits=P.credits||{};P.credits[e.target.dataset.xcred]=e.target.value.trim();changed(false);openExport();return;}if(e.target.dataset.xsel){set(e.target.dataset.xsel,e.target.value);return;}const pk=e.target.dataset.pk;if(pk){const X2=xo();let cur=X2.pick||scene().setups.flatMap(su=>su.shots.map(s=>s.id));const ids=pk.split(',');cur=e.target.checked?[...new Set(cur.concat(ids))]:cur.filter(i=>!ids.includes(i));set('pick',cur);return;}const k=e.target.dataset.xk;if(k)set(k,e.target.checked);};
+    mb.onclick=e=>{if(hubClick(e))return;const b=e.target.closest('[data-xs]');if(b){const k=b.dataset.xs;if(k==='scope'&&b.dataset.v!=='shot'&&xo().format==='png')P.exportOpts=Object.assign(xo(),{format:'pdf'});set(k,k==='scale'||k==='ovN'?+b.dataset.v:b.dataset.v);return;}
       const a=e.target.closest('[data-xall]');if(a){const st=keep();const on=a.dataset.xall==='1';const X2=xo();INFO.slice(1).forEach(([k])=>X2[k]=on);P.exportOpts=X2;scheduleSave();draw();const o=$('#modalBox .xOpts');if(o)o.scrollTop=st;return;}
       if(e.target.id==='xGo'){closeModal();runExport();}};};
   draw();}
@@ -6054,6 +6159,160 @@ $('#exportMenu').addEventListener('click',e=>{const b=e.target.closest('[data-x]
   else if(x==='help')$('#bHelp').click();});
 $('#fileIn').addEventListener('change',async e=>{const f=e.target.files[0];if(!f)return;try{const txt=await f.text();const p=JSON.parse(txt);if(!p.scenes)throw 0;if(dirty)await doSave();P=normalize(p);P.title=(P.title||'Imported')+'';projId='p'+rid();V.sceneId=V.setupId=V.shotId=null;V.sel=null;V.multi=[];fixView();undoStack=[];redoStack=[];changed();setTimeout(fit,30);toast('Imported as a new project');}catch(err){toast('That file is not a shot plot project');}e.target.value='';});
 
+/* ============================================================
+   Print hub: everything about the printed page lives in the Export window.
+   Fill-in cards for the gaffer and DP, a full light key that never cuts off,
+   a camera key, revisions with clouds, the reset list, scale bar and compass.
+   ============================================================ */
+Object.assign(XDEF,{camKey:true,resetList:true,revInfo:true,revClouds:true,scaleBar:true,compass:true,focusDim:true,markDist:true,eyelines:true,itemNotes:'plot',lkCols:null});
+const LK_COLS=[['color','Color'],['dim','Dimmer'],['mod','Modifiers & diffusion'],['height','Height'],['stand','Stand / rig'],['dist','Distance to subject'],['ctrl','Flags & control'],['power','Watts & circuit'],['note','Notes']];
+const lkOn=(X,k)=>!(X.lkCols&&X.lkCols[k]===false);
+const ft1=v=>fmtFt(+v||0);
+const isLightIt=i=>LIB[i.t]&&LIB[i.t].kind==='light';
+const actorName=a=>a?(a.label||a.actor||'subject'):'';
+function aimSubject(src,items){const a=items.filter(i=>i.t==='actor');if(!a.length)return null;const r=(src.r||0)*D2R,cx=Math.cos(r),cy=Math.sin(r);let best=null,bs=1e9;
+  a.forEach(i=>{const dx=i.x-src.x,dy=i.y-src.y,d=Math.hypot(dx,dy);if(d<.1)return;const fw=(dx*cx+dy*cy)/d;const sc=d*(fw>.5?1:fw>0?2:4);if(sc<bs){bs=sc;best=i;}});return best;}
+const CTRL_RE=/flag|floppy|cutter|solid|net|silk|frame|bounce|diffusion|frost|muslin|duvetyne|negative|teaser|scrim|block|board|card|grid cloth|ultrabounce|griffolyn|beadboard/i;
+function ctrlNear(l,items){const out={};items.forEach(i=>{const L=LIB[i.t];if(!L||L.kind!=='grip'||i.id===l.id)return;const n=((typeof gripLabel==='function'&&gripLabel(i))||i.label||L.name||'').replace(/ \(.*\)/,'');if(!CTRL_RE.test(n+' '+L.name+' '+i.t))return;if(Math.hypot(i.x-l.x,i.y-l.y)>5)return;out[n]=(out[n]||0)+1;});return Object.entries(out).map(([n,q])=>(q>1?q+'× ':'')+n).join(', ');}
+function lightAuto(l,items){const s=aimSubject(l,items);return {dist:s?`${ft1(Math.hypot(s.x-l.x,s.y-l.y))} to ${actorName(s)}`:'',ctrl:ctrlNear(l,items)};}
+function colorText(l){const g=GELS[l.gel];if(g==='c')return 'color gel'+(l.gelColor?' '+l.gelColor:'');return (typeof effKelvin==='function'?effKelvin(l):(l.kelvin||3200))+'K'+(l.gel&&l.gel!=='None'?' ('+(l.kelvin||'')+'K + '+l.gel+')':'');}
+function lightKeyRows(items,nums,X,su,sh,C,T){const all=activeItems(su,sh);
+  return items.filter(isLightIt).map(l=>{const L=LIB[l.t];const on=l.on!==false;const a=lightAuto(l,all);
+    const nm=(l.label?l.label+' · ':'')+L.name.replace(/ \(.*\)/,'');const head=`${l.role?l.role+' — ':''}${nm}${on?'':' (off)'}`;
+    const l1=[],lines=[];
+    if(lkOn(X,'color'))l1.push(colorText(l));
+    if(lkOn(X,'dim'))l1.push(l.intensity!=null&&+l.intensity<100?'dimmed to '+l.intensity+'%':'full output');
+    if(lkOn(X,'power'))l1.push([l.watts?fmtW(+l.watts):'',l.circuit?'circuit '+l.circuit:'',l.power&&!/wall|house/i.test(l.power)?l.power:''].filter(Boolean).join(', '));
+    if(l1.filter(Boolean).length)lines.push(l1.filter(Boolean).join(' · '));
+    if(lkOn(X,'mod')){const m=[l.modifier&&l.modifier!=='None'?l.modifier:'',l.diff&&l.diff!=='None'?l.diff+(l.diffAt&&l.diffAt!==DIFFAT[0]?' ('+l.diffAt.toLowerCase()+')':''):'',...(typeof lightBits==='function'?lightBits(l):[])].filter(Boolean);if(m.length)lines.push(m.join(', '));}
+    const l3=[];
+    if(lkOn(X,'height')){const h=l.kHeight||(l.height!=null&&l.height!==''?ft1(l.height)+' high':'');if(h)l3.push(h+(typeof isOverhead==='function'&&isOverhead(l)?' (overhead)':''));}
+    if(lkOn(X,'stand')){const st=l.kStand||(l.mount&&l.mount!=='—'?'on '+l.mount:'');if(st)l3.push(st);}
+    if(lkOn(X,'dist')){const d=l.kDist||a.dist;if(d)l3.push(d);}
+    if(l3.length)lines.push(l3.join(' · '));
+    if(lkOn(X,'ctrl')){const c=l.kCtrl||a.ctrl;if(c)lines.push('Control: '+c);}
+    if(lkOn(X,'note')&&l.note)lines.push('Note: '+l.note);
+    return {badge:nums[l.id],fill:on?C.badge:T.off,head,lines,off:!on,swatch:typeof hex==='function'&&typeof lightRGB==='function'?hex(lightRGB(l)):null};});}
+function shotMarks(items){return items.filter(i=>i.t==='mark');}
+function camFor(it,items){const cams=items.filter(i=>i.t==='camera');if(!cams.length)return null;return cams.slice().sort((a,b)=>Math.hypot(a.x-it.x,a.y-it.y)-Math.hypot(b.x-it.x,b.y-it.y))[0];}
+function camKeyRows(su,sh,X){const items=activeItems(su,sh);const cams=items.filter(i=>i.t==='camera');
+  return cams.map(c=>{const body=String(c.sensor||'').replace(/ —.*$/,'').replace(/ \(.*\)/,'');const stop=c.kStop||(sh.dofSet&&sh.dofSet.stop?'T'+sh.dofSet.stop:'');
+    const lines=[[lensLabel(c),stop,c.kFilter].filter(Boolean).join(' · '),[c.kFps?c.kFps+' fps':'',c.kShutter?(/°|\//.test(c.kShutter)?c.kShutter:c.kShutter+'°')+' shutter':'',c.kIso?(/iso/i.test(c.kIso)?c.kIso:'ISO '+c.kIso):'',c.kWB?(/k$/i.test(c.kWB)?c.kWB:c.kWB+'K')+' WB':''].filter(Boolean).join(' · ')];
+    const tilt=c.kTilt||((sh.angle||'Eye level')+(sh.angAmt?' '+sh.angAmt+'°':''));
+    lines.push([c.support,c.height!=null?ft1(c.height)+' lens height':'',tilt].filter(Boolean).join(' · '));
+    const s=aimSubject(c,items);const f=c.kFocus||(s?`${ft1(Math.hypot(s.x-c.x,s.y-c.y))} to ${actorName(s)}`:'');if(f)lines.push('Focus: '+f);
+    const mk=shotMarks(items).filter(m=>camFor(m,items)===c);if(mk.length)lines.push('Marks: '+mk.map(m=>`${m.label||'•'} at ${ft1(Math.hypot(m.x-c.x,m.y-c.y))}`).join(', '));
+    if(c.note)lines.push('Note: '+c.note);
+    return {badge:c.cam||'A',fill:'#2b6cb0',badgeInk:'#fff',head:`${c.cam||'A'} camera${body?' — '+body:''}`,lines:lines.filter(Boolean)};});}
+/* ---- reset list: what the crew changes from the shot before ---- */
+function crewItem(it){if(it.t==='line')return it.kind==='cable'||it.kind==='track'||it.kind==='wall';const L=LIB[it.t];return !!L&&!['talent','mark','text'].includes(L.kind);}
+function keyed(arr,sh){const cnt={};const m=new Map();arr.forEach(it=>{let k;if(it.t==='camera')k='cam:'+(it.cam||'A');else if(!it.fork&&sh.items.includes(it)){cnt[it.t]=(cnt[it.t]||0)+1;k=it.t+'#'+cnt[it.t];}else k=it.id;m.set(k,it);});return m;}
+function itName(it,nums){if(it.t==='line')return (LINES[it.kind]||{}).name||'Line';const L=LIB[it.t];if(it.t==='camera')return (it.cam||'A')+' camera';const n=(it.label?it.label+' · ':'')+(L?L.name.replace(/ \(.*\)/,''):it.t);return nums&&nums[it.id]?`#${nums[it.id]} ${n}`:n;}
+function itemDiffs(a,b){const o=[];if(a.t==='line'){if(JSON.stringify(a.pts)!==JSON.stringify(b.pts))o.push('re-routed');return o;}
+  const d=Math.hypot((b.x||0)-(a.x||0),(b.y||0)-(a.y||0));if(d>.2)o.push('moves '+ft1(d));let dr=((b.r||0)-(a.r||0))%360;if(dr>180)dr-=360;if(dr<-180)dr+=360;if(Math.abs(dr)>4)o.push(`turns ${Math.round(Math.abs(dr))}° ${dr>0?'clockwise':'counter-clockwise'}`);
+  if((a.on!==false)!==(b.on!==false))o.push(b.on===false?'turn off':'turn on');
+  const F=[['intensity',v=>'dim to '+v+'%'],['kelvin',v=>'set to '+v+'K'],['gel',v=>'gel '+v],['modifier',v=>'modifier '+v],['diff',v=>'diffusion '+v],['height',v=>'height '+ft1(v)],['mount',v=>'onto '+v],['lens',v=>'lens '+v+'mm'],['support',v=>'support '+v],['w',v=>'width '+ft1(v)],['h',v=>'depth '+ft1(v)],['size',v=>'size '+v],['fabric',v=>v],['scrim',v=>'scrim '+v],['nd',v=>v]];
+  F.forEach(([k,f])=>{if(a[k]!==b[k]&&b[k]!=null&&b[k]!=='')o.push(f(b[k]));});return o;}
+function resetRows(su,sh){const i=su.shots.indexOf(sh);if(i<1)return null;const pv=su.shots[i-1];const A=activeItems(su,pv).filter(crewItem),B=activeItems(su,sh).filter(crewItem);
+  const mA=keyed(A,pv),mB=keyed(B,sh);const nums=lightNumbers(activeItems(su,sh)),numsA=lightNumbers(activeItems(su,pv));const rows=[];
+  mB.forEach((b,k)=>{const a=mA.get(k);if(!a){rows.push({head:'Add '+itName(b,nums),lines:[]});return;}const ch=itemDiffs(a,b);if(ch.length)rows.push({head:itName(b,nums),lines:[ch.join(' · ')]});});
+  mA.forEach((a,k)=>{if(!mB.has(k))rows.push({head:'Strike '+itName(a,numsA),lines:[]});});
+  return {title:`Reset from shot ${pv.num}`,rows:rows.length?rows:[{head:'No crew changes',lines:[`Same lights, grip and camera as shot ${pv.num}.`]}]};}
+/* ---- revisions ---- */
+function revList(){return P.revs||[];}
+function revCur(){const r=revList();return r.length?r[r.length-1]:null;}
+function revTag(){const r=revCur();const d=new Date().toLocaleDateString();return r?`Rev ${r.l}${r.date?' · '+r.date:''}`:d;}
+function itemHash(it){const o=Object.assign({},it);delete o.zk;const s=JSON.stringify(o);let h=5381;for(let i=0;i<s.length;i++)h=((h*33)^s.charCodeAt(i))>>>0;return (h%1679616).toString(36);}
+function revSnapshot(){const o={su:{},sh:{}};P.scenes.forEach(sc=>sc.setups.forEach(su=>{const m={};su.items.forEach(it=>m[it.id]=itemHash(it));o.su[su.id]=m;su.shots.forEach(sh=>{const n={};sh.items.forEach(it=>n[it.id]=itemHash(it));(sh.hide||[]).forEach(id=>n['-'+id]=1);o.sh[sh.id]=n;});}));return o;}
+function revChanges(su,sh){const r=revCur();if(!r||!r.base)return null;const bs=r.base.su[su.id],bh=r.base.sh[sh.id];if(!bs&&!bh)return null;const B=Object.assign({},bs||{},bh||{});
+  const now=activeItems(su,sh);const changed=now.filter(it=>B[it.id]!==itemHash(it));const was=Object.keys(bs||{}).filter(id=>!(bh&&bh['-'+id])).concat(Object.keys(bh||{}).filter(k=>k[0]!=='-'));
+  const removed=[...new Set(was)].filter(id=>!now.some(i=>i.id===id)).length;return {changed,removed,added:changed.filter(it=>!(it.id in B)).length};}
+function revRows(su,sh){const r=revCur();const rows=[];const ch=revChanges(su,sh);const prev=revList()[revList().length-2];
+  rows.push({head:`Rev ${r.l}${r.date?' · '+r.date:''}`,lines:[r.note||'',ch?(ch.changed.length||ch.removed?`Since Rev ${prev?prev.l:'before'}: ${ch.changed.length-ch.added} changed, ${ch.added} added, ${ch.removed} removed on this plot${ch.changed.length?' (clouded)':''}.`:`No changes on this plot since Rev ${prev?prev.l:'before'}.`):''].filter(Boolean)});
+  return rows;}
+function revNextLetter(){const r=revCur();if(!r)return 'A';const l=String(r.l||'A');const c=l.charCodeAt(l.length-1);return /[A-Y]/.test(l.slice(-1))?l.slice(0,-1)+String.fromCharCode(c+1):l+'1';}
+function cloudPath(cx,cy,rx,ry,px){const per=2*Math.PI*Math.sqrt((rx*rx+ry*ry)/2);const n=Math.max(8,Math.round(per/.9));let d='';const pts=[];for(let i=0;i<=n;i++){const a=i/n*2*Math.PI;pts.push([cx+rx*Math.cos(a),cy+ry*Math.sin(a)]);}
+  d=`M${pts[0][0]} ${pts[0][1]}`;for(let i=1;i<pts.length;i++){const ch=Math.hypot(pts[i][0]-pts[i-1][0],pts[i][1]-pts[i-1][1]);d+=` A${ch*.58} ${ch*.58} 0 0 1 ${pts[i][0]} ${pts[i][1]}`;}return d;}
+function itemExtent(it){if(it.t==='line'){const xs=it.pts.map(q=>q.x),ys=it.pts.map(q=>q.y);return {cx:(Math.min(...xs)+Math.max(...xs))/2,cy:(Math.min(...ys)+Math.max(...ys))/2,rx:(Math.max(...xs)-Math.min(...xs))/2+.6,ry:(Math.max(...ys)-Math.min(...ys))/2+.6};}
+  const L=LIB[it.t]||{};let r=1.1*(typeof szOf==='function'?szOf(it):1);if(L.kind==='set'||it.w){const w=(+it.w||2)/2,h=(+it.h||2)/2,a=(it.r||0)*D2R,c=Math.abs(Math.cos(a)),s=Math.abs(Math.sin(a));return {cx:it.x,cy:it.y,rx:w*c+h*s+.5,ry:w*s+h*c+.5};}if(it.t==='frame'&&typeof FRAME_SIZES!=='undefined')r=(FRAME_SIZES[it.size]||6)/2;return {cx:it.x,cy:it.y,rx:r+.5,ry:r+.5};}
+/* ---- extras drawn on the plan (feet) ---- */
+function noteItems(items){return items.filter(it=>it.t!=='line'&&it.note&&String(it.note).trim()&&it.t!=='camera'&&!isLightIt(it));}
+function noteRows(items){return noteItems(items).map((it,i)=>({badge:String.fromCharCode(97+i%26),fill:'#7b3fa0',badgeInk:'#fff',head:itName(it),lines:[it.note]}));}
+function sheetPlotExtras(su,sh,items,X,o){const {C,px}=o;let g='';const all=activeItems(su,sh);
+  try{if(X.focusDim&&!sh._setup&&typeof dimSVG==='function')items.filter(i=>i.t==='camera').forEach(c=>{const s=c.kFocus?null:aimSubject(c,all);if(s)g+=dimSVG({x:c.x,y:c.y},{x:s.x,y:s.y},{px,C});});}catch(e){}
+  try{if(X.markDist&&!sh._setup)shotMarks(items).forEach(m=>{const c=camFor(m,all);if(!c)return;const fs=Math.max(.3,9*px);g+=`<text x="${m.x}" y="${m.y+.75+fs}" text-anchor="middle" font-family="Lato,Helvetica,Arial,sans-serif" font-weight="700" font-size="${fs}" fill="#1d2024" paint-order="stroke" stroke="#fff" stroke-width="${3*px}">${esc(ft1(Math.hypot(m.x-c.x,m.y-c.y)))} from ${esc(c.cam||'A')}</text>`;});}catch(e){}
+  try{const ni=noteItems(items);if(X.itemNotes==='plot'||X.itemNotes==='list')ni.forEach((it,i)=>{const e=itemExtent(it);const fs=Math.max(.3,9*px);
+    if(X.itemNotes==='list'){const x=e.cx+e.rx*.75,y=e.cy-e.ry*.75;g+=`<circle cx="${x}" cy="${y}" r="${fs*.8}" fill="#7b3fa0"/><text x="${x}" y="${y+fs*.33}" text-anchor="middle" font-family="Lato,Helvetica,Arial,sans-serif" font-weight="700" font-size="${fs}" fill="#fff">${String.fromCharCode(97+i%26)}</text>`;}
+    else{const lines=wrapText(it.note,28).slice(0,3);lines.forEach((l,k)=>{g+=`<text x="${e.cx}" y="${e.cy+e.ry+fs*(1.1+k*1.15)}" text-anchor="middle" font-family="Lato,Helvetica,Arial,sans-serif" font-style="italic" font-size="${fs}" fill="#5b2a7a" paint-order="stroke" stroke="#fff" stroke-width="${3*px}">${esc(l)}</text>`;});}});}catch(e){}
+  try{if(X.revClouds&&!sh._setup){const ch=revChanges(su,sh);if(ch)ch.changed.filter(it=>items.includes(it)).forEach(it=>{const e=itemExtent(it);g+=`<path d="${cloudPath(e.cx,e.cy,e.rx,e.ry,px)}" fill="none" stroke="#d1342f" stroke-width="${2.2*px}"/>`;
+      const tx=e.cx+e.rx*.72,ty=e.cy-e.ry*.72-.2,s2=Math.max(.45,13*px);g+=`<path d="M${tx} ${ty-s2*.8} L${tx+s2*.75} ${ty+s2*.5} L${tx-s2*.75} ${ty+s2*.5} Z" fill="#fff" stroke="#d1342f" stroke-width="${1.6*px}"/><text x="${tx}" y="${ty+s2*.38}" text-anchor="middle" font-family="Lato,Helvetica,Arial,sans-serif" font-weight="700" font-size="${s2*.62}" fill="#d1342f">${esc(revCur().l)}</text>`;});}}catch(e){}
+  return g;}
+/* ---- extras drawn on the page (pixels): scale bar and compass ---- */
+function northFor(sc,su){const a=su.items.find(i=>i.t==='north');return a?(a.r||0):((sc.sun&&sc.sun.north)||0);}
+function phHM(min){min=Math.round(+min||0);const h=Math.floor(min/60)%24,m=min%60;return `${(h%12)||12}:${String(m).padStart(2,'0')} ${h<12?'AM':'PM'}`;}
+function sheetPageExtras(sc,su,sh,X,o){const {DX,DY,DW,DH,s,T,txt}=o;let g='';const pad=12;let right=DX+DW-pad;const base=DY+DH-pad;
+  if(X.compass){const R=30,cx=right-R-10,cy=base-R-30;const N=northFor(sc,su);const v=a=>({x:Math.sin(a*D2R),y:-Math.cos(a*D2R)});const n=v(N);
+    g+=`<rect x="${cx-R-16}" y="${cy-R-20}" width="${2*R+32}" height="${2*R+56}" rx="6" fill="#fff" stroke="${T.rule}"/><circle cx="${cx}" cy="${cy}" r="${R}" fill="none" stroke="#1d2024" stroke-width="1"/>`;
+    g+=`<path d="M${cx+n.x*R} ${cy+n.y*R} L${cx-n.y*7} ${cy+n.x*7} L${cx+n.y*7} ${cy-n.x*7} Z" fill="#1d2024"/><text x="${cx+n.x*(R+9)}" y="${cy+n.y*(R+9)+4}" text-anchor="middle" font-family="Lato,Helvetica,Arial,sans-serif" font-weight="700" font-size="12" fill="#1d2024">N</text>`;
+    let cap='North';const S=sc.sun;if(S&&S.on&&typeof skyPos==='function'){try{const p=skyPos(S);const u=v(N+p.az);const up=p.alt>0;const col=S.body==='moon'?'#3d5fa8':'#d97706';
+      g+=`<path d="M${cx} ${cy} L${cx+u.x*(R-4)} ${cy+u.y*(R-4)}" stroke="${col}" stroke-width="2.5"/><circle cx="${cx+u.x*(R-2)}" cy="${cy+u.y*(R-2)}" r="5.5" fill="${up?col:'#fff'}" stroke="${col}" stroke-width="1.5"/>`;
+      cap=`${S.body==='moon'?'Moon':'Sun'} ${Math.round(p.az)}° ${typeof compass==='function'?compass(p.az):''}`;g+=txt(cx,cy+R+16,cap,{size:10.5,w:700,anchor:'middle',c:col});g+=txt(cx,cy+R+29,`${phHM(S.min)} · ${Math.round(p.alt)}° ${up?'up':'below'}`,{size:10,anchor:'middle'});}catch(e){g+=txt(cx,cy+R+16,cap,{size:10.5,anchor:'middle'});}}
+    else g+=txt(cx,cy+R+18,'Plan north',{size:10.5,anchor:'middle'});
+    right=cx-R-18;}
+  if(X.scaleBar){const nice=[1,2,5,10,15,20,25,50,100];let Lf=nice.find(f=>f*s>=110)||100;if(Lf*s>260)Lf=nice.slice().reverse().find(f=>f*s<=260)||1;const w=Lf*s,x0=right-w-14,y0=base-34;
+    g+=`<rect x="${x0-12}" y="${y0-22}" width="${w+26}" height="56" rx="6" fill="#fff" stroke="${T.rule}"/>`;const segs=Lf<=2?Lf*2:Lf%5===0?5:Lf%2===0?2:1;for(let i=0;i<segs;i++)g+=`<rect x="${x0+w*i/segs}" y="${y0}" width="${w/segs}" height="7" fill="${i%2?'#fff':'#1d2024'}" stroke="#1d2024" stroke-width=".8"/>`;
+    g+=txt(x0,y0-6,'0',{size:10.5,anchor:'middle'})+txt(x0+w,y0-6,Lf+' ft',{size:10.5,w:700,anchor:'middle'});const fpi=150/s;g+=txt(x0+w/2,y0+24,`1 in ≈ ${fpi>=10?Math.round(fpi):Math.round(fpi*10)/10} ft (Letter, 100%)`,{size:10,anchor:'middle'});}
+  return g;}
+/* ---- continuation page for whatever didn't fit beside the plan ---- */
+function contSVG(X,p,pg){const {T,txt,wrap}=pageFrame(X,p.of.kind==='setup'?p.of.su.name+' · continued':`Shot ${p.of.sh.num} · continued`,p.of.kind==='setup'?'Setup page':p.of.su.name,`Scene ${p.of.sc.num}`,pg);const C=X.theme==='dark'?THEMES.dark:THEMES.paper;
+  let out='';const cols=[40,590,1140],CWd=480,top=(creditLine()?100:86)+40,bot=1275-60;let ci=0,y=top;const W=60;
+  const need=r=>wrapText(r.head,W-6).length*17+(r.lines||[]).flatMap(l=>wrapText(l,W)).length*15+8;
+  p.spill.forEach(b=>{if(y+70>bot){ci++;y=top;}if(ci>2)return;const x=cols[ci];out+=`<rect x="${x}" y="${y}" width="${CWd}" height="24" fill="${T.band}"/>`+txt(x+10,y+17,b.title,{size:15,gar:1});y+=42;
+    b.rows.forEach(r=>{if(y+need(r)>bot){ci++;y=top;if(ci>2)return;}if(ci>2)return;const x=cols[ci];if(r.badge!=null)out+=`<circle cx="${x+18}" cy="${y-4}" r="9" fill="${r.fill||C.badge}"/>`+txt(x+18,y,String(r.badge),{size:11,w:700,c:r.badgeInk||C.badgeText,anchor:'middle'});
+      if(r.swatch)out+=`<rect x="${x+CWd-22}" y="${y-11}" width="12" height="12" fill="${r.swatch}" stroke="${T.ink}" stroke-width=".5"/>`;
+      wrapText(r.head,W-6).forEach(l=>{out+=txt(x+36,y,l,{size:12.5,w:700});y+=17;});(r.lines||[]).flatMap(l=>wrapText(l,W)).forEach(l=>{out+=txt(x+36,y-2,l,{size:11.5});y+=15;});y+=8;});y+=8;});
+  return wrap(out);}
+function spillOf(p,X){const sp=[];try{if(p.kind==='setup')buildSheet(p.sc,p.su,setupShot(p.su),Object.assign({},X,{ghost:false,__spill:sp}));else buildSheet(p.sc,p.su,p.sh,Object.assign({},X,{__spill:sp}));}catch(e){}return sp;}
+{const _ep=exportPlan;exportPlan=function(X){const pl=_ep(X);if(X.layout!=='sheet')return pl;const out=[];pl.pages.forEach(p=>{out.push(p);if(p.kind==='shot'||p.kind==='setup'){const sp=spillOf(p,X);if(sp.length)out.push({kind:'cont',of:p,spill:sp,sc:p.sc,su:p.su,sh:p.sh});}});out.forEach((p,i)=>p.no=i+1);pl.pages=out;return pl;};}
+{const _bs=buildSheet;buildSheet=function(sc,su,sh,X){const o=window.__X;window.__X=X||xo();try{return _bs(sc,su,sh,X);}finally{window.__X=o;}};}
+{const _eo=exportOne;exportOne=async function(sc,su,sh,X){const r=await _eo(sc,su,sh,X);if(r===false||X.layout!=='sheet')return r;const sp=spillOf({kind:'shot',sc,su,sh},X);if(!sp.length)return r;const svg=contSVG(X,{of:{kind:'shot',sc,su,sh},spill:sp},'');const name=`${slug(P.title)}_sc${slug(sc.num)}_shot-${slug(sh.num)}_continued`;
+  if(X.format==='svg')return saveFile(name+'.svg',svg);try{return await saveOut(name+'.png',await svgToPng(svg,X.scale));}catch(e){return r;}};}
+
+/* ---- the hub: fill-in cards and settings inside the Export window ---- */
+const HUB={open:{fill:true,rev:false,cols:false}};
+function hubIn(id,k,val,o){o=o||{};return `<label class="hf${o.wide?' wide':''}">${o.lab}<input class="in" data-hk="${id}|${k}" value="${esc(val==null?'':val)}" ${o.ph?`placeholder="${esc(o.ph)}"`:''} ${o.num?'inputmode="decimal"':''}></label>`;}
+function hubSel(id,k,opts,val,lab){return `<label class="hf">${lab}<select class="in" data-hk="${id}|${k}">${opts.map(v=>`<option ${String(v)===String(val)?'selected':''}>${esc(v)}</option>`).join('')}</select></label>`;}
+function hubFillHTML(){const su=setup(),sh=shot(),sc=scene();const items=activeItems(su,sh);const nums=lightNumbers(items);const lights=items.filter(isLightIt),cams=items.filter(i=>i.t==='camera');
+  const shotOpts=P.scenes.flatMap(s=>s.setups.flatMap(u=>u.shots.map(x=>`<option value="${s.id}|${u.id}|${x.id}" ${x.id===sh.id?'selected':''}>Sc ${esc(s.num)} · ${esc(u.name)} · Shot ${esc(x.num)}</option>`))).join('');
+  let h=`<label class="hf wide">Filling in<select class="in" data-hshot="1">${shotOpts}</select></label><div class="pSub" style="margin:2px 0 8px">Blank boxes print what the plot works out on its own (shown in the box). Type over any of it and the sheet uses yours. Lights are shared across the setup unless this shot has its own version.</div>`;
+  h+=`<div class="hHead">Lights</div>`+(lights.length?lights.map(l=>{const L=LIB[l.t];const a=lightAuto(l,items);return `<div class="hCard"><div class="hT"><span class="hB">${nums[l.id]}</span>${esc(L.name.replace(/ \(.*\)/,''))}</div><div class="hRow">
+    ${hubIn(l.id,'label',l.label,{lab:'Label'})}${hubSel(l.id,'role',ROLES,l.role,'Role')}${hubIn(l.id,'kelvin',l.kelvin,{lab:'Kelvin',num:1})}${hubSel(l.id,'gel',Object.keys(GELS),l.gel,'Gel')}${hubIn(l.id,'intensity',l.intensity,{lab:'Dimmer %',num:1})}
+    ${hubSel(l.id,'modifier',MODS,l.modifier,'Modifier')}${typeof DIFFS!=='undefined'?hubSel(l.id,'diff',DIFFS,l.diff||'None','Diffusion'):''}${hubIn(l.id,'height',l.height,{lab:'Height (ft)',num:1})}${hubSel(l.id,'mount',MOUNTS,l.mount,'Stand / rig')}
+    ${hubIn(l.id,'kDist',l.kDist,{lab:'Distance to subject',ph:a.dist||'—'})}${hubIn(l.id,'kCtrl',l.kCtrl,{lab:'Flags & control',ph:a.ctrl||'none nearby'})}${hubIn(l.id,'watts',l.watts,{lab:'Watts',num:1})}${hubIn(l.id,'circuit',l.circuit,{lab:'Circuit'})}${hubIn(l.id,'note',l.note,{lab:'Note',wide:1})}</div></div>`;}).join(''):'<div class="pSub">No lights in this shot.</div>');
+  h+=`<div class="hHead">Cameras</div>`+(cams.length?cams.map(c=>{const s=aimSubject(c,items);const auto=s?`${ft1(Math.hypot(s.x-c.x,s.y-c.y))} to ${actorName(s)}`:'';return `<div class="hCard"><div class="hT"><span class="hB" style="background:#2b6cb0">${esc(c.cam||'A')}</span>${esc(c.cam||'A')} camera</div><div class="hRow">
+    ${hubIn(c.id,'lens',c.lens,{lab:'Lens (mm)',num:1})}${hubIn(c.id,'kStop',c.kStop,{lab:'T-stop',ph:sh.dofSet&&sh.dofSet.stop?'T'+sh.dofSet.stop:'T2.8'})}${hubIn(c.id,'kFilter',c.kFilter,{lab:'Filters / ND',ph:'ND .6, 1/8 Black Pro-Mist'})}${hubIn(c.id,'kFps',c.kFps,{lab:'Frame rate',ph:'24'})}${hubIn(c.id,'kShutter',c.kShutter,{lab:'Shutter',ph:'180°'})}
+    ${hubIn(c.id,'kIso',c.kIso,{lab:'ISO / EI',ph:'800'})}${hubIn(c.id,'kWB',c.kWB,{lab:'White balance',ph:'5600K'})}${hubSel(c.id,'support',SUPPORTS,c.support,'Support')}${hubIn(c.id,'height',c.height,{lab:'Lens height (ft)',num:1})}
+    ${hubIn(c.id,'kTilt',c.kTilt,{lab:'Angle / tilt',ph:(sh.angle||'Eye level')+(sh.angAmt?' '+sh.angAmt+'°':'')})}${hubIn(c.id,'kFocus',c.kFocus,{lab:'Focus',ph:auto||'—'})}${hubIn(c.id,'note',c.note,{lab:'Note',wide:1})}</div></div>`;}).join(''):'<div class="pSub">No camera in this shot.</div>');
+  return h;}
+function hubRevHTML(){const r=revCur();return `${r?`<div class="hRow">${`<label class="hf">Revision<input class="in" data-rev="l" value="${esc(r.l)}"></label><label class="hf">Date<input class="in" data-rev="date" value="${esc(r.date||'')}"></label>`}<label class="hf wide">What changed (prints on the sheet)<input class="in" data-rev="note" value="${esc(r.note||'')}" placeholder="Key moved to camera left; added 4×4 floppy"></label></div>`:'<div class="pSub">No revisions yet. Starting Rev A puts the letter and date on every page.</div>'}
+  <div style="margin-top:6px"><button class="btn sm" data-revnew="1">${r?`Start Rev ${revNextLetter()}`:'Start Rev A'}</button>${r?` <button class="btn sm" data-revclear="1">Remove revisions</button>`:''}</div><div class="pSub" style="margin-top:4px">${r?`Clouds mark anything you change after starting a new revision, until you start the next one.`:''}</div>`;}
+function hubColsHTML(X){return `<div class="hRow">${LK_COLS.map(([k,l])=>`<label class="chk" style="width:auto;margin-right:10px"><input type="checkbox" data-lk="${k}" ${lkOn(X,k)?'checked':''}> ${l}</label>`).join('')}</div>`;}
+function hubTopHTML(){const X=xo();const det=(k,title,body)=>`<details class="hDet" data-hdet="${k}" ${HUB.open[k]?'open':''}><summary>${title}</summary><div class="hBody">${body}</div></details>`;
+  return det('fill','Fill in before print',hubFillHTML())+det('rev','Revision'+(revCur()?' · Rev '+esc(revCur().l):''),hubRevHTML())+det('cols','Light key columns',hubColsHTML(X));}
+function hubPreview(){const im=$('#xImg');if(im)im.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(buildSheet(scene(),setup(),shot(),xo()));}
+function hubChange(e){const t=e.target;const ds=t.dataset;
+  if(ds.hk){const [id,k]=ds.hk.split('|');const f=findItem(id);if(!f)return true;snap._off=1;snap();snap._off=0;let v=t.value;const NUM=['kelvin','intensity','height','watts','lens'];if(NUM.includes(k)){v=v.trim()===''?'':(isNaN(+v)?v:+v);}
+    if(v===''&&/^k[A-Z]/.test(k))delete f.it[k];else f.it[k]=v;if(k==='lens'&&f.it.lensId&&typeof lensOf==='function'){const lo=lensOf(f.it);if(lo&&lo.f&&+lo.f!==+v)delete f.it.lensId;}changed(false);hubPreview();return true;}
+  if(ds.hshot){const [a,b,c]=t.value.split('|');V.sceneId=a;V.setupId=b;V.shotId=c;V.sel=null;V.multi=[];changed();openExport();return true;}
+  if(ds.lk){const X=xo();X.lkCols=Object.assign({},X.lkCols||{},{[ds.lk]:t.checked});P.exportOpts=X;scheduleSave();hubPreview();return true;}
+  if(ds.rev){const r=revCur();if(!r)return true;r[ds.rev]=t.value.trim()||(ds.rev==='l'?r.l:'');scheduleSave();hubPreview();return true;}
+  return false;}
+function hubClick(e){const t=e.target;
+  const d=t.closest&&t.closest('summary');if(d){const k=d.parentElement.dataset.hdet;if(k)setTimeout(()=>{HUB.open[k]=d.parentElement.open;},0);return false;}
+  if(t.dataset&&t.dataset.revnew){P.revs=P.revs||[];const l=revNextLetter();P.revs.push({l,date:new Date().toLocaleDateString(),note:'',base:P.revs.length?revSnapshot():null});if(P.revs.length===1)P.revs[0].base=null;HUB.open.rev=true;scheduleSave();openExport();toast(`Rev ${l} started`);return true;}
+  if(t.dataset&&t.dataset.revclear){if(!confirm('Remove all revision letters and clouds?'))return true;delete P.revs;scheduleSave();openExport();return true;}
+  return false;}
+document.addEventListener('toggle',e=>{const k=e.target&&e.target.dataset&&e.target.dataset.hdet;if(k)HUB.open[k]=e.target.open;},true);
 /* ============================================================
    Init
    ============================================================ */
