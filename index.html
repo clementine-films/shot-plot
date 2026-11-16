@@ -5958,17 +5958,18 @@ document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest
    Realistic jukebox and neon signs: plan glyph first, then the mock frames.
    Neon: sign text or a shape, lettering style, width and height. Glows in its own color.
    ============================================================ */
-const NEON_SHAPES={'Cocktail glass':'M10 8 H90 L54 52 V86 H72 M54 86 H36 M46 52 V86 M10 8 L46 52 M70 20 a7 7 0 1 1 0.1 0','Beer mug':'M18 22 H66 V90 H18 Z M66 36 H80 Q90 36 90 50 V62 Q90 76 80 76 H66 M18 22 Q22 8 36 14 Q46 4 58 14 Q70 10 66 22 M32 34 V78 M50 34 V78','Arrow':'M6 50 H80 M58 26 L84 50 L58 74','Heart':'M50 88 C10 60 4 34 22 20 C36 10 48 18 50 30 C52 18 64 10 78 20 C96 34 90 60 50 88 Z','Star':'M50 6 L61 38 H94 L67 58 L77 90 L50 70 L23 90 L33 58 L6 38 H39 Z','Martini + OPEN':'M8 10 H44 L26 34 V58 M16 58 H36 M8 10 L26 34 M58 26 h0 M54 22 Q54 14 62 14 Q70 14 70 22 V44 Q70 52 62 52 Q54 52 54 44 Z M76 52 V14 H86 Q94 14 94 23 Q94 32 86 32 H76'};
+const NEON_SHAPES={'Wave':'M4 50 C16 20 28 20 38 50 S60 80 72 50 S90 20 96 40','Ring':'M50 12 a38 38 0 1 0 0.1 0','Lightning bolt':'M58 4 L26 54 H50 L40 96 L76 40 H52 Z','Border frame':'M6 14 H94 V86 H6 Z M14 22 H86 V78 H14 Z','Zigzag':'M4 70 L20 30 L36 70 L52 30 L68 70 L84 30 L96 60','Diamond':'M50 6 L94 50 L50 94 L6 50 Z','Cocktail glass':'M10 8 H90 L54 52 V86 H72 M54 86 H36 M46 52 V86 M10 8 L46 52 M70 20 a7 7 0 1 1 0.1 0','Beer mug':'M18 22 H66 V90 H18 Z M66 36 H80 Q90 36 90 50 V62 Q90 76 80 76 H66 M18 22 Q22 8 36 14 Q46 4 58 14 Q70 10 66 22 M32 34 V78 M50 34 V78','Arrow':'M6 50 H80 M58 26 L84 50 L58 74','Heart':'M50 88 C10 60 4 34 22 20 C36 10 48 18 50 30 C52 18 64 10 78 20 C96 34 90 60 50 88 Z','Star':'M50 6 L61 38 H94 L67 58 L77 90 L50 70 L23 90 L33 58 L6 38 H39 Z','Martini + OPEN':'M8 10 H44 L26 34 V58 M16 58 H36 M8 10 L26 34 M58 26 h0 M54 22 Q54 14 62 14 Q70 14 70 22 V44 Q70 52 62 52 Q54 52 54 44 Z M76 52 V14 H86 Q94 14 94 23 Q94 32 86 32 H76'};
 const NEON_FONTS={'Block (tube capitals)':{f:"Lato,Helvetica,Arial,sans-serif",w:400,up:true,ls:.08},'Script':{f:"'Brush Script MT','Segoe Script','Snell Roundhand','Apple Chancery',cursive",w:400,up:false,ls:0},'Bold block':{f:"Lato,Helvetica,Arial,sans-serif",w:700,up:true,ls:.04}};
 function neonCol(it){if(it.gel==='Color gel (custom)'||!it.gel||it.gel==='None')return it.gelColor||'#ff2d78';try{return typeof gelColor==='function'?gelColor(it.gel):(it.gelColor||'#ff2d78');}catch(e){return it.gelColor||'#ff2d78';}}
 function mixW(hex,t){const h=String(hex).replace('#','');if(h.length<6)return hex;const n=[0,2,4].map(i=>parseInt(h.slice(i,i+2),16));return '#'+n.map(v=>Math.round(v+(255-v)*t).toString(16).padStart(2,'0')).join('');}
 const neonW=it=>Math.max(.5,+it.nw||3),neonH=it=>Math.max(.3,+it.nh||1.2);
-const neonText=it=>it.nShape&&it.nShape!=='Text'?'':String(it.nText==null?'OPEN':it.nText);
+const neonShape=it=>it.nShape||'Wave';
+const neonText=it=>neonShape(it)!=='Words'?'':String(it.nText||'');
 /* the sign art in a box of W×H units (100 units = 1 ft), drawn as glowing tubes */
 let NEON_N=0;
-function neonArt(it,Wu,Hu,on,scale){const col=neonCol(it);const core=mixW(col,.65);const id='ng'+(++NEON_N);const shape=it.nShape&&it.nShape!=='Text'?NEON_SHAPES[it.nShape]:null;
+function neonArt(it,Wu,Hu,on,scale){const col=neonCol(it);const core=mixW(col,.65);const id='ng'+(++NEON_N);const shape=neonShape(it)!=='Words'?(NEON_SHAPES[neonShape(it)]||NEON_SHAPES.Wave):null;
   const tube=Math.max(2.2,Hu*.035);let art='';
-  if(shape){const k=Math.min(Wu,Hu)/100;const ox=(Wu-100*k)/2,oy=(Hu-100*k)/2;const p=`<path d="${shape}" transform="translate(${ox} ${oy}) scale(${k})" fill="none" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"`;
+  if(shape){const st=/Wave|Zigzag|Border/.test(neonShape(it));const k=Math.min(Wu,Hu)/100;const kx=st?Wu*.92/100:k,ky=st?Hu*.8/100:k;const ox=(Wu-100*kx)/2,oy=(Hu-100*ky)/2;const p=`<path d="${shape}" transform="translate(${ox} ${oy}) scale(${kx} ${ky})" fill="none" stroke-linecap="round" stroke-linejoin="round" vector-effect="non-scaling-stroke"`;
     art=on?`${p} stroke="${col}" stroke-width="${tube*3.2*scale}" opacity=".55" filter="url(#${id}b)"/>${p} stroke="${col}" stroke-width="${tube*1.3*scale}"/>${p} stroke="${core}" stroke-width="${tube*.45*scale}"/>`:`${p} stroke="#b9b2a8" stroke-width="${tube*.9*scale}"/>`;}
   else{const F=NEON_FONTS[it.nFont]||NEON_FONTS['Block (tube capitals)'];const t=neonText(it);const txt=F.up?t.toUpperCase():t;const lines=txt.split(/\n|\\n/).slice(0,3);const fs=Math.min(Hu/(lines.length*1.05),Wu/Math.max(1,Math.max(...lines.map(l=>l.length))*(F.up?.62:.5)));
     lines.forEach((l,i)=>{const y=Hu/2+(i-(lines.length-1)/2)*fs*1.02+fs*.35;const T=`<text x="${Wu/2}" y="${y}" text-anchor="middle" font-family="${F.f}" font-weight="${F.w}" font-size="${fs}" letter-spacing="${fs*F.ls}"`;
@@ -5991,9 +5992,9 @@ function neonPlan(it,C,px,col,on){const w=neonW(it);const c=on?col:C.sub;const c
   g+=`<rect x="-.12" y="${-w/2}" width=".14" height="${w}" fill="#2a2a2a" opacity=".55"/>`;
   if(on)g+=`<ellipse cx=".35" cy="0" rx=".55" ry="${w/2+.3}" fill="${col}" opacity=".18"/><path d="M.12 ${-w/2+.1} V${w/2-.1}" stroke="${col}" stroke-width="${10*px}" opacity=".35" stroke-linecap="round"/>`;
   g+=`<path d="M.12 ${-w/2+.1} V${w/2-.1}" stroke="${c}" stroke-width="${3.4*px}" stroke-linecap="round"/>`+(on?`<path d="M.12 ${-w/2+.1} V${w/2-.1}" stroke="${core}" stroke-width="${1.2*px}" stroke-linecap="round"/>`:'');
-  const t=neonText(it)||it.nShape||'';if(t){const fs=Math.max(.32,Math.min(.6,w/Math.max(4,t.length)));const tot=((((it.r||0)+90)%360)+360)%360;const rr=tot>90&&tot<=270?-90:90;g+=`<text transform="translate(.55 0) rotate(${rr})" dy=".35em" text-anchor="middle" font-family="Lato,Helvetica,Arial,sans-serif" font-weight="700" font-size="${fs}" fill="${on?col:C.sub}" paint-order="stroke" stroke="${C.bg}" stroke-width="${2*px}">${esc(String(t).split(/\n|\\n/)[0].slice(0,24))}</text>`;}
+
   return g;}
-{const _lg=lightGlyph;lightGlyph=function(it,L,C,px,col,on){if(L.shape==='jukebox')return jukeboxPlan(it,C,px,col,on);if(L.shape==='neon')return neonPlan(it,C,px,col,on);return _lg(it,L,C,px,col,on);};}
+{const _lg=lightGlyph;lightGlyph=function(it,L,C,px,col,on){if(L.shape==='jukebox')return jbModern(it)?jukeboxPlanModern(it,C,px,col,on):jukeboxPlan(it,C,px,col,on);if(L.shape==='neon')return neonPlan(it,C,px,col,on);return _lg(it,L,C,px,col,on);};}
 /* ---------- mock frames ---------- */
 function polyL(ctx,it,pts,fill,extra){quadL(ctx,it,pts,fill,extra);}
 function archPts(cx,lx,z0,R,n,a0,a1){const o=[];for(let i=0;i<=n;i++){const a=a0+(a1-a0)*i/n;o.push([lx,cx+R*Math.cos(a),z0+R*Math.sin(a)]);}return o;}
@@ -6026,13 +6027,60 @@ function mockNeon(it,ctx,on){const w=neonW(it),h=neonH(it);const zc=+it.height||
   const Q=P.map(q=>ctx.proj(q));const Wu=w*100,Hu=h*100;const a=(Q[1][0]-Q[0][0])/Wu,b=(Q[1][1]-Q[0][1])/Wu,c=(Q[2][0]-Q[0][0])/Hu,d=(Q[2][1]-Q[0][1])/Hu;
   const scale=Math.max(.2,Math.hypot(a,b));const dd=P.reduce((s,q)=>s+q.d,0)/3;
   ctx.polys.push({d:dd-.05,svg:`<g transform="matrix(${a.toFixed(5)} ${b.toFixed(5)} ${c.toFixed(5)} ${d.toFixed(5)} ${Q[0][0].toFixed(1)} ${Q[0][1].toFixed(1)})">${neonArt(it,Wu,Hu,on,1)}</g>`});}
-{const _ml=mockLight;mockLight=function(it,L,ctx){const on=it.on!==false;if(it.t==='jukebox'){mockJukebox(it,ctx,on);return;}if(it.t==='neon'){mockNeon(it,ctx,on);return;}return _ml(it,L,ctx);};}
+{const _ml=mockLight;mockLight=function(it,L,ctx){const on=it.on!==false;if(it.t==='jukebox'){if(jbModern(it))mockJukeboxModern(it,ctx,on);else mockJukebox(it,ctx,on);return;}if(it.t==='neon'){mockNeon(it,ctx,on);return;}return _ml(it,L,ctx);};}
 /* ---------- panel ---------- */
-{const _pi=panelItem;panelItem=function(){let h=_pi();const it=selItem();if(!it||it.t!=='neon')return h;const shp=it.nShape||'Text';
-  h+=`<div class="grp"><h4>Sign</h4>${fld('Sign is',sel('nShape',['Text',...Object.keys(NEON_SHAPES)],shp))}
-   ${shp==='Text'?fld('Words',`<textarea class="in" data-k="nText" rows="2" placeholder="OPEN">${esc(it.nText==null?'OPEN':it.nText)}</textarea>`)+fld('Lettering',sel('nFont',Object.keys(NEON_FONTS),it.nFont||'Block (tube capitals)')):''}
+{const _pi=panelItem;panelItem=function(){let h=_pi();const it=selItem();if(!it)return h;
+  if(it.t==='neon'){const shp=neonShape(it);h+=`<div class="grp"><h4>Sign</h4>${fld('Shape',sel('nShape',[...Object.keys(NEON_SHAPES),'Words'],shp))}
+   ${shp==='Words'?fld('Words',`<textarea class="in" data-k="nText" rows="2" placeholder="Type the words">${esc(it.nText||'')}</textarea>`)+fld('Lettering',sel('nFont',Object.keys(NEON_FONTS),it.nFont||'Block (tube capitals)')):''}
    <div class="f2" style="display:flex;gap:8px">${fld('Width (ft)',inp('nw',it.nw||3,'number','step="0.25" min="0.5"'))}${fld('Height (ft)',inp('nh',it.nh||1.2,'number','step="0.25" min="0.3"'))}</div>
-   <div class="pSub">Color is the gel color under Colour. Height above the floor is the light's height (center of the sign). A new line in Words starts a second row.</div></div>`;return h;};}
+   <div class="pSub">Color is the gel color under Colour. Height above the floor is the light's height (center of the sign).</div></div>`;}
+  if(it.t==='jukebox')h+=`<div class="grp"><h4>Jukebox</h4>${fld('Style',sel('jbStyle',['Modern (album covers)','Classic (arched)'],it.jbStyle||'Modern (album covers)'))}${jbModern(it)?fld('Screen page',inp('jbPage',it.jbPage||0,'number','min="0" step="1"')):''}<div class="pSub">Modern is the bar jukebox with pages of album covers on a screen. The trim lights take the gel color.</div></div>`;
+  return h;};}
+
+/* ---------- modern bar jukebox: a screen of album-cover pages ---------- */
+const jbModern=it=>!/Classic/.test(it.jbStyle||'');
+function hashN(s,i){let h=2166136261;const t=String(s)+':'+i;for(let k=0;k<t.length;k++){h^=t.charCodeAt(k);h=Math.imul(h,16777619);}return (h>>>0)/4294967295;}
+const COVER_PAL=[['#e63946','#f1faee'],['#1d3557','#a8dadc'],['#f4a261','#264653'],['#2a9d8f','#e9c46a'],['#6d597a','#eaac8b'],['#111111','#e5e5e5'],['#ffb703','#023047'],['#8338ec','#ffbe0b'],['#ef476f','#06d6a0'],['#3a5a40','#dad7cd'],['#bc4749','#f2e8cf'],['#0b132b','#5bc0be'],['#ff006e','#fb5607'],['#e0e1dd','#415a77']];
+function coverArt(x,y,w,seed){const p=COVER_PAL[Math.floor(hashN(seed,0)*COVER_PAL.length)];const kind=Math.floor(hashN(seed,1)*5);const a=p[0],b=p[1];let g=`<rect x="${x}" y="${y}" width="${w}" height="${w}" fill="${a}"/>`;
+  if(kind===0)g+=`<circle cx="${x+w*(.3+.4*hashN(seed,2))}" cy="${y+w*(.3+.4*hashN(seed,3))}" r="${w*.26}" fill="${b}"/>`;
+  else if(kind===1)for(let i=0;i<4;i++)g+=`<rect x="${x}" y="${y+w*(.15+i*.2)}" width="${w}" height="${w*.08}" fill="${b}"/>`;
+  else if(kind===2)g+=`<path d="M${x} ${y+w} L${x+w*.5} ${y+w*.25} L${x+w} ${y+w}Z" fill="${b}"/>`;
+  else if(kind===3)g+=`<rect x="${x+w*.18}" y="${y+w*.18}" width="${w*.64}" height="${w*.64}" fill="none" stroke="${b}" stroke-width="${w*.07}"/>`;
+  else g+=`<circle cx="${x+w/2}" cy="${y+w/2}" r="${w*.36}" fill="#111"/><circle cx="${x+w/2}" cy="${y+w/2}" r="${w*.12}" fill="${b}"/>`;
+  g+=`<rect x="${x+w*.1}" y="${y+w*.84}" width="${w*.5}" height="${w*.06}" fill="${b}" opacity=".85"/>`;return g;}
+/* the screen, drawn in a Wu × Hu box */
+function jbScreen(it,Wu,Hu,on){const col=neonCol(it);if(!on)return `<rect width="${Wu}" height="${Hu}" rx="${Wu*.02}" fill="#0d0f12"/><rect x="${Wu*.04}" y="${Hu*.03}" width="${Wu*.3}" height="${Hu*.25}" fill="#fff" opacity=".05"/>`;
+  let g=`<rect width="${Wu}" height="${Hu}" rx="${Wu*.02}" fill="#0b0d14"/>`;const top=Hu*.1;g+=`<rect x="0" y="0" width="${Wu}" height="${top}" fill="${shade(col,.45)}"/><rect x="${Wu*.05}" y="${top*.35}" width="${Wu*.35}" height="${top*.3}" rx="${top*.15}" fill="#fff" opacity=".85"/><rect x="${Wu*.7}" y="${top*.3}" width="${Wu*.25}" height="${top*.4}" rx="${top*.2}" fill="${col}"/>`;
+  const cols=3,rows=4,pad=Wu*.05,gap=Wu*.035;const cw=Math.min((Wu-2*pad-(cols-1)*gap)/cols,(Hu-top-Hu*.12-pad-(rows-1)*gap)/rows);const gx=(Wu-(cols*cw+(cols-1)*gap))/2;
+  for(let r=0;r<rows;r++)for(let c=0;c<cols;c++)g+=coverArt(gx+c*(cw+gap),top+pad*.6+r*(cw+gap),cw,it.id+'|'+(it.jbPage||0)+'|'+r+'|'+c);
+  const by=Hu-Hu*.09;g+=`<path d="M${Wu*.1} ${by} l${Wu*.06} ${-Hu*.03} v${Hu*.06} Z M${Wu*.9} ${by} l${-Wu*.06} ${-Hu*.03} v${Hu*.06} Z" fill="#fff" opacity=".9"/>`;
+  for(let i=0;i<5;i++)g+=`<circle cx="${Wu*(.38+i*.06)}" cy="${by}" r="${Wu*.012}" fill="#fff" opacity="${i===((it.jbPage||0)%5)?1:.35}"/>`;
+  g+=`<rect x="${Wu*.03}" y="${Hu*.03}" width="${Wu*.45}" height="${Hu*.3}" fill="#fff" opacity=".05"/>`;return g;}
+function jukeboxPlanModern(it,C,px,col,on){const W=2.3,D=1.4;let g='';
+  if(on)g+=`<ellipse cx=".9" cy="0" rx="1.5" ry="${W*.65}" fill="${col}" opacity=".15"/>`;
+  g+=`<rect x="${-D}" y="${-W/2}" width="${D}" height="${W}" rx=".12" fill="#1c1f24" stroke="${C.setStroke}" stroke-width="${1.3*px}"/>`;
+  g+=`<rect x="${-D+.12}" y="${-W/2+.12}" width="${D-.3}" height="${W-.24}" rx=".08" fill="#2a2e35"/><path d="M${-D+.25} ${-W/2+.3} H-.35 M${-D+.25} ${W/2-.3} H-.35" stroke="#3b4048" stroke-width="${1.2*px}"/>`;
+  g+=`<rect x="-.14" y="${-W/2+.05}" width=".14" height="${W-.1}" fill="${on?'#cfe3ff':'#3a3f46'}" stroke="#0d0f12" stroke-width="${.8*px}"/>`;
+  g+=`<path d="M0 ${-W/2+.04} V${W/2-.04}" stroke="${on?col:'#555'}" stroke-width="${2.6*px}" opacity=".95"/>`;
+  g+=`<circle cx="${-D/2-.05}" cy="0" r=".22" fill="#111" stroke="#4a4f57" stroke-width="${.7*px}"/>`;return g;}
+function mockJukeboxModern(it,ctx,on){const col=neonCol(it);const D=1.4,Wd=1.15,Hh=5.4;const body='#1c1f24';
+  const qb=(pts,fill,bias,extra)=>{const cP=pts.map(([lx,ly,z])=>toCam(ctx.K,W3(it,lx,ly),z));if(cP.some(q=>q.d<ctx.near))return;const dd=cP.reduce((t,q)=>t+q.d,0)/cP.length;ctx.add(cP,fill,dd-bias,extra);};
+  boxL(ctx,it,-D,0,-Wd,Wd,0,.25,'#0f1114');boxL(ctx,it,-D,-.02,-Wd,Wd,.25,Hh,body);
+  qb([[.01,-Wd,Hh-.55],[.01,Wd,Hh-.55],[.01,Wd,Hh],[.01,-Wd,Hh]],'#111316',.02);qb([[.02,-Wd+.15,Hh-.36],[.02,Wd-.15,Hh-.36],[.02,Wd-.15,Hh-.2],[.02,-Wd+.15,Hh-.2]],on?col:'#3a3f46',.04);
+  /* LED trim down both front edges */
+  [[-Wd,-Wd+.07],[Wd-.07,Wd]].forEach(([a,b])=>qb([[.02,a,.35],[.02,b,.35],[.02,b,Hh-.6],[.02,a,Hh-.6]],on?col:'#3a3f46',.03));
+  /* screen as a flat picture on the front face */
+  const s0=2.35,s1=Hh-.75,sw=Wd-.18;const P=[[.03,sw,s1],[.03,-sw,s1],[.03,sw,s0]].map(([lx,ly,z])=>toCam(ctx.K,W3(it,lx,ly),z));
+  if(!P.some(q=>q.d<ctx.near)){const Q=P.map(q=>ctx.proj(q));const Wu=200,Hu=Wu*(s1-s0)/(2*sw);const a=(Q[1][0]-Q[0][0])/Wu,b=(Q[1][1]-Q[0][1])/Wu,c=(Q[2][0]-Q[0][0])/Hu,d=(Q[2][1]-Q[0][1])/Hu;
+    ctx.polys.push({d:P.reduce((t,q)=>t+q.d,0)/3-.06,svg:`<g transform="matrix(${a.toFixed(5)} ${b.toFixed(5)} ${c.toFixed(5)} ${d.toFixed(5)} ${Q[0][0].toFixed(1)} ${Q[0][1].toFixed(1)})">${jbScreen(it,Wu,Hu,on)}</g>`});}
+  qb([[.02,-sw-.04,s0-.04],[.02,sw+.04,s0-.04],[.02,sw+.04,s1+.04],[.02,-sw-.04,s1+.04]],'#08090b',.03);
+  /* bill and card slot panel */
+  qb([[.03,-sw,1.75],[.03,sw,1.75],[.03,sw,2.2],[.03,-sw,2.2]],'#2c3038',.04,'stroke="#596170" stroke-width=".6"');
+  qb([[.05,-.5,1.9],[.05,-.05,1.9],[.05,-.05,1.98],[.05,-.5,1.98]],'#0b0c0e',.07);qb([[.05,.15,1.86],[.05,.5,1.86],[.05,.5,2.04],[.05,.15,2.04]],on?'#7de3a0':'#334',.07);
+  /* speaker grille */
+  qb([[.03,-sw,.45],[.03,sw,.45],[.03,sw,1.6],[.03,-sw,1.6]],'#15171b',.04,'stroke="#3b4048" stroke-width=".6"');
+  for(let i=0;i<7;i++){const z=.55+i*.15;qb([[.05,-sw+.08,z],[.05,sw-.08,z],[.05,sw-.08,z+.05],[.05,-sw+.08,z+.05]],'#2d3138',.07);}
+  if(on){const p=W3(it,.5,0);bill(ctx,p,3.2,(k,X,Y)=>`<defs><filter id="jbm${it.id}" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="${(1*k).toFixed(1)}"/></filter></defs><ellipse cx="${X.toFixed(1)}" cy="${Y.toFixed(1)}" rx="${(1.8*k).toFixed(1)}" ry="${(2.8*k).toFixed(1)}" fill="${col}" opacity=".18" filter="url(#jbm${it.id})"/>`);}}
 const BRANDFF=(()=>{let o='';for(const sh of document.styleSheets){try{for(const r of sh.cssRules)if(r.type===5&&/EB Garamond|Lato/.test(r.cssText))o+=r.cssText;}catch(e){}}return o;})();
 /* ============================================================
    Export
