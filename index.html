@@ -5332,7 +5332,7 @@ const PARTS={
   drawers:{lab:'Drawers',num:1,types:['dresser','nightstand','filecab']},
   open:{lab:'Doors',opts:[['closed','Closed'],['open','Open']],types:['fridge','wardrobe','cabinets','dishwasher','linen','curtain','sheers']}};
 const PART_DEF={seats:it=>Math.max(1,Math.round((+it.w||6)/2.4)),shelves:()=>5,drawers:it=>it.t==='nightstand'?1:it.t==='filecab'?4:3};
-function partOf(it,k){const v=it['p_'+k];const P=PARTS[k];if(P.num){const n=numOr(v,null);return n!==null?Math.max(0,Math.min(12,Math.round(n))):PART_DEF[k](it);}return v||P.opts[0][0];}
+function partOf(it,k){const v=it['p_'+k];const P=PARTS[k];if(P.num){const n=numOr(v,null);return n!==null?Math.max(0,Math.min(P.max||12,Math.round(n))):PART_DEF[k](it);}return v||P.opts[0][0];}
 function partsFor(t){return Object.keys(PARTS).filter(k=>PARTS[k].types.includes(t));}
 
 // pieces whose parts change how they're built
@@ -5650,6 +5650,80 @@ function boothGlyph(it,C,px){const s=boothSpec(it);const st=`stroke="${C.setStro
     const along=r.dir==='s'||r.dir==='n';const L=along?sx1-sx0:sy1-sy0;const n=Math.max(1,Math.round(s.n*L/Math.max(1,s.w)));
     for(let i=1;i<n;i++){if(along){const x=sx0+i*L/n;quadL(ctx,it,[[x-.02,sy0,1.556],[x+.02,sy0,1.556],[x+.02,sy1,1.556],[x-.02,sy1,1.556]],shade(s.u,.6));}else{const y=sy0+i*L/n;quadL(ctx,it,[[sx0,y-.02,1.556],[sx1,y-.02,1.556],[sx1,y+.02,1.556],[sx0,y+.02,1.556]],shade(s.u,.6));}}});
   if(s.table){const t=s.table,cx=(t.x0+t.x1)/2,cy=(t.y0+t.y1)/2;box(t.x0,t.x1,t.y0,t.y1,2.38,2.5,s.wood);box(cx-.14,cx+.14,cy-.14,cy+.14,.08,2.38,shade(s.wood,.75));box(cx-.7,cx+.7,cy-.45,cy+.45,0,.08,shade(s.wood,.75));}
+  return 1;};}
+/* ============================================================
+   Wrap-around bar counter, dive-bar style: an L, a U or an island, with
+   rounded or hard corners, a bar door (flip-top pass-through) you place
+   on any run, a brass foot rail and a back bar with bottles.
+   Local axes: the back wall the bartender works against is the top edge (−y).
+   ============================================================ */
+def('bar_wrap',{cat:'Set',group:'Bar & restaurant',name:'Wrap-around bar (L, U or island)',kind:'set',shape:'barwrap',backToWall:true,defaults:{w:14,h:9,label:''}});
+MH.bar_wrap=[0,3.6];
+{const i=LIBALL.findIndex(e=>e.key==='barcounter'&&!e.kit);const e={key:'bar_wrap',cat:'Set',group:'Bar & restaurant',name:LIB.bar_wrap.name};if(i>=0)LIBALL.splice(i+1,0,e);else LIBALL.push(e);}
+if(typeof LIB_TIPS==='object')LIB_TIPS.bar_wrap='A bar that wraps around the bartender: L, U or island, rounded or hard corners, with a bar door you can place anywhere along it.';
+const BAR_TOP={wood:['Dark wood','#3d2a1e'],black:['Black','#1c1c1e'],zinc:['Zinc','#a9aeb1'],copper:['Copper','#b06a3a']};
+const BAR_FRONT={wood:['Dark wood panels','#4a3122'],black:['Black','#232325'],red:['Red padded vinyl','#7a2b25'],tin:['Pressed tin','#9aa0a3']};
+Object.assign(PARTS,{blay:{lab:'Layout',opts:[['U','U (three sides)'],['L','L (two sides)'],['I','Island (all round)']],types:['bar_wrap']},
+  bcorn:{lab:'Corners',opts:[['round','Rounded'],['hard','Hard']],types:['bar_wrap']},
+  bdoor:{lab:'Bar door on',opts:[['left','Left side'],['front','Front'],['right','Right side'],['back','Back (island)'],['none','No bar door']],types:['bar_wrap']},
+  bdpos:{lab:'Bar door along that side (%)',num:1,max:100,types:['bar_wrap']},
+  btop:{lab:'Bar top',opts:Object.entries(BAR_TOP).map(([k,v])=>[k,v[0]]),types:['bar_wrap']},
+  bfront:{lab:'Bar front',opts:Object.entries(BAR_FRONT).map(([k,v])=>[k,v[0]]),types:['bar_wrap']},
+  brail:{lab:'Foot rail',opts:[['yes','Brass foot rail'],['no','None']],types:['bar_wrap']},
+  bback2:{lab:'Back bar',opts:[['yes','Shelves and bottles'],['no','None']],types:['bar_wrap']}});
+PART_DEF.bdpos=()=>20;
+const BAR_D=2;   // counter depth, ft
+// the counter's centre line, as runs, plus where the bartender stands (to tell inside from outside)
+function barRuns(it){const w=+it.w||14,h=+it.h||9,a=-w/2,b=w/2,T=-h/2,B=h/2,k=BAR_D/2;const lay=partOf(it,'blay');
+  if(lay==='L')return {closed:false,names:['left','front'],P:[[a+k,T],[a+k,B-k],[b,B-k]],I:[(a+b)/2+k,(T+B)/2-k]};
+  if(lay==='I')return {closed:true,names:['back','right','front','left'],P:[[a+k,T+k],[b-k,T+k],[b-k,B-k],[a+k,B-k]],I:[0,0]};
+  return {closed:false,names:['left','front','right'],P:[[a+k,T],[a+k,B-k],[b-k,B-k],[b-k,T]],I:[0,(T+B)/2-k]};}
+// dense points along the centre line (corners rounded if asked), each with its distance along, and the bar door's span
+function barPath(it){const R=barRuns(it);const P=R.P,n=P.length,round=partOf(it,'bcorn')==='round';const rad=Math.min(1.8,(+it.w||14)/6,(+it.h||9)/5);
+  const runLen=[];for(let i=0;i<(R.closed?n:n-1);i++){const p=P[i],q=P[(i+1)%n];runLen.push(Math.hypot(q[0]-p[0],q[1]-p[1]));}
+  const raw=[];const push=(x,y)=>{const l=raw[raw.length-1];if(!l||Math.hypot(l[0]-x,l[1]-y)>1e-6)raw.push([x,y]);};
+  const corner=i=>{const p=P[i],pr=P[(i-1+n)%n],nx=P[(i+1)%n];const u1=[p[0]-pr[0],p[1]-pr[1]],u2=[nx[0]-p[0],nx[1]-p[1]];const l1=Math.hypot(...u1),l2=Math.hypot(...u2);
+    if(!round){push(p[0],p[1]);return;}const r=Math.min(rad,l1/2.2,l2/2.2);const s=[p[0]-u1[0]/l1*r,p[1]-u1[1]/l1*r],e=[p[0]+u2[0]/l2*r,p[1]+u2[1]/l2*r];
+    for(let k=0;k<=8;k++){const t=k/8,m=1-t;push(m*m*s[0]+2*m*t*p[0]+t*t*e[0],m*m*s[1]+2*m*t*p[1]+t*t*e[1]);}};
+  if(R.closed){for(let i=0;i<n;i++)corner(i);}else{push(P[0][0],P[0][1]);for(let i=1;i<n-1;i++)corner(i);push(P[n-1][0],P[n-1][1]);}
+  if(R.closed)raw.push(raw[0].slice());
+  const pts=[];let s=0;for(let i=0;i<raw.length;i++){if(i){const q=raw[i-1],p=raw[i];const L=Math.hypot(p[0]-q[0],p[1]-q[1]);const m=Math.max(1,Math.ceil(L/.35));for(let k=1;k<=m;k++){s+=L/m;pts.push({x:q[0]+(p[0]-q[0])*k/m,y:q[1]+(p[1]-q[1])*k/m,s});}}else pts.push({x:raw[0][0],y:raw[0][1],s:0});}
+  let gap=null;const side=partOf(it,'bdoor');const ri=R.names.indexOf(side);if(side!=='none'){const j=ri>=0?ri:0;const pct=Math.max(0,Math.min(100,partOf(it,'bdpos')))/100;let s0=0;for(let i=0;i<j;i++)s0+=runLen[i];
+    const c=Math.max(1.4,Math.min(s,s0+pct*runLen[j]));gap=[c-1.25,c+1.25];}
+  return {pts,gap,R,len:s,closed:R.closed,round};}
+const inGap=(g,s)=>g&&s>g[0]&&s<g[1];
+/* the plan: the counter as a thick line, the bar door as a gap with its flap */
+function barGlyph(it,C,px){const p=barPath(it);const top=BAR_TOP[partOf(it,'btop')][1];const runs=[];let cur=[];p.pts.forEach(q=>{if(inGap(p.gap,q.s)){if(cur.length>1)runs.push(cur);cur=[];}else cur.push(q);});if(cur.length>1)runs.push(cur);
+  const cap=p.round?'round':'butt',join=p.round?'round':'miter';const d=runs.map(r=>'M'+r.map(q=>q.x.toFixed(3)+' '+q.y.toFixed(3)).join(' L')).join(' ');
+  let o=`<path d="${d}" fill="none" stroke="${C.setStroke}" stroke-width="${BAR_D+.08}" stroke-linecap="${cap}" stroke-linejoin="${join}"/><path d="${d}" fill="none" stroke="${top}" stroke-opacity=".85" stroke-width="${BAR_D-.08}" stroke-linecap="${cap}" stroke-linejoin="${join}"/>`;
+  if(p.gap){const at=s=>{let b=p.pts[0];for(const q of p.pts){if(q.s>=s)return q;b=q;}return b;};const A=at(p.gap[0]),B=at(p.gap[1]);
+    o+=`<path d="M${A.x} ${A.y} L${B.x} ${B.y}" stroke="${C.setStroke}" stroke-width="${px}" stroke-dasharray="${3*px} ${2*px}"/><text x="${(A.x+B.x)/2}" y="${(A.y+B.y)/2}" text-anchor="middle" dy=".35em" font-size="${10*px}" font-family="${C.font}" fill="${C.setStroke}">bar door</text>`;}
+  if(partOf(it,'bback2')==='yes'&&!p.closed){const w=+it.w||14,h=+it.h||9,a=-w/2,b=w/2,T=-h/2;const x0=a+BAR_D+.4,x1=partOf(it,'blay')==='L'?b-.3:b-BAR_D-.4;o+=`<rect x="${x0}" y="${T}" width="${Math.max(.1,x1-x0)}" height="1.4" fill="${BAR_FRONT.wood[1]}" fill-opacity=".7" stroke="${C.setStroke}" stroke-width="${px}"/>`;}
+  return `<rect x="${-(+it.w||14)/2}" y="${-(+it.h||9)/2}" width="${+it.w||14}" height="${+it.h||9}" fill="transparent"/>`+o;}
+{const _sg=setGlyph;setGlyph=function(it,L,C,px){if(it.t==='bar_wrap')return barGlyph(it,C,px);return _sg(it,L,C,px);};}
+/* the mock-ups */
+{const _md=mockDetail;mockDetail=function(it,L,ctx,w,h){if(it.t!=='bar_wrap')return _md(it,L,ctx,w,h);const p=barPath(it);const top=BAR_TOP[partOf(it,'btop')][1],front=BAR_FRONT[partOf(it,'bfront')][1];
+  const I=p.R.I,P=p.pts,N=P.length;const nrm=i=>{const a=P[Math.max(0,i-1)],b=P[Math.min(N-1,i+1)];const dx=b.x-a.x,dy=b.y-a.y,L2=Math.hypot(dx,dy)||1;let nx=-dy/L2,ny=dx/L2;if((P[i].x-I[0])*nx+(P[i].y-I[1])*ny<0){nx=-nx;ny=-ny;}return [nx,ny];};
+  const off=(i,o)=>{const n=nrm(i);return [P[i].x+n[0]*o,P[i].y+n[1]*o];};const k=BAR_D/2;
+  const fk=partOf(it,'bfront'),arm=fk==='red'?'#5a1f1a':'#2a1a14';const quad=(i,o,z0,z1,c)=>{const p0=off(i-1,o),p1=off(i,o);ctx.add([toCam(ctx.K,W3(it,p0[0],p0[1]),z0),toCam(ctx.K,W3(it,p1[0],p1[1]),z0),toCam(ctx.K,W3(it,p1[0],p1[1]),z1),toCam(ctx.K,W3(it,p0[0],p0[1]),z1)],c,toCam(ctx.K,W3(it,(p0[0]+p1[0])/2,(p0[1]+p1[1])/2),1).d-.02);};
+  const seg=(i,o0,o1)=>[off(i-1,o0),off(i,o0),off(i,o1),off(i-1,o1)].map(([x,y])=>W3(it,x,y));let nextPanel=0,nextBr=1.5;
+  for(let i=1;i<N;i++){const sm=(P[i-1].s+P[i].s)/2;if(inGap(p.gap,sm))continue;
+    ctx.extrude(seg(i,-k,k*.62),0,.35,shade(front,.55));                       // recessed kick base
+    ctx.extrude(seg(i,-k,k*.8),.35,3.4,front);                                  // the bar front
+    ctx.extrude(seg(i,-k,k+.08),3.4,3.55,top);                                  // bar top
+    ctx.extrude(seg(i,k+.02,k+.34),3.42,3.68,arm);                              // padded armrest along the front edge
+    ctx.extrude(seg(i,k*.8,k*.86),3.26,3.4,shade(front,.7));                    // trim under the top
+    if(P[i].s>=nextPanel){if(fk!=='red'&&fk!=='black')quad(i,k*.81,.45,3.2,shade(front,fk==='tin'?.8:.62));else if(fk==='red')quad(i,k*.81,.45,3.2,shade(front,.7));nextPanel=P[i].s+(fk==='red'?.9:1.6);}   // panel joints or tufting seams
+    if(partOf(it,'brail')==='yes'){const r0=off(i-1,k+.5),r1=off(i,k+.5);line3(ctx,Object.assign(W3(it,r0[0],r0[1]),{z:.6}),Object.assign(W3(it,r1[0],r1[1]),{z:.6}),.1,'#c9a44a');
+      if(P[i].s>=nextBr){const q0=off(i,k*.8),q1=off(i,k+.5);line3(ctx,Object.assign(W3(it,q0[0],q0[1]),{z:.75}),Object.assign(W3(it,q1[0],q1[1]),{z:.62}),.07,'#a8873a');nextBr=P[i].s+3.5;}}}
+  // round end caps on an open counter with rounded corners
+  if(p.round&&!p.closed)[0,N-1].forEach(i=>{const j=i?N-2:1;const dx=P[i].x-P[j].x,dy=P[i].y-P[j].y,L2=Math.hypot(dx,dy)||1;const ux=dx/L2,uy=dy/L2;const pts=[];for(let s=0;s<=10;s++){const t=-Math.PI/2+Math.PI*s/10;const cx=Math.cos(t),sy=Math.sin(t);pts.push(W3(it,P[i].x+(ux*cx-uy*sy)*k,P[i].y+(uy*cx+ux*sy)*k));}ctx.extrude(pts,.35,3.4,front);ctx.extrude(pts,3.4,3.55,top);});
+  // the bar door: the flip-top raised at one side of the gap
+  if(p.gap){const at=s=>{let b=0;for(let i=0;i<N;i++){if(P[i].s>=s)return i;b=i;}return b;};const i=at(p.gap[0]);const a0=off(i,-k),a1=off(i,k);quadL(ctx,it,[[a0[0],a0[1],3.6],[a1[0],a1[1],3.6],[a1[0],a1[1],5.6],[a0[0],a0[1],5.6]],top);}
+  // back bar against the wall: cabinet, mirror, shelves of bottles
+  if(partOf(it,'bback2')==='yes'&&!p.closed){const T=-h/2,a=-w/2,b=w/2;const x0=a+BAR_D+.4,x1=partOf(it,'blay')==='L'?b-.3:b-BAR_D-.4;if(x1-x0>1){boxL(ctx,it,x0,x1,T,T+1.4,0,3,BAR_FRONT.wood[1]);boxL(ctx,it,x0,x1,T,T+1.5,3,3.1,top);
+    quadL(ctx,it,[[x0,T+.02,3.1],[x1,T+.02,3.1],[x1,T+.02,7.4],[x0,T+.02,7.4]],'#7f949e');boxL(ctx,it,x0-.1,x1+.1,T,T+1.1,7.4,7.9,BAR_FRONT.wood[1]);boxL(ctx,it,x0-.15,x1+.15,T,T+1.2,7.9,8.05,shade(BAR_FRONT.wood[1],.8));[x0,x1].forEach(x=>boxL(ctx,it,x-.12,x+.12,T,T+1.1,3.1,7.4,BAR_FRONT.wood[1]));for(let x=x0+.8;x<x1-.4;x+=2.4)quadL(ctx,it,[[x,T+1.405,.4],[x+2,T+1.405,.4],[x+2,T+1.405,2.7],[x,T+1.405,2.7]],shade(BAR_FRONT.wood[1],1.15),'stroke="#20140e" stroke-width=".8"');boxL(ctx,it,x1-1.6,x1-.6,T+.3,T+1.2,3.1,3.75,'#2b2d30');const cols=['#3f6f4a','#9a5a2a','#d9c27a','#6a2f2f','#cfd8dc','#2f4f78'];let n=0;
+    [3.1,4.5,5.9].forEach(z=>{boxL(ctx,it,x0,x1,T+.05,T+.85,z+1.3,z+1.36,BAR_FRONT.wood[1]);for(let x=x0+.15;x<x1-.2;x+=.3){const hgt=.55+((n*7)%4)*.08,c=cols[n%cols.length];boxL(ctx,it,x,x+.2,T+.3,T+.5,z+.02,z+.02+hgt,c);boxL(ctx,it,x+.07,x+.13,T+.37,T+.43,z+.02+hgt,z+.32+hgt,shade(c,.8));boxL(ctx,it,x+.065,x+.135,T+.365,T+.435,z+.32+hgt,z+.36+hgt,'#2b2b2b');n++;}});}}
   return 1;};}
 const BRANDFF=(()=>{let o='';for(const sh of document.styleSheets){try{for(const r of sh.cssRules)if(r.type===5&&/EB Garamond|Lato/.test(r.cssText))o+=r.cssText;}catch(e){}}return o;})();
 /* ============================================================
