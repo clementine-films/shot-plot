@@ -6380,8 +6380,8 @@ const actorName=a=>a?(a.label||a.actor||'subject'):'';
 function aimSubject(src,items){const a=items.filter(i=>i.t==='actor');if(!a.length)return null;const r=(src.r||0)*D2R,cx=Math.cos(r),cy=Math.sin(r);let best=null,bs=1e9;
   a.forEach(i=>{const dx=i.x-src.x,dy=i.y-src.y,d=Math.hypot(dx,dy);if(d<.1)return;const fw=(dx*cx+dy*cy)/d;const sc=d*(fw>.5?1:fw>0?2:4);if(sc<bs){bs=sc;best=i;}});return best;}
 const CTRL_RE=/flag|floppy|cutter|solid|net|silk|frame|bounce|diffusion|frost|muslin|duvetyne|negative|teaser|scrim|block|board|card|grid cloth|ultrabounce|griffolyn|beadboard/i;
-function ctrlNear(l,items){const out={};items.forEach(i=>{const L=LIB[i.t];if(!L||L.kind!=='grip'||i.id===l.id)return;const n=((typeof gripLabel==='function'&&gripLabel(i))||i.label||L.name||'').replace(/ \(.*\)/,'');if(!CTRL_RE.test(n+' '+L.name+' '+i.t))return;if(Math.hypot(i.x-l.x,i.y-l.y)>5)return;out[n]=(out[n]||0)+1;});return Object.entries(out).map(([n,q])=>(q>1?q+'× ':'')+n).join(', ');}
-function lightAuto(l,items){const s=aimSubject(l,items);return {dist:s?`${ft1(Math.hypot(s.x-l.x,s.y-l.y))} to ${actorName(s)}`:'',ctrl:ctrlNear(l,items)};}
+function ctrlFor(l,items){const out={};items.forEach(i=>{const L=LIB[i.t];if(!L||i.forLight!==l.id)return;const n=((typeof gripLabel==='function'&&gripLabel(i))||i.label||L.name||'').replace(/ \(.*\)/,'');out[n]=(out[n]||0)+1;});return Object.entries(out).map(([n,q])=>(q>1?q+'× ':'')+n).join(', ');}
+function lightAuto(l,items){const s=aimSubject(l,items);return {dist:s?`${ft1(Math.hypot(s.x-l.x,s.y-l.y))} to ${actorName(s)}`:'',ctrl:ctrlFor(l,items)};}
 function colorText(l){const g=GELS[l.gel];if(g==='c')return 'color gel'+(l.gelColor?' '+l.gelColor:'');return (typeof effKelvin==='function'?effKelvin(l):(l.kelvin||3200))+'K'+(l.gel&&l.gel!=='None'?' ('+(l.kelvin||'')+'K + '+l.gel+')':'');}
 function lightKeyRows(items,nums,X,su,sh,C,T){const all=activeItems(su,sh);
   return items.filter(isLightIt).map(l=>{const L=LIB[l.t];const on=l.on!==false;const a=lightAuto(l,all);
@@ -6495,7 +6495,7 @@ function hubFillHTML(){const su=setup(),sh=shot(),sc=scene();const items=activeI
   h+=`<div class="hHead">Lights</div>`+(lights.length?lights.map(l=>{const L=LIB[l.t];const a=lightAuto(l,items);return `<div class="hCard"><div class="hT"><span class="hB">${nums[l.id]}</span>${esc(L.name.replace(/ \(.*\)/,''))}</div><div class="hRow">
     ${hubIn(l.id,'label',l.label,{lab:'Label'})}${hubSel(l.id,'role',ROLES,l.role,'Role')}${hubIn(l.id,'kelvin',l.kelvin,{lab:'Kelvin',num:1})}${hubSel(l.id,'gel',Object.keys(GELS),l.gel,'Gel')}${hubIn(l.id,'intensity',l.intensity,{lab:'Dimmer %',num:1})}
     ${hubSel(l.id,'modifier',MODS,l.modifier,'Modifier')}${typeof DIFFS!=='undefined'?hubSel(l.id,'diff',DIFFS,l.diff||'None','Diffusion'):''}${hubIn(l.id,'height',l.height,{lab:'Height (ft)',num:1})}${hubSel(l.id,'mount',MOUNTS,l.mount,'Stand / rig')}
-    ${hubIn(l.id,'kDist',l.kDist,{lab:'Distance to subject',ph:a.dist||'—'})}${hubIn(l.id,'kCtrl',l.kCtrl,{lab:'Flags & control',ph:a.ctrl||'none nearby'})}${hubIn(l.id,'watts',l.watts,{lab:'Watts',num:1})}${hubIn(l.id,'circuit',l.circuit,{lab:'Circuit'})}${hubIn(l.id,'notes',noteOf(l),{lab:'Note',wide:1})}</div></div>`;}).join(''):'<div class="pSub">No lights in this shot.</div>');
+    ${hubIn(l.id,'kDist',l.kDist,{lab:'Distance to subject',ph:a.dist||'—'})}${hubIn(l.id,'kCtrl',l.kCtrl,{lab:'Flags & control',ph:a.ctrl||'none assigned'})}${hubIn(l.id,'watts',l.watts,{lab:'Watts',num:1})}${hubIn(l.id,'circuit',l.circuit,{lab:'Circuit'})}${hubIn(l.id,'notes',noteOf(l),{lab:'Note',wide:1})}</div></div>`;}).join(''):'<div class="pSub">No lights in this shot.</div>');
   h+=`<div class="hHead">Cameras</div>`+(cams.length?cams.map(c=>{const s=aimSubject(c,items);const auto=s?`${ft1(Math.hypot(s.x-c.x,s.y-c.y))} to ${actorName(s)}`:'';return `<div class="hCard"><div class="hT"><span class="hB" style="background:#2b6cb0">${esc(c.cam||'A')}</span>${esc(c.cam||'A')} camera</div><div class="hRow">
     ${hubIn(c.id,'lens',c.lens,{lab:'Lens (mm)',num:1})}${hubIn(c.id,'kStop',c.kStop,{lab:'T-stop',ph:sh.dofSet&&sh.dofSet.stop?'T'+sh.dofSet.stop:'T2.8'})}${hubIn(c.id,'kFilter',c.kFilter,{lab:'Filters / ND',ph:'ND .6, 1/8 Black Pro-Mist'})}${hubIn(c.id,'kFps',c.kFps,{lab:'Frame rate',ph:'24'})}${hubIn(c.id,'kShutter',c.kShutter,{lab:'Shutter',ph:'180°'})}
     ${hubIn(c.id,'kIso',c.kIso,{lab:'ISO / EI',ph:'800'})}${hubIn(c.id,'kWB',c.kWB,{lab:'White balance',ph:'5600K'})}${hubSel(c.id,'support',SUPPORTS,c.support,'Support')}${hubIn(c.id,'height',c.height,{lab:'Lens height (ft)',num:1})}
@@ -6520,6 +6520,11 @@ function hubClick(e){const t=e.target;
   if(t.dataset&&t.dataset.revclear){if(!confirm('Remove all revision letters and clouds?'))return true;delete P.revs;scheduleSave();openExport();return true;}
   return false;}
 document.addEventListener('toggle',e=>{const k=e.target&&e.target.dataset&&e.target.dataset.hdet;if(k)HUB.open[k]=e.target.open;},true);
+
+/* grip and control: you say which light a flag, net, silk or frame is working, nothing is guessed */
+{const _pi=panelItem;panelItem=function(){let h=_pi();const it=selItem();if(!it||it.t==='line')return h;const L=LIB[it.t];if(!L||L.kind!=='grip')return h;
+  const items=activeItems();const nums=lightNumbers(items);const lights=items.filter(isLightIt);
+  h+=`<div class="grp"><h4>Light it works</h4>${fld('Controls light',`<select class="in" data-k="forLight"><option value="">None (not in the light key)</option>${lights.map(l=>`<option value="${l.id}" ${it.forLight===l.id?'selected':''}>#${nums[l.id]} ${esc((l.role?l.role+' · ':'')+(l.label||LIB[l.t].name.replace(/ \(.*\)/,'')))}</option>`).join('')}</select>`)}<div class="pSub">Only pieces you assign here show under that light's "Control" line in the light key.</div></div>`;return h;};}
 /* ============================================================
    Init
    ============================================================ */
