@@ -5539,7 +5539,7 @@ function phoneHeading(){return new Promise(async(res,rej)=>{try{if(typeof Device
 
 {const _cs=calcSunHTML;calcSunHTML=function(){let h=_cs();try{const sel=selItem();const wsel=sel&&(isWall(sel)&&sel.pts.length===2||sel.t==='window'||sel.t==='door');
   let g=`<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--line2)"><b style="font-size:12px">Quicker ways</b>`;
-  if(MAP_OK)g+=`<label class="chk" style="display:block;margin-top:6px"><input type="checkbox" id="sunAlignOn" ${sunAlign?'checked':''}> Line up the plot on the map</label>${sunAlign?`<div class="f2" style="margin-top:6px"><button class="btn sm pri" id="sunMatch">Match the building</button><button class="btn sm" id="sunTurn">Turn 90°</button></div><input type="range" id="sunRot" min="0" max="359.5" step=".5" value="${getNorth()}" style="width:100%;margin-top:6px"><div class="pSub" id="sunAlignHint">Your walls are drawn in orange over the map at the pin. Put the pin on your room's spot in the building, select a wall and say which way it faces, then Match the building. The slider fine-tunes.</div>`:''}`;
+  if(MAP_OK)g+=`<div id="sunAlignBox" style="margin:4px 0 8px;padding:6px 8px;border:1px solid var(--line2);border-radius:8px"><label class="chk" style="display:block"><input type="checkbox" id="sunAlignOn" ${sunAlign?'checked':''}> Line up the plot on the map</label>${sunAlign?`<div class="f2" style="margin-top:6px"><button class="btn sm pri" id="sunMatch">Match the building</button><button class="btn sm" id="sunTurn">Turn 90°</button></div><input type="range" id="sunRot" min="0" max="359.5" step=".5" value="${getNorth()}" style="width:100%;margin-top:6px"><div class="pSub" id="sunAlignHint">Your walls are drawn in orange over the map at the pin. Put the pin on your room's spot in the building, select a wall and say which way it faces, then Match the building. The slider fine-tunes.</div>`:''}</div><!--/sunAlignBox-->`;
   g+=`<button class="btn sm" id="sunPhone" style="margin-top:8px" ${wsel?'':'disabled'}>📱 Use my phone’s compass</button><div class="pSub" style="margin-top:3px">${wsel?'On location: stand inside, hold the phone flat with its top edge pointing out through the selected wall or window, then tap.':'On location: select a wall or window first.'}</div></div>`;
   const i=h.indexOf('<div class="note" style="margin-top:10px">This shows where the sun');h=i>=0?h.slice(0,i)+g+h.slice(i):h+g;}catch(e){}return h;};}
 {const _mi=sunMapInit;sunMapInit=async function(){await _mi();drawSunOverlay();};}
@@ -5573,6 +5573,10 @@ const FACE8=[['N',0],['NE',45],['E',90],['SE',135],['S',180],['SW',225],['W',270
   h=h.replace('On location: select a wall or window first.','On location: select a wall, window or door first. Any wall works, so rooms with no windows can use one too.').replace('pointing out through the selected wall or window, then tap.','pointing straight out from the selected wall (through it, if it has a window), then tap.');}catch(e){}return h;};}
 $('#calc').addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-face8]');if(!b)return;const it=selItem();if(!it)return;const B=+b.dataset.face8;snap();northFromBearing(it,B);changed();renderCalc();toast(`That wall faces ${compass(B)}. North is set.`);});
 $('#calc').addEventListener('change',e=>{if(e.target&&e.target.id==='sunFace')SUN_FACE=e.target.value;});
+
+// the map controls sit right under the map, so lining up never means scrolling away from it
+{const _cs=calcSunHTML;calcSunHTML=function(){let h=_cs();try{const s=h.indexOf('<div id="sunAlignBox"'),e=h.indexOf('<!--/sunAlignBox-->');if(s<0||e<0)return h;const box=h.slice(s,e+19);h=h.slice(0,s)+h.slice(e+19);
+  const key='<div class="pSub">Click the map to move the pin.</div>';const i=h.indexOf(key);if(i<0)return h.slice(0,s)+box+h.slice(s);h=h.slice(0,i+key.length)+box+h.slice(i+key.length);}catch(err){}return h;};}
 /* ============================================================
    The calculators keep what you set:
    - depth of field: saved with each shot (camera, subject, stop, distances,
@@ -5607,6 +5611,8 @@ function dockSources(){if(CALC.tab==='dof'){const o=$('#calcOut');if(!o)return [
 function updateDock(){const el=$('#calc');if(!el||!CALC.open||CALC.min)return;let wrap=$('#calcDockWrap');if(!wrap){const h=el.querySelector('.cHead');if(!h)return;h.insertAdjacentHTML('afterend','<div id="calcDockWrap"><div id="calcDock"></div></div>');wrap=$('#calcDockWrap');}
   const dock=$('#calcDock');const src=dockSources();if(!src.length){dock.style.display='none';return;}
   const top=el.getBoundingClientRect().top+(el.querySelector('.cHead')?el.querySelector('.cHead').getBoundingClientRect().height:0)+10;const hidden=src.every(s=>s.getBoundingClientRect().bottom<top+40);
+  // while the map is on screen it is the picture you're working with, so don't cover it
+  const map=CALC.tab==='sun'?$('#sunMapSlot'):null;if(map){const r=map.getBoundingClientRect(),cb=el.getBoundingClientRect().bottom;if(r.height>20&&r.bottom>top&&r.top<cb){dock.style.display='none';return;}}
   if(!hidden){dock.style.display='none';return;}
   dock.innerHTML='';src.forEach(s=>{const c=s.cloneNode(true);c.removeAttribute('id');c.style.cursor='default';c.style.pointerEvents='none';dock.appendChild(c);});
   if(CALC.tab==='sun'){const o=$('#sunOut');if(o){const d=document.createElement('div');d.className='dockTxt';[...o.children].slice(0,2).forEach(ch=>d.appendChild(ch.cloneNode(true)));dock.appendChild(d);}}
