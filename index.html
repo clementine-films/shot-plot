@@ -4581,17 +4581,9 @@ function mockFrameSVG(o){// o: {items, cam, sc, W, sensor, f, N, focus, bgFallba
         else if(/arch/i.test(g.op.t)){piece(g.t0,g.t1,7.6,top,col,gl);}
         else{piece(g.t0,g.t1,7,top,col,gl);if(!/elevator|garage|rollgate/.test(g.op.t))piece(g.t0,g.t1,0,7,'#5a4636',`stroke="#3a2c22" stroke-width="1"`);else piece(g.t0,g.t1,0,7,'#8d9196','');}
         t=Math.max(t,g.t1);});piece(t,L,0,top,col,gl);}});
-  // set pieces, lights and grip
-  items.forEach(it=>{if(it.t==='line'){if(it.kind==='shape'&&it.pts&&it.pts.length>2){const hh=({'Platform / riser':1.5,'Counter':3.5,'Booth seat':3.5,'Sofa / upholstered':2.8,'Cabinet / storage':3})[it.otype]||2.5;extrude(it.pts.slice(0,closedLine(it)?-1:undefined),0,hh,mockColor(it));}return;}
-    const L=LIB[it.t];if(!L)return;if(!inView(it))return;
-    if(L.kind==='set'){if(isOpening(it)||it.t==='north'||L.shape==='kit')return;const w=+it.w||2,h=+it.h||2;const r=(it.r||0)*D2R,c=Math.cos(r),s2=Math.sin(r);const P=[[-w/2,-h/2],[w/2,-h/2],[w/2,h/2],[-w/2,h/2]].map(([x,y])=>({x:it.x+x*c-y*s2,y:it.y+x*s2+y*c}));
-      const z=MH[it.t]||(L.shape==='odd'?[0,({'Platform / riser':1.5,'Counter':3.5,'Booth seat':3.5,'Sofa / upholstered':2.8})[it.otype]||2.5]:[0,2.5]);
-      if(FLAT.has(it.t)){const cP=P.map(q=>toCam(K,q,.02));const dd=cP.reduce((s,q)=>s+q.d,0)/4;add(cP,mockColor(it),dd,'',flats);return;}
-      extrude(P,z[0],z[1],mockColor(it));return;}
-    if(L.kind==='light'||L.kind==='grip'){if(L.shape==='sun'||/^pr_/.test(it.t)||L.src)return;const hz=L.kind==='light'?(+it.height||6.5):(it.t==='frame'?(it.orient==='Overhead'?9:7):5.5);const c0=toCam(K,it,0);if(c0.d<near)return;
-      const P0=proj(toCam(K,it,0)),P1=proj(toCam(K,it,hz));const k=f/c0.d*ppm;polys.push({d:c0.d,svg:`<path d="M${P0[0].toFixed(1)} ${P0[1].toFixed(1)} L${P1[0].toFixed(1)} ${P1[1].toFixed(1)}" stroke="#2b2d30" stroke-width="${Math.max(.6,.08*k)}"/>`+
-        (L.kind==='light'?`<rect x="${(P1[0]-.45*k).toFixed(1)}" y="${(P1[1]-.4*k).toFixed(1)}" width="${(.9*k).toFixed(1)}" height="${(.8*k).toFixed(1)}" rx="${(.08*k).toFixed(1)}" fill="#2b2d30"/><rect x="${(P1[0]-.3*k).toFixed(1)}" y="${(P1[1]-.28*k).toFixed(1)}" width="${(.6*k).toFixed(1)}" height="${(.56*k).toFixed(1)}" fill="${it.on===false?'#555':'#fff2cf'}"/>`
-          :`<rect x="${(P1[0]-.08*k).toFixed(1)}" y="${(P1[1]-.1*k).toFixed(1)}" width="${(.16*k).toFixed(1)}" height="${(.2*k).toFixed(1)}" fill="#2b2d30"/>`)+`<path d="M${(P0[0]-.6*k).toFixed(1)} ${P0[1].toFixed(1)} L${P0[0].toFixed(1)} ${(P0[1]-.25*k).toFixed(1)} L${(P0[0]+.6*k).toFixed(1)} ${P0[1].toFixed(1)}" fill="none" stroke="#2b2d30" stroke-width="${Math.max(.5,.05*k)}"/>`,gear:1});}});
+  // set pieces, lights, practicals, grip and gear, at their real sizes (see mock3d.js)
+  const ctx={K,proj,add,polys,flats,near,extrude,f,ppm,camH,items,night,ext,inView,self:o.cam};
+  items.forEach(it=>{if(it===o.cam||it.id===(o.cam&&o.cam.id))return;try{mockItem(it,ctx);}catch(e){}});
   function extrude(P,z0,z1,col){const cP=P.map(q=>({b:toCam(K,q,z0),t:toCam(K,q,z1),q}));const n=P.length;
     for(let i=0;i<n;i++){const a=cP[i],b=cP[(i+1)%n];const ex=P[(i+1)%n].x-P[i].x,ey=P[(i+1)%n].y-P[i].y;const el=Math.hypot(ex,ey)||1;const nx=ey/el,ny=-ex/el;const lit=.72+.28*Math.abs(nx*.6+ny*-.8);
       add([a.b,b.b,b.t,a.t],shade(col,lit),(Math.max(a.b.d,0)+Math.max(b.b.d,0))/2,`stroke="${shade(col,.55)}" stroke-width=".5"`);}
@@ -4635,6 +4627,148 @@ function openMockFrames(){const all=!!V.mfAll;const scs=all?P.scenes:[scene()];c
     w.document.write(`<!doctype html><html><head><title>${esc(P.title||'Shot Plot')} · Mock-up frames</title><style>body{font-family:Lato,Helvetica,sans-serif;margin:24px;color:#111}h1{font-size:18px;margin:0 0 4px}.sub{font-size:11px;margin-bottom:14px}.g{display:grid;grid-template-columns:1fr 1fr;gap:14px}.c{break-inside:avoid;border:1px solid #bbb;border-radius:6px;overflow:hidden}.h{padding:5px 8px;font-size:12px;display:flex}.h span{margin-left:auto}.d{padding:5px 8px;font-size:11px;min-height:1em}@page{margin:12mm}</style></head><body><h1>${esc(P.title||'')} · Mock-up frames</h1><div class="sub">${esc(scs.map(s=>'Scene '+s.num+' '+(s.ie||'')+' '+(s.loc||'')+' – '+(s.tod||'')).join(' · '))} · built from the plot, planning mock-ups, not renders</div><div class="g">${fr.map(x=>`<div class="c"><div class="h"><b>${esc(x.sh.num)}</b>&nbsp;· ${esc(x.sh.size||'')} · ${x.f}mm<span>${esc(x.su.name||'')}</span></div>${x.svg}<div class="d">${esc(x.sh.desc||'')}</div></div>`).join('')}</div><script>setTimeout(()=>print(),300)<\/script></body></html>`);w.document.close();};}
 {const m=$('#exportMenu');if(m&&!m.querySelector('[data-x="mockframes"]')){const ref=m.querySelector('[data-x="shotlist"]');ref.insertAdjacentHTML('afterend','<button data-x="mockframes">Mock-up frames…<small>What each camera sees, built from the plot; print or save as PDF</small></button>');}
   m.addEventListener('click',e=>{const b=e.target.closest('[data-x="mockframes"]');if(!b)return;e.stopPropagation();m.classList.remove('open');openMockFrames();},true);}
+/* ============================================================
+   Mock-up frames, piece by piece, at real size:
+   furniture with its parts (table tops and legs, chair seats and backs,
+   sofa arms and backs, headboards), practical lamps sitting on the
+   furniture they're on, film lights sized to the fixture with their
+   accessories, stands, flags, frames, bounces, booms and other cameras.
+   Local axes match the plot: lights face +x; furniture backs are at -y
+   (chairs and armchairs at -x).
+   ============================================================ */
+const W3=(it,lx,ly)=>{const r=(it.r||0)*D2R,c=Math.cos(r),s=Math.sin(r);return {x:it.x+lx*c-ly*s,y:it.y+lx*s+ly*c};};
+function boxL(ctx,it,x0,x1,y0,y1,z0,z1,col){ctx.extrude([W3(it,x0,y0),W3(it,x1,y0),W3(it,x1,y1),W3(it,x0,y1)],z0,z1,col);}
+function quad3(ctx,P,fill,extra){const cP=P.map(p=>toCam(ctx.K,p,p.z));const dd=cP.reduce((s,q)=>s+Math.max(q.d,0),0)/cP.length;ctx.add(cP,fill,dd,extra);}
+function quadL(ctx,it,pts,fill,extra){quad3(ctx,pts.map(([lx,ly,z])=>Object.assign(W3(it,lx,ly),{z})),fill,extra);}
+function line3(ctx,a,b,wft,col){let A=toCam(ctx.K,a,a.z),B=toCam(ctx.K,b,b.z);if(A.d<ctx.near&&B.d<ctx.near)return;if(A.d<ctx.near||B.d<ctx.near){const t=(ctx.near-A.d)/(B.d-A.d);const C={l:A.l+(B.l-A.l)*t,d:ctx.near,z:A.z+(B.z-A.z)*t};if(A.d<ctx.near)A=C;else B=C;}
+  const pa=ctx.proj(A),pb=ctx.proj(B);const dm=(A.d+B.d)/2;const k=ctx.f/dm*ctx.ppm;ctx.polys.push({d:dm,svg:`<path d="M${pa[0].toFixed(1)} ${pa[1].toFixed(1)} L${pb[0].toFixed(1)} ${pb[1].toFixed(1)}" stroke="${col}" stroke-width="${Math.max(.5,wft*k).toFixed(2)}" stroke-linecap="round"/>`});}
+function bill(ctx,p,z,draw){const c=toCam(ctx.K,p,z);if(c.d<ctx.near)return;const k=ctx.f/c.d*ctx.ppm;const [X,Y]=ctx.proj(c);ctx.polys.push({d:c.d-.02,svg:draw(k,X,Y)});}
+// what a lamp is standing on: the top of the furniture under it
+function surfaceTop(ctx,p){let top=0;ctx.items.forEach(s=>{const L=LIB[s.t];if(!L||L.kind!=='set'||s.t==='line'||FLAT.has(s.t))return;const z=MH[s.t];if(!z||z[0]>0)return;const r=-(s.r||0)*D2R,dx=p.x-s.x,dy=p.y-s.y;const lx=dx*Math.cos(r)-dy*Math.sin(r),ly=dx*Math.sin(r)+dy*Math.cos(r);if(Math.abs(lx)<=(+s.w||2)/2&&Math.abs(ly)<=(+s.h||2)/2)top=Math.max(top,z[1]);});return top;}
+// a path outline (odd shapes, curved custom shapes) as points
+function samplePath(d,n){try{const el=document.createElementNS('http://www.w3.org/2000/svg','path');el.setAttribute('d',d);const L=el.getTotalLength();const out=[];for(let i=0;i<n;i++){const p=el.getPointAtLength(L*i/n);out.push({x:p.x,y:p.y});}return out;}catch(e){return null;}}
+const STAND='#2b2d30',LIT='#fff2cf',SHADE_ON='#f6dfae',SHADE_OFF='#d9d2c2';
+function standLegs(ctx,p,r,h){for(let i=0;i<3;i++){const t=(90+i*120)*D2R;line3(ctx,{x:p.x,y:p.y,z:Math.min(1.6,h)},{x:p.x+Math.cos(t)*r,y:p.y+Math.sin(t)*r,z:0},.07,STAND);}}
+
+function mockItem(it,ctx){const L=LIB[it.t];
+  if(it.t==='line'){if(it.kind==='shape'&&it.pts&&it.pts.length>2){const hh=({'Platform / riser':1.5,'Counter':3.5,'Booth seat':3.5,'Sofa / upholstered':2.8,'Cabinet / storage':3})[it.otype]||2.5;
+      const pts=it.pts.some(q=>q.c)?(samplePath(linePathD(it.pts)+'Z',48)||it.pts):it.pts.slice(0,closedLine(it)?-1:undefined);ctx.extrude(pts,0,hh,mockColor(it));}return;}
+  if(!L||!ctx.inView(it))return;
+  if(L.kind==='set')return mockSet(it,L,ctx);
+  if(L.kind==='light')return mockLight(it,L,ctx);
+  if(L.kind==='grip')return mockGrip(it,L,ctx);
+  if(it.t==='camera')return mockCamera(it,ctx);
+  if(L.kind==='camgear'||L.kind==='crew')return mockCamGear(it,L,ctx);}
+
+/* ---------- furniture ---------- */
+function mockSet(it,L,ctx){if(isOpening(it)||it.t==='north'||L.shape==='kit')return;const w=+it.w||2,h=+it.h||2,a=-w/2,b=w/2,T=-h/2,B=h/2;const col=mockColor(it);
+  if(FLAT.has(it.t)){const P=[[a,T],[b,T],[b,B],[a,B]].map(([x,y])=>Object.assign(W3(it,x,y),{z:.02}));const cP=P.map(q=>toCam(ctx.K,q,.02));ctx.add(cP,col,cP.reduce((s,q)=>s+q.d,0)/4,'',ctx.flats);return;}
+  const box=(x0,x1,y0,y1,z0,z1,c)=>boxL(ctx,it,x0,x1,y0,y1,z0,z1,c||col);const leg=(x,y,z1,c)=>box(x-.08,x+.08,y-.08,y+.08,0,z1,c);
+  const legs4=(z1,i,c)=>{i=i||.2;[[a+i,T+i],[b-i,T+i],[a+i,B-i],[b-i,B-i]].forEach(([x,y])=>leg(x,y,z1,c));};
+  const z=MH[it.t]||[0,2.5];const H=z[1];
+  switch(it.t){
+    case 'table':case 'diningtable':case 'conftable':case 'foldtable':case 'coffeetable':case 'twotop':case 'fourtop':case 'picnic':box(a,b,T,B,H-.12,H);legs4(H-.12);return;
+    case 'desk':case 'teacherdesk':{box(a,b,T,B,H-.12,H);const pw=Math.min(1.4,w*.3);box(b-pw,b,T,B,0,H-.12,shade(col,.9));leg(a+.2,T+.2,H-.12);leg(a+.2,B-.2,H-.12);return;}
+    case 'roundtable':case 'hightop':{const r=Math.min(w,h)/2;const P=[...Array(16)].map((_,i)=>W3(it,r*Math.cos(i*Math.PI/8),r*Math.sin(i*Math.PI/8)));ctx.extrude(P,H-.12,H,col);box(-.12,.12,-.12,.12,0,H-.12);box(-.6,.6,-.6,.6,0,.08);return;}
+    case 'chair':{const sz=1.5;box(a+w*.12,b,T,B,sz-.15,sz);box(a,a+.15,T,B,sz,2.9);[[a+.2,T+.2],[b-.15,T+.2],[a+.2,B-.2],[b-.15,B-.2]].forEach(([x,y])=>leg(x,y,sz-.15));return;}
+    case 'stool':{const r=Math.min(w,h)/2;const P=[...Array(12)].map((_,i)=>W3(it,r*Math.cos(i*Math.PI/6),r*Math.sin(i*Math.PI/6)));ctx.extrude(P,H-.15,H,col);box(-.08,.08,-.08,.08,0,H-.15,STAND);return;}
+    case 'officechair':{box(a+.25,b-.15,T+.2,B-.2,1.45,1.75,'#2b2d30');box(a+.05,a+.3,T+.25,B-.25,1.75,3.3,'#2b2d30');box(-.06,.06,-.06,.06,.2,1.45,'#555');return;}
+    case 'armchair':box(a,b,T,B,0,1.4);box(a,a+Math.min(.7,w*.25),T,B,1.4,2.8,shade(col,.85));box(a,b,T,T+.45,1.4,2.1,shade(col,.9));box(a,b,B-.45,B,1.4,2.1,shade(col,.9));return;
+    case 'couch':case 'loveseat':case 'futon':{const arm=Math.min(.7,w*.1);box(a,b,T,B,0,1.4);box(a,b,T,T+Math.min(.85,h*.3),1.4,2.8,shade(col,.85));box(a,a+arm,T,B,1.4,2.1,shade(col,.9));box(b-arm,b,T,B,1.4,2.1,shade(col,.9));return;}
+    case 'booth':box(a,b,T,B,0,1.5);box(a,b,T,T+.6,1.5,3.6,shade(col,.85));return;
+    case 'bed':case 'bedtwin':case 'bedking':box(a,b,T+.3,B,0,1.9,'#e6ebef');box(a,b,T,T+.3,0,3.6,'#6e5238');box(a+.3,b-.3,T+.45,T+1.4,1.9,2.25,'#ffffff');return;
+    case 'bunkbed':box(a,b,T,B,0,1.6,'#e6ebef');box(a,b,T,B,4.2,5.2,'#e6ebef');[[a,T],[b-.15,T],[a,B-.15],[b-.15,B-.15]].forEach(([x,y])=>box(x,x+.15,y,y+.15,0,5.8,'#6e5238'));return;
+    case 'piano':box(a,b,T,B,0,4.2,'#2a211c');box(a,b,B-.7,B,2.3,2.5,'#f6f1e4');return;
+    case 'sectional':box(a,b,T,T+2.8,0,1.4);box(a,a+2.8,T,B,0,1.4);box(a,b,T,T+.8,1.4,2.8,shade(col,.85));box(a,a+.8,T,B,1.4,2.8,shade(col,.85));return;
+    case 'toilet':case 'toiletround':box(a+w*.06,b-w*.06,T,T+Math.min(.75,h*.32),0,2.6,'#eef2f5');box(a+w*.12,b-w*.12,T+.7,B,0,1.35,'#eef2f5');return;
+    case 'vanity':case 'vanity2':box(a,b,T,B,0,2.9,'#9b7653');box(a-.05,b+.05,T,B+.05,2.9,3,'#d3ccc1');return;
+    case 'counter':case 'barcounter':case 'reception':box(a,b,T+.1,B-.1,0,H-.1,'#9b7653');box(a,b,T,B,H-.1,H,'#d3ccc1');return;
+  }
+  if(L.shape==='odd'){const g=oddGeom(it,L);const pts=samplePath(g.d,48);if(pts){let P=pts;if(g.tx){const m=g.tx.match(/translate\(([-\d.e]+) ([-\d.e]+)\)/);if(m)P=pts.map(q=>({x:q.x+ +m[1],y:q.y+ +m[2]}));}
+      const top=({'Platform / riser':1.5,'Counter':3.5,'Booth seat':1.5,'Sofa / upholstered':1.4,'Cabinet / storage':3})[it.otype]||2.4;const Wp=P.map(q=>W3(it,q.x,q.y));ctx.extrude(Wp,0,top,col);
+      if(g.back&&/Booth|Sofa/.test(it.otype||'')){let bp=samplePath(g.back,48);if(bp){if(g.tx){const m=g.tx.match(/translate\(([-\d.e]+) ([-\d.e]+)\)/);if(m)bp=bp.map(q=>({x:q.x+ +m[1],y:q.y+ +m[2]}));}ctx.extrude(bp.map(q=>W3(it,q.x,q.y)),top,/Booth/.test(it.otype)?3.6:2.8,shade(col,.85));}}return;}}
+  box(a,b,T,B,z[0],z[1]);}
+
+/* ---------- practicals and film lights ---------- */
+function mockLight(it,L,ctx){if(L.shape==='sun')return;const on=it.on!==false;const glow=on?(it.gel&&it.gel!=='None'&&typeof gelColor==='function'?gelColor(it.gel):LIT):'#666';
+  if(/^pr_/.test(it.t)||L.shape==='practical')return mockPractical(it,L,ctx,on);
+  if(L.src){const z=({fireplace:[0,4.4],neon:[5,6],monitor:[2.5,4],laptop:[2.5,2.8],tvon:[3.6,6],candles:[2.5,2.8],fridgeopen:[0,6],cooler:[0,6.5],aquarium:[2.5,4.5],jukebox:[0,5.5],campfire:[0,1.4]})[it.t];if(!z)return;const w=+it.w||1.5,h=+it.h||1;boxL(ctx,it,-w/2,w/2,-h/2,h/2,z[0],z[1],on?'#ffcf7a':'#555');return;}
+  const s=L.s||1;const hz=+it.height||6.5;const m=it.mount||((L.defaults||{}).mount)||'';const body='#2b2d30';
+  // what it is mounted on
+  const base=W3(it,-s*.5,0);
+  if(/Overhead|pipe/.test(m))line3(ctx,Object.assign({},base,{z:hz}),Object.assign({},base,{z:WALL_H}),.1,STAND);
+  else if(/Menace|boom arm/.test(m)){const back=W3(it,-s*.5-4.5,0);line3(ctx,Object.assign({},base,{z:hz+.3}),Object.assign({},back,{z:hz+.3}),.12,STAND);line3(ctx,Object.assign({},back,{z:0}),Object.assign({},back,{z:hz+.3}),.12,STAND);boxL(ctx,Object.assign({},it,{x:back.x,y:back.y}),-.8,.8,-.6,.6,0,.6,STAND);}
+  else if(!/Clamp|Magnet|Handheld|Practical|Ceiling/.test(m)){line3(ctx,Object.assign({},base,{z:0}),Object.assign({},base,{z:hz-s*.35}),.08,STAND);standLegs(ctx,base,/Combo|Beefy|Rolling/.test(m)?1.15:.85,hz);}
+  // the fixture
+  const z0=hz-s*.4,z1=hz+s*.4;
+  switch(L.shape){
+    case 'panel':{const ar=s>1.6?.5:1;boxL(ctx,it,-.25,0,-s/2,s/2,hz-s*ar/2,hz+s*ar/2,body);quadL(ctx,it,[[0.01,-s/2+.05,hz-s*ar/2+.05],[0.01,s/2-.05,hz-s*ar/2+.05],[0.01,s/2-.05,hz+s*ar/2-.05],[0.01,-s/2+.05,hz+s*ar/2-.05]],glow);break;}
+    case 'tube':boxL(ctx,it,-.07,.07,-.07,.07,hz-s/2,hz+s/2,glow);break;
+    case 'lantern':bill(ctx,it,hz,(k,X,Y)=>`<circle cx="${X.toFixed(1)}" cy="${Y.toFixed(1)}" r="${(s/2*k).toFixed(1)}" fill="${on?'#fffaf0':'#ddd'}" stroke="#bbb" stroke-width=".6"/>`+(it.modifier==='Lantern skirt'||/chim/i.test(it.t)?`<path d="M${(X-s/2*k).toFixed(1)} ${Y.toFixed(1)} A${(s/2*k).toFixed(1)} ${(s/2*k).toFixed(1)} 0 0 1 ${(X+s/2*k).toFixed(1)} ${Y.toFixed(1)}Z" fill="#141518" opacity=".85"/>`:''));line3(ctx,Object.assign({},W3(it,0,0),{z:hz+s/2}),Object.assign({},W3(it,0,0),{z:WALL_H}),.03,STAND);break;
+    case 'openface':boxL(ctx,it,-s*.85,0,-s*.5,s*.5,z0,z1,body);quadL(ctx,it,[[0.01,-s*.45,z0+.05],[0.01,s*.45,z0+.05],[0.01,s*.45,z1-.05],[0.01,-s*.45,z1-.05]],glow);break;
+    default:{const fw=L.shape==='mini'?s*.6:s*.5;boxL(ctx,it,-s,0,-fw,fw,hz-fw*.85,hz+fw*.85,body);quadL(ctx,it,[[0.01,-fw*.85,hz-fw*.7],[0.01,fw*.85,hz-fw*.7],[0.01,fw*.85,hz+fw*.7],[0.01,-fw*.85,hz+fw*.7]],glow);}
+  }
+  // accessories you'd see from the front
+  const mod=it.modifier||'None';const fh=s*.45;
+  if(/Softbox/.test(mod)){const l=Math.max(.8,Math.min(2.6,fh*1.6+.6)),W2=Math.max(.75,Math.min(2.4,fh*1.5+.45));boxL(ctx,it,0,l,-W2,W2,hz-W2*.8,hz+W2*.8,'#2b2d30');quadL(ctx,it,[[l+.01,-W2,hz-W2*.8],[l+.01,W2,hz-W2*.8],[l+.01,W2,hz+W2*.8],[l+.01,-W2,hz+W2*.8]],on?'#ffffff':'#ccc');}
+  else if(mod==='Barn doors'){const l=Math.max(.35,fh*1.1);quadL(ctx,it,[[0,-fh,hz-fh],[l*.8,-fh-l*.55,hz-fh],[l*.8,-fh-l*.55,hz+fh],[0,-fh,hz+fh]],'#2b2d30');quadL(ctx,it,[[0,fh,hz-fh],[l*.8,fh+l*.55,hz-fh],[l*.8,fh+l*.55,hz+fh],[0,fh,hz+fh]],'#2b2d30');quadL(ctx,it,[[0,-fh,hz+fh],[0,fh,hz+fh],[l*.8,fh,hz+fh+l*.5],[l*.8,-fh,hz+fh+l*.5]],'#2b2d30');}
+  else if(mod==='Snoot'){const l=Math.max(.5,fh*2.2),r=fh*.55;boxL(ctx,it,0,l,-r,r,hz-r,hz+r,'#2b2d30');}
+  else if(mod==='Lantern skirt'){const r=Math.max(.8,fh*2.4);bill(ctx,W3(it,r,0),hz,(k,X,Y)=>`<circle cx="${X.toFixed(1)}" cy="${Y.toFixed(1)}" r="${(r*k).toFixed(1)}" fill="${on?'#fffaf0':'#ddd'}"/><path d="M${(X-r*k).toFixed(1)} ${Y.toFixed(1)} A${(r*k).toFixed(1)} ${(r*k).toFixed(1)} 0 0 1 ${(X+r*k).toFixed(1)} ${Y.toFixed(1)}Z" fill="#141518" opacity=".85"/>`);}
+  else if(mod==='Dome / diffuser'){const r=Math.max(.3,fh*1.05);bill(ctx,W3(it,r*.5,0),hz,(k,X,Y)=>`<circle cx="${X.toFixed(1)}" cy="${Y.toFixed(1)}" r="${(r*k).toFixed(1)}" fill="${on?'#ffffff':'#ccc'}"/>`);}
+  if(it.diff&&it.diff!=='None'&&!/Softbox|Lantern|Snoot|Dome/.test(mod))quadL(ctx,it,[[.06,-fh*1.1,hz-fh*1.1],[.06,fh*1.1,hz-fh*1.1],[.06,fh*1.1,hz+fh*1.1],[.06,-fh*1.1,hz+fh*1.1]],'#ffffff','fill-opacity=".85"');}
+
+function mockPractical(it,L,ctx,on){const sh=on?SHADE_ON:SHADE_OFF;const p=W3(it,0,0);const cord=(z)=>line3(ctx,Object.assign({},p,{z}),Object.assign({},p,{z:WALL_H}),.03,'#333');
+  const trap=(z0,z1,wb,wt,col)=>bill(ctx,p,(z0+z1)/2,(k,X,Y)=>{const hh=(z1-z0)*k/2;return `<path d="M${(X-wb*k/2).toFixed(1)} ${(Y+hh).toFixed(1)} L${(X+wb*k/2).toFixed(1)} ${(Y+hh).toFixed(1)} L${(X+wt*k/2).toFixed(1)} ${(Y-hh).toFixed(1)} L${(X-wt*k/2).toFixed(1)} ${(Y-hh).toFixed(1)}Z" fill="${col}" stroke="#8a7a5a" stroke-width=".6"/>`;});
+  const pole=(z0,z1,w)=>line3(ctx,Object.assign({},p,{z:z0}),Object.assign({},p,{z:z1}),w||.05,'#3a3a3a');const disc=(z,w,col)=>bill(ctx,p,z,(k,X,Y)=>`<ellipse cx="${X.toFixed(1)}" cy="${Y.toFixed(1)}" rx="${(w*k/2).toFixed(1)}" ry="${Math.max(1,w*k/8).toFixed(1)}" fill="${col||'#3a3a3a'}"/>`);
+  switch(it.t){
+    case 'pr_table':case 'practical':{const b=surfaceTop(ctx,p)||Math.max(0,(+it.height||3)-1.6);disc(b+.03,.55);pole(b,b+1.1,.06);trap(b+1,b+1.85,1.15,.75,sh);return;}
+    case 'pr_desk':{const b=surfaceTop(ctx,p)||Math.max(0,(+it.height||2.5)-1.2);disc(b+.03,.5);const head=W3(it,.5,0);line3(ctx,Object.assign({},p,{z:b}),Object.assign({},p,{z:b+1.1}),.05,'#3a3a3a');line3(ctx,Object.assign({},p,{z:b+1.1}),Object.assign({},head,{z:b+1.3}),.05,'#3a3a3a');bill(ctx,head,b+1.2,(k,X,Y)=>`<path d="M${(X-.25*k).toFixed(1)} ${(Y-.12*k).toFixed(1)} L${(X+.25*k).toFixed(1)} ${(Y-.12*k).toFixed(1)} L${(X+.35*k).toFixed(1)} ${(Y+.15*k).toFixed(1)} L${(X-.35*k).toFixed(1)} ${(Y+.15*k).toFixed(1)}Z" fill="#2b2d30"/><ellipse cx="${X.toFixed(1)}" cy="${(Y+.15*k).toFixed(1)}" rx="${(.33*k).toFixed(1)}" ry="${(.06*k).toFixed(1)}" fill="${on?LIT:'#666'}"/>`);return;}
+    case 'pr_floor':disc(.03,.9);pole(0,4.7);trap(4.5,5.5,1.35,1,sh);return;
+    case 'pr_torch':disc(.03,.9);pole(0,5.6);trap(5.5,6.1,.6,1.5,sh);return;
+    case 'pr_sconce':{const z=+it.height||6;trap(z-.35,z+.35,.45,.65,sh);return;}
+    case 'pr_pendant':{const z=+it.height||7;cord(z+.8);trap(z,z+.8,1.2,.35,sh);return;}
+    case 'pr_chand':{const z=+it.height||7.5;cord(z+1);bill(ctx,p,z+.4,(k,X,Y)=>`<ellipse cx="${X.toFixed(1)}" cy="${Y.toFixed(1)}" rx="${(1.1*k).toFixed(1)}" ry="${(.6*k).toFixed(1)}" fill="none" stroke="#b8933f" stroke-width="${Math.max(.8,.06*k).toFixed(1)}"/>${[-1,-.5,0,.5,1].map(t=>`<circle cx="${(X+t*1*k).toFixed(1)}" cy="${(Y-.15*k).toFixed(1)}" r="${(.1*k).toFixed(1)}" fill="${on?LIT:'#777'}"/>`).join('')}`);return;}
+    case 'pr_flush':bill(ctx,p,WALL_H-.15,(k,X,Y)=>`<ellipse cx="${X.toFixed(1)}" cy="${Y.toFixed(1)}" rx="${(.6*k).toFixed(1)}" ry="${(.18*k).toFixed(1)}" fill="${on?LIT:'#ddd'}" stroke="#999" stroke-width=".6"/>`);return;
+    case 'pr_can':bill(ctx,p,WALL_H-.02,(k,X,Y)=>`<ellipse cx="${X.toFixed(1)}" cy="${Y.toFixed(1)}" rx="${(.3*k).toFixed(1)}" ry="${(.08*k).toFixed(1)}" fill="${on?LIT:'#ccc'}"/>`);return;
+    case 'pr_track':line3(ctx,Object.assign({},W3(it,-1.5,0),{z:WALL_H-.1}),Object.assign({},W3(it,1.5,0),{z:WALL_H-.1}),.08,'#333');bill(ctx,p,WALL_H-.4,(k,X,Y)=>`<rect x="${(X-.12*k).toFixed(1)}" y="${(Y-.2*k).toFixed(1)}" width="${(.24*k).toFixed(1)}" height="${(.4*k).toFixed(1)}" fill="#2b2d30"/>`);return;
+    case 'pr_troffer':quadL(ctx,it,[[-1,-2,WALL_H-.05],[1,-2,WALL_H-.05],[1,2,WALL_H-.05],[-1,2,WALL_H-.05]],on?'#f2f6ff':'#ddd');return;
+    case 'pr_vanity':{const z=+it.height||6.8;const s=L.s||2.4;boxL(ctx,it,-.12,.12,-s/2,s/2,z-.2,z+.2,'#c9ced3');for(let i=-1;i<=1;i++)bill(ctx,W3(it,.15,i*s/3),z,(k,X,Y)=>`<circle cx="${X.toFixed(1)}" cy="${Y.toFixed(1)}" r="${(.18*k).toFixed(1)}" fill="${on?LIT:'#ddd'}"/>`);return;}
+  }
+  trap((+it.height||3)-.4,(+it.height||3)+.4,1,.7,sh);}
+
+/* ---------- grip ---------- */
+function mockGrip(it,L,ctx){const p=W3(it,0,0);const fabCol=f=>/Solid/.test(f||'')?'#141518':/net/i.test(f||'')?'#141518':/lam/i.test(f||'')?'#c9ced3':/Ultrabounce|muslin|silk|frost|Highlight|grid|216|250|251|Magic|Opal|Hampshire/i.test(f||'')?'#f4f6f8':'#e9e9e9';
+  const fabOp=f=>/Single/.test(f||'')?.35:/Double/.test(f||'')?.55:/Solid|lam|Ultrabounce|muslin/i.test(f||'')?1:.75;
+  const panelX=(cx,w,z0,z1,col,op)=>quadL(ctx,it,[[cx,-w/2,z0],[cx,w/2,z0],[cx,w/2,z1],[cx,-w/2,z1]],col,`fill-opacity="${op}" stroke="#9aa3ab" stroke-width="1"`);
+  switch(L.shape){
+    case 'cstand':case 'combo':case 'rolling':line3(ctx,Object.assign({},p,{z:0}),Object.assign({},p,{z:5.5}),.07,STAND);standLegs(ctx,p,L.shape==='cstand'?.85:1.1,5.5);if(L.shape==='cstand')line3(ctx,Object.assign({},p,{z:5.5}),Object.assign({},W3(it,1.5,0),{z:5.6}),.06,STAND);return;
+    case 'menace':{const tip=W3(it,7,0);boxL(ctx,it,-1.2,.4,-.8,.8,0,.6,STAND);line3(ctx,Object.assign({},p,{z:.6}),Object.assign({},p,{z:8}),.12,STAND);line3(ctx,Object.assign({},W3(it,-.4,0),{z:8}),Object.assign({},tip,{z:8}),.1,STAND);return;}
+    case 'applebox':boxL(ctx,it,-.83,.83,-.5,.5,0,.67,'#b08654');return;
+    case 'sandbag':boxL(ctx,it,-.7,.7,-.35,.35,0,.35,'#8b8067');return;
+    case 'ladder':line3(ctx,Object.assign({},W3(it,-.8,-2.6),{z:0}),Object.assign({},W3(it,-.7,0),{z:6}),.1,'#9aa3ab');line3(ctx,Object.assign({},W3(it,.8,-2.6),{z:0}),Object.assign({},W3(it,.7,0),{z:6}),.1,'#9aa3ab');line3(ctx,Object.assign({},W3(it,-.8,2.6),{z:0}),Object.assign({},W3(it,-.7,0),{z:6}),.1,'#9aa3ab');line3(ctx,Object.assign({},W3(it,.8,2.6),{z:0}),Object.assign({},W3(it,.7,0),{z:6}),.1,'#9aa3ab');return;
+    case 'frame':{const D=frameDims(it);if(it.orient==='Overhead'){const z=ohHeight(it);quadL(ctx,it,[[-D[0]/2,-D[1]/2,z],[D[0]/2,-D[1]/2,z],[D[0]/2,D[1]/2,z],[-D[0]/2,D[1]/2,z]],fabCol(it.fabric),`fill-opacity="${fabOp(it.fabric)}" stroke="#9aa3ab" stroke-width="1"`);
+        if(it.standed!==false)[[-1,-1],[1,-1],[-1,1],[1,1]].forEach(([u,v])=>{const q=W3(it,u*D[0]/2,v*D[1]/2);line3(ctx,Object.assign({},q,{z:0}),Object.assign({},q,{z}),.1,STAND);});return;}
+      const w=FRAME_SIZES[it.size]||6,hgt=D[1]>D[0]?D[1]:w;const z0=it.standed===false?0:1.2;panelX(0,w,z0,z0+hgt,fabCol(it.fabric),fabOp(it.fabric));if(it.standed!==false)[-1,1].forEach(sg=>{const q=W3(it,-.3,sg*(w/2-.3));line3(ctx,Object.assign({},q,{z:0}),Object.assign({},q,{z:z0+hgt*.6}),.07,STAND);standLegs(ctx,q,.85,z0+hgt*.6);});return;}
+    case 'flag':{const sz=it.size||'';const mm=sz.match(/(\d+)\s*[×x]\s*(\d+)/);let w=FLAG_SIZES[sz]||2,hgt=w;if(mm){let a=+mm[1],b=+mm[2];if(a>6||b>6){a/=12;b/=12;}w=/cutter/.test(sz)?Math.max(a,b):Math.min(a,b);hgt=/cutter/.test(sz)?Math.min(a,b):Math.max(a,b);}if(/finger/.test(sz)){w=.5;hgt=.4;}const zc=it.standed===false?3:5.4;const t=it.ftype||'';const col=/Silk/i.test(t)?'#f4f6f8':'#141518';const op=/Single/.test(t)?.35:/Double/.test(t)?.55:1;
+      panelX(0,w,zc-hgt/2,zc+hgt/2,col,op);if(it.standed!==false){const s=W3(it,-1.5,0);line3(ctx,Object.assign({},s,{z:0}),Object.assign({},s,{z:zc}),.07,STAND);standLegs(ctx,s,.85,zc);line3(ctx,Object.assign({},s,{z:zc}),Object.assign({},p,{z:zc}),.05,STAND);}return;}
+    case 'bounce':{const w=BOUNCE_SIZES[it.size]||4;const side=it.side||'White';const col=/Black/.test(side)?'#141518':/Gold/.test(side)?'#e2b84a':/Silver/.test(side)?'#cfd6dd':'#ffffff';const z0=it.standed?2:0;
+      if(/Flexfill/.test(it.size||''))bill(ctx,p,z0+w/2,(k,X,Y)=>`<ellipse cx="${X.toFixed(1)}" cy="${Y.toFixed(1)}" rx="${(w/2*k*.6).toFixed(1)}" ry="${(w/2*k).toFixed(1)}" fill="${col}"/>`);else panelX(0,w,z0,z0+w,col,1);
+      if(it.standed){const s=W3(it,-1.4,0);line3(ctx,Object.assign({},s,{z:0}),Object.assign({},s,{z:z0+w/2}),.07,STAND);standLegs(ctx,s,.85,z0+w/2);}return;}
+    case 'vflat':{const a=35*D2R,l=4;const e1=W3(it,-Math.cos(a)*l,-Math.sin(a)*l),e2=W3(it,-Math.cos(a)*l,Math.sin(a)*l);const c=it.side==='Black'?'#141518':'#f4f6f8';
+      quad3(ctx,[Object.assign({},p,{z:0}),Object.assign({},e1,{z:0}),Object.assign({},e1,{z:8}),Object.assign({},p,{z:8})],c);quad3(ctx,[Object.assign({},p,{z:0}),Object.assign({},e2,{z:0}),Object.assign({},e2,{z:8}),Object.assign({},p,{z:8})],c);return;}
+  }}
+
+/* ---------- other cameras, booms, dollies and village in frame ---------- */
+function mockCamera(it,ctx){const h=+it.height||5;const p=W3(it,0,0);boxL(ctx,it,-1.1,0,-.45,.45,h-.4,h+.4,'#2b2d30');boxL(ctx,it,0,.8,-.25,.25,h-.25,h+.25,'#2b2d30');
+  const sp=it.support||'';if(/Sticks|Baby legs|Hi-hat|Ladder/.test(sp)){for(let i=0;i<3;i++){const t=(60+i*120)*D2R;line3(ctx,Object.assign({},W3(it,-.4,0),{z:h-.4}),{x:it.x+Math.cos(t)*1.3,y:it.y+Math.sin(t)*1.3,z:0},.06,STAND);}}
+  else if(/Dolly/.test(sp))boxL(ctx,it,-2,2,-1.25,1.25,0,1,'#3b3f45');
+  else if(/Handheld|Shoulder|Steadicam|Gimbal/.test(sp))bill(ctx,W3(it,-1.2,0),h-1,(k,X,Y)=>`<rect x="${(X-.9*k).toFixed(1)}" y="${(Y-.6*k).toFixed(1)}" width="${(1.8*k).toFixed(1)}" height="${(4.4*k).toFixed(1)}" rx="${(.5*k).toFixed(1)}" fill="#3a3f47"/><circle cx="${X.toFixed(1)}" cy="${(Y-1.2*k).toFixed(1)}" r="${(.4*k).toFixed(1)}" fill="#3a3f47"/>`);}
+function mockCamGear(it,L,ctx){const p=W3(it,0,0);switch(L.shape){
+  case 'boom':{const tip=W3(it,8,0);bill(ctx,p,3,(k,X,Y)=>`<rect x="${(X-.9*k).toFixed(1)}" y="${(Y-2.4*k).toFixed(1)}" width="${(1.8*k).toFixed(1)}" height="${(5.4*k).toFixed(1)}" rx="${(.5*k).toFixed(1)}" fill="#3a3f47"/><circle cx="${X.toFixed(1)}" cy="${(Y-3*k).toFixed(1)}" r="${(.4*k).toFixed(1)}" fill="#3a3f47"/>`);line3(ctx,Object.assign({},p,{z:5.6}),Object.assign({},tip,{z:7.2}),.06,'#555');boxL(ctx,Object.assign({},it,{x:tip.x,y:tip.y}),-.55,.55,-.2,.2,6.9,7.3,'#8c8c8c');return;}
+  case 'dolly':boxL(ctx,it,-2,2,-1.25,1.25,0,1,'#3b3f45');return;
+  case 'slider':boxL(ctx,it,-1.5,1.5,-.14,.14,2.6,2.8,'#6b7179');return;
+  case 'jib':{line3(ctx,Object.assign({},p,{z:0}),Object.assign({},p,{z:4.5}),.15,STAND);line3(ctx,Object.assign({},W3(it,-2.2,0),{z:4.5}),Object.assign({},W3(it,9,0),{z:6}),.12,STAND);return;}
+  case 'village':boxL(ctx,it,-.9,.9,-.9,-.4,3.5,4.6,'#0f1215');line3(ctx,Object.assign({},W3(it,0,-.6),{z:0}),Object.assign({},W3(it,0,-.6),{z:3.5}),.06,STAND);boxL(ctx,it,-1.35,-.45,.1,.9,0,3.2,'#6e5238');boxL(ctx,it,.45,1.35,.1,.9,0,3.2,'#6e5238');return;}}
 /* ============================================================
    Estimated lighting time per setup. Shown in the Shot tab; on exported
    shot sheets only when "Estimated lighting time" is ticked (off by default).
