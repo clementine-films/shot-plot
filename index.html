@@ -5316,10 +5316,11 @@ function mockParts(it,L,ctx,w,h){const a=-w/2,b=w/2,T=-h/2,B=h/2;const H=mhBase(
    piece still works; the plot clips the piece's own drawing to the outline. */
 function polyPts(it){const w=+it.w||2,h=+it.h||2;return (it.poly||[]).map(([u,v])=>[u*w,v*h]);}
 function polyD(it){const p=polyPts(it);return p.length?'M'+p.map(q=>q[0].toFixed(3)+' '+q[1].toFixed(3)).join(' L')+'Z':'';}
-function startReshape(){if(!selItem()||selItem().t==='line')return;snap();const it=selItem();
+function startReshape(){if(!selItem()||selItem().t==='line')return;if(selItem().poly){V.reshapeId=selItem().id;renderCanvas();renderPanel();return;}snap();const it=selItem();V.reshapeId=it.id;
   it.poly=/round|stool|hightop|clawfoot|pedsink|ottomanround/.test(it.t)?[...Array(16)].map((_,i)=>[r2(.5*Math.cos(i*Math.PI/8)),r2(.5*Math.sin(i*Math.PI/8))]):[[-.5,-.5],[.5,-.5],[.5,.5],[-.5,.5]];
-  changed();renderPanel();toast('Drag a corner to reshape. Click the + on an edge to add a corner; double-click a corner to remove it.');}
-function resetShape(){if(!selItem()||!selItem().poly)return;snap();const it=selItem();delete it.poly;changed();renderPanel();}
+  changed();renderPanel();toast('Drag a corner to reshape, drag a + to add one, double-click a corner to remove it. Press Esc or Done when you’re finished.');}
+function endReshape(){if(!V.reshapeId)return;V.reshapeId=null;renderCanvas();if(UI.R)renderPanel();}
+function resetShape(){if(!selItem()||!selItem().poly)return;snap();const it=selItem();delete it.poly;V.reshapeId=null;changed();renderPanel();}
 // after an edit, refit the piece's box around its outline so its drawing still covers it
 function refitPoly(it){const w=+it.w||2,h=+it.h||2;const P=it.poly.map(([u,v])=>[u*w,v*h]);const xs=P.map(q=>q[0]),ys=P.map(q=>q[1]);
   const x0=Math.min(...xs),x1=Math.max(...xs),y0=Math.min(...ys),y1=Math.max(...ys);const nw=Math.max(.25,x1-x0),nh=Math.max(.25,y1-y0),cx=(x0+x1)/2,cy=(y0+y1)/2;
@@ -5328,7 +5329,7 @@ function refitPoly(it){const w=+it.w||2,h=+it.h||2;const P=it.poly.map(([u,v])=>
 {const _sg=setGlyph;setGlyph=function(it,L,C,px){const g=_sg(it,L,C,px);if(!it.poly||!it.poly.length||L.kind!=='set')return g;const d=polyD(it);const id='cp'+String(it.id).replace(/\W/g,'');
   return `<defs><clipPath id="${id}"><path d="${d}"/></clipPath></defs><path d="${d}" fill="${C.setFill}"/><g clip-path="url(#${id})">${g}</g><path d="${d}" fill="none" stroke="${C.setStroke}" stroke-width="${1.4*px}" stroke-linejoin="round"/>`;};}
 // handles: a dot on every corner, a + on every edge
-{const _eh=extraHandles;extraHandles=function(it,px){const base=_eh(it,px);if(!it.poly)return base;const P=polyPts(it).map(([x,y])=>W3(it,x,y));let o='';
+{const _eh=extraHandles;extraHandles=function(it,px){const base=_eh(it,px);if(!it.poly||V.reshapeId!==it.id)return base;const P=polyPts(it).map(([x,y])=>W3(it,x,y));let o='';
   P.forEach((q,i)=>{const n=P[(i+1)%P.length];const m={x:(q.x+n.x)/2,y:(q.y+n.y)/2};o+=`<g data-h="pe" data-i="${i}" style="cursor:copy"><circle cx="${m.x}" cy="${m.y}" r="${5*px}" fill="#fff" stroke="#bd5103" stroke-width="${1.2*px}"/><path d="M${m.x-2.6*px} ${m.y} H${m.x+2.6*px} M${m.x} ${m.y-2.6*px} V${m.y+2.6*px}" stroke="#bd5103" stroke-width="${1.4*px}"/><title>Drag to add a corner here</title></g>`;});
   P.forEach((q,i)=>{o+=`<circle data-h="pv" data-i="${i}" cx="${q.x}" cy="${q.y}" r="${5.5*px}" fill="#f2a93b" stroke="#111" stroke-width="${px}" style="cursor:move"><title>Drag to reshape. Double-click to remove this corner.</title></circle>`;});
   return base+o;};}
@@ -5357,17 +5358,21 @@ function manipGroup(it){const L=LIB[it.t];if(!L||L.kind!=='set'||isOpening(it)||
   g+=`<div class="f2" style="margin-top:6px">${fld('Height (ft)',inp('zh',fmtNum(b[1]-b[0])))}${fld('Sits this high (ft)',inp('z0',fmtNum(b[0])))}</div>`;
   g+=`<label class="chk"><input type="checkbox" data-k="stack" ${it.stack?'checked':''}> Sits on the piece under it (a lamp on a dresser, a TV on a console)</label>`;
   for(let i=0;i<parts.length;i+=2)g+=`<div class="f2">${parts[i]}${parts[i+1]||''}</div>`;
-  g+=it.poly?`<div class="f2" style="margin-top:6px"><span style="font-size:12px;align-self:center">Reshaping: drag the corner dots on the plan.</span><button class="btn sm" data-reshape="reset">Back to its usual shape</button></div>`:`<button class="btn sm" data-reshape="1" style="margin-top:6px" title="Add corners you can drag">✎ Reshape the outline</button>`;g+=`<div class="pSub">It stays the same piece, with its name and look. Height and parts show in the mock-ups.</div></div>`;return g;}
+  g+=it.poly&&V.reshapeId===it.id?`<div class="f2" style="margin-top:6px"><button class="btn sm pri" data-reshape="done">✓ Done reshaping</button><button class="btn sm" data-reshape="reset">Back to its usual shape</button></div><div style="font-size:12px;margin-top:4px">Drag the corner dots on the plan. Esc also finishes.</div>`:it.poly?`<div class="f2" style="margin-top:6px"><button class="btn sm" data-reshape="1">✎ Edit the outline</button><button class="btn sm" data-reshape="reset">Back to its usual shape</button></div>`:`<button class="btn sm" data-reshape="1" style="margin-top:6px" title="Add corners you can drag">✎ Reshape the outline</button>`;g+=`<div class="pSub">It stays the same piece, with its name and look. Height and parts show in the mock-ups.</div></div>`;return g;}
 const fmtNum=v=>String(Math.round(v*100)/100);
 {const _pi=panelItem;panelItem=function(){let h=_pi();try{const it=selItem();if(it){const g=manipGroup(it);if(g){const key='<div class="f" style="grid-template-columns:96px 1fr"><label>Notes';const i=h.indexOf(key);h=i>=0?h.slice(0,i)+g+h.slice(i):h+g;}}}catch(e){}return h;};}
 document.addEventListener('click',e=>{const t=e.target.closest&&e.target.closest('[data-flip],[data-reshape]');if(!t||!t.closest('#panel'))return;const it=selItem();if(!it)return;
-  if(t.dataset.reshape){if(t.dataset.reshape==='reset')resetShape();else startReshape();return;}snap();const it2=selItem()||it;const k=t.dataset.flip==='x'?'fx':'fy';if(it2[k])delete it2[k];else it2[k]=true;changed();if(typeof CALC!=='undefined'&&CALC.open)renderCalc();});
+  if(t.dataset.reshape){if(t.dataset.reshape==='reset')resetShape();else if(t.dataset.reshape==='done')endReshape();else startReshape();return;}snap();const it2=selItem()||it;const k=t.dataset.flip==='x'?'fx':'fy';if(it2[k])delete it2[k];else it2[k]=true;changed();if(typeof CALC!=='undefined'&&CALC.open)renderCalc();});
 document.addEventListener('change',e=>{const k=e.target&&e.target.dataset&&e.target.dataset.k;if(!k||!/^(zh|z0|stack|p_)/.test(k)||!e.target.closest('#panel'))return;setTimeout(()=>{if(typeof CALC!=='undefined'&&CALC.open)renderCalc();},0);});
 
 /* dragging a wall piece (door, window, sconce, mirror) along its wall keeps the way it faces;
    it only turns when you take it to a different wall */
 {const _sw=snapToWall;snapToWall=function(it,p){const o=typeof drag!=='undefined'&&drag&&drag.type==='move'&&drag.origs?drag.origs[it.id]:null;const r0=o?(o.r||0):null;const ok=_sw(it,p);
   if(ok&&o){const a=(it.r||0)*D2R;const off=Math.abs(-(o.x-it.x)*Math.sin(a)+(o.y-it.y)*Math.cos(a));const par=Math.abs(((((it.r||0)-r0)%180)+270)%180-90)<1;if(off<.7&&par)it.r=r0;}return ok;};}
+
+// Esc, picking something else or clicking empty space ends reshaping
+window.addEventListener('keydown',e=>{if(e.key==='Escape'&&V.reshapeId){e.stopImmediatePropagation();e.preventDefault();endReshape();}},true);
+{const _rc=renderCanvas;renderCanvas=function(){if(V.reshapeId&&V.sel!==V.reshapeId)V.reshapeId=null;return _rc.apply(this,arguments);};}
 const BRANDFF=(()=>{let o='';for(const sh of document.styleSheets){try{for(const r of sh.cssRules)if(r.type===5&&/EB Garamond|Lato/.test(r.cssText))o+=r.cssText;}catch(e){}}return o;})();
 /* ============================================================
    Export
