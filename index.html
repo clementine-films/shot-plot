@@ -1341,7 +1341,7 @@ function renderTree(){
   const cur=scene(),cs=setup(),csh=shot();
   $('#tree').innerHTML=P.scenes.map(sc=>{const open=sc.id===cur.id;
     return `<div class="scene"><div class="sRow ${open?'cur':''}" data-scene="${sc.id}"><span class="sNum">${esc(sc.num)}</span><span class="sHead" title="${esc(sceneHeading(sc))}">${esc(sceneHeading(sc))}</span></div>
-    ${open?sc.setups.map(su=>`<div class="setup"><div class="suRow ${su.id===cs.id?'cur':''}" data-setup="${su.id}">◐ ${esc(su.name)}${isTurn(su)?' <span class="turnTag" title="'+esc(buildLabel(su))+'">↺ turn</span>':''} <span style="color:var(--dim);font-size:10.5px">· ${su.items.filter(i=>LIB[i.t]&&LIB[i.t].kind==='light').length} lights</span></div>
+    ${open?sc.setups.map(su=>`<div class="setup"><div class="suRow ${su.id===cs.id?'cur':''}" data-setup="${su.id}">◐ ${esc(su.name)}${isTurn(su)?' <span class="turnTag" title="'+esc(buildLabel(su))+'">↺ turn</span>':''} <span style="color:var(--dim);font-size:10.5px">· ${setupLightCount(su)} light${setupLightCount(su)===1?'':'s'}</span></div>
       <div class="shots">${su.shots.map(s=>`<span class="shotChip ${s.id===csh.id?'cur':''}" data-shot="${s.id}" data-su="${su.id}" title="${esc(s.desc)}">${esc(s.num)}</span>`).join('')}<button class="addMini" data-addshot="${su.id}" title="New shot (copies this shot's characters and camera)">+ shot</button></div></div>`).join('')+`<div style="margin:2px 0 6px 18px"><button class="addMini" data-addsetup="${sc.id}" title="New lighting setup (copies walls, set pieces & actors)">+ setup</button></div>`:''}</div>`;}).join('');
   const sc=cur,su=cs,sh=csh;
   $('#crumb').innerHTML=`<span class="slug">SC ${esc(sc.num)}</span> <b>${esc(sceneHeading(sc))}</b> › ${esc(su.name)} › <span class="slug" style="color:var(--teal)">${esc(sh.num)}</span> ${esc(sh.size)}${sh.move&&sh.move!=='Static'?' · '+esc(sh.move):''}${sh.desc?' — '+esc(sh.desc):''}`;
@@ -5542,6 +5542,9 @@ function dofLoadFor(sh){const D=CALC.dof;const keep={stop:D.stop,coc:D.coc,show:
 $('#calc').addEventListener('input',e=>{const k=e.target&&e.target.dataset&&e.target.dataset.c;if(!k||!/^dof\./.test(k))return;setTimeout(()=>{try{const sh=shot();if(sh&&CALC.__dofShot===sh.id){sh.dofSet=dofSnapshot();scheduleSave();}}catch(_){}},0);});
 // the sun and moon: every change is saved with the scene
 $('#calc').addEventListener('change',e=>{if(e.target&&e.target.dataset&&e.target.dataset.sun)setTimeout(()=>{try{scheduleSave();}catch(_){}},0);});
+
+// a setup's light count includes lights placed in only one of its shots (each light counted once)
+function setupLightCount(su){const ids=new Set();const add=i=>{if(LIB[i.t]&&LIB[i.t].kind==='light')ids.add(i.id);};(su.items||[]).forEach(add);(su.shots||[]).forEach(sh=>(sh.items||[]).forEach(add));return ids.size;}
 const BRANDFF=(()=>{let o='';for(const sh of document.styleSheets){try{for(const r of sh.cssRules)if(r.type===5&&/EB Garamond|Lato/.test(r.cssText))o+=r.cssText;}catch(e){}}return o;})();
 /* ============================================================
    Export
