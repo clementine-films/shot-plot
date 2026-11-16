@@ -4562,7 +4562,7 @@ function mockColor(it){const k=it.t,L=LIB[k]||{};if(L.shape==='odd'||it.kind==='
 function shade(hex,k){const n=parseInt(hex.slice(1),16);const r=Math.min(255,Math.round((n>>16&255)*k)),g=Math.min(255,Math.round((n>>8&255)*k)),b=Math.min(255,Math.round((n&255)*k));return '#'+((1<<24)|(r<<16)|(g<<8)|b).toString(16).slice(1);}
 
 /* camera space: l = across the frame (+ right), d = depth along the lens, z = height */
-function mockCam(c,v){const r=(c.r||0)*D2R;const K={x:c.x,y:c.y,ux:Math.cos(r),uy:Math.sin(r),h:+c.height||5,ct:1,st:0};if(v){K.x=v.x;K.y=v.y;K.h=v.h;const t=v.t*D2R;K.ct=Math.cos(t);K.st=Math.sin(t);}return K;}
+function mockCam(c,v){const r=(c.r||0)*D2R;const K={x:c.x,y:c.y,ux:Math.cos(r),uy:Math.sin(r),h:+c.height||5,ct:1,st:0};if(v){K.x=v.x;K.y=v.y;K.h=v.h;if(v.r!=null){const rr=v.r*D2R;K.ux=Math.cos(rr);K.uy=Math.sin(rr);}const t=v.t*D2R;K.ct=Math.cos(t);K.st=Math.sin(t);}return K;}
 // a tilted camera (K.st ≠ 0) turns depth and height around the lens: + tilts up, − tilts down
 const toCam=(K,p,z)=>{const dx=p.x-K.x,dy=p.y-K.y;const l=-dx*K.uy+dy*K.ux,d=dx*K.ux+dy*K.uy;if(!K.st)return {l,d,z};const zr=z-K.h;return {l,d:d*K.ct+zr*K.st,z:zr*K.ct-d*K.st+K.h};};
 function clipNear(P,near){const out=[];for(let i=0;i<P.length;i++){const a=P[i],b=P[(i+1)%P.length];const ina=a.d>=near,inb=b.d>=near;if(ina)out.push(a);if(ina!==inb){const t=(near-a.d)/(b.d-a.d);out.push({l:a.l+(b.l-a.l)*t,d:near,z:a.z+(b.z-a.z)*t});}}return out;}
@@ -4605,8 +4605,8 @@ function mockFrameSVG(o){// o: {items, cam, sc, W, sensor, f, N, focus, bgFallba
   const hzY=K.st?Math.max(-2*H,Math.min(3*H,H/2+Math.tan(Math.asin(Math.max(-.9999,Math.min(.9999,K.st))))*f*ppm)):H/2;
   let body=`<rect x="${-W}" y="${-2*H}" width="${3*W}" height="${Math.max(0,hzY+2*H)}" fill="${top}"/><rect x="${-W}" y="${hzY}" width="${3*W}" height="${Math.max(0,3*H-hzY)}" fill="${floor}"/>`;
   // the chosen background, as a backdrop beyond the set: seen past the set pieces, over half walls, and through windows and doors
-  if(o.bg&&typeof dofScene==='function'){const Db=Math.max(4,o.bgDist||15);const fl=bgFloor(o.bg);const bp=(x,y)=>{const zr=y-camH;const d2=Math.max(.05,Db*K.ct+zr*K.st),y2=zr*K.ct-Db*K.st;return {x:W/2+x*f/d2*ppm,y:H/2-y2*f/d2*ppm};};
-    body=`<rect x="${-W}" y="${-2*H}" width="${3*W}" height="${5*H}" fill="${fl}"/>`;if(K.st>-.8){const fy=bp(0,0).y;body+=`<g${filt(sdOf(Db))}>${dofScene(o.bg,W,H,bp,f/Db*ppm,camH)}<rect x="${-W}" y="${fy}" width="${3*W}" height="${Math.max(0,3*H-fy)}" fill="${fl}"/></g>`;}}
+  if(o.bg&&typeof dofScene==='function'){const Db=Math.max(4,o.bgDist||15);const fl=bgFloor(o.bg);const A=o.view&&o.view.anchor;const bp=A?(x,y)=>{const q=toCam(K,{x:A.x+Db*A.ux-x*A.uy,y:A.y+Db*A.uy+x*A.ux},y);const d2=Math.max(.05,q.d);return {x:W/2+q.l*f/d2*ppm,y:H/2-(q.z-camH)*f/d2*ppm};}:(x,y)=>{const zr=y-camH;const d2=Math.max(.05,Db*K.ct+zr*K.st),y2=zr*K.ct-Db*K.st;return {x:W/2+x*f/d2*ppm,y:H/2-y2*f/d2*ppm};};
+    body=`<rect x="${-W}" y="${-2*H}" width="${3*W}" height="${5*H}" fill="${fl}"/>`;if(K.st>-.8){body+=`<g${filt(sdOf(Db))}>${dofScene(o.bg,W,H,bp,f/Db*ppm,camH)}<path d="${groundPath(bp,W,H)}" fill="${fl}"/></g>`;}}
   flats.sort((a,b)=>b.d-a.d).forEach(p=>{body+=`<g${filt(sdOf(p.d))}>${p.svg}</g>`;});
   polys.sort((a,b)=>b.d-a.d).forEach(p=>{body+=`<g${filt(sdOf(p.d))}${p.gear?' opacity=".9"':''}>${p.svg}</g>`;});
   // names above people, kept in frame
@@ -4625,9 +4625,9 @@ const mockHasSet=(items,cam)=>{const K=mockCam(cam);return items.some(i=>{if(i.t
 function shotFrames(scenes){const out=[];scenes.forEach(sc=>(sc.setups||[]).forEach(su=>su.shots.forEach(sh=>{const items=activeItems(su,sh);items.filter(i=>i.t==='camera').forEach(c=>{
   const lo=lensOf(c);const f=(lo&&lo.f)||+c.lens||35;const K=mockCam(c);const acts=items.filter(i=>i.t==='actor').map(a=>({a,c:toCam(K,a,0)})).filter(x=>x.c.d>1&&Math.abs(Math.atan2(x.c.l,x.c.d))<Math.atan((SENSORS[c.sensor]||24.9)/(2*f)));
   const foc=acts.length?Math.hypot(acts.sort((p,q)=>Math.abs(p.c.l)-Math.abs(q.c.l))[0].a.x-c.x,acts[0].a.y-c.y):8;
-  const tgt=acts.length?acts[0].a:null;const phases=isTiltMove(sh.move)?['start','end']:[''];
-  phases.forEach(ph=>{const view=shotView(sh,c,tgt,ph||'end');const r=mockFrameSVG({items,cam:c,sc,W:560,sensor:c.sensor,f,N:parseFloat(CALC.dof&&CALC.dof.stop)||2.8,focus:view.focus||foc,idp:'x'+sh.id+c.id+ph,view,bg:CALC.dof&&CALC.dof.bg,bgDist:Math.max(foc+2,parseFt(CALC.dof&&CALC.dof.bgDist)||15)});
-  out.push({sc,su,sh,c,f,phase:ph,note:view.notes.join(' '),svg:r.svg+viewTag(view,r.W)+'</svg>'});});});})));return out;}
+  const tgt=acts.length?acts[0].a:null;const phases=hasStart(sh.move)?['start','end']:[''];
+  phases.forEach(ph=>{const view=shotView(sh,c,tgt,ph||'end',sh.size,f);const fv=view.f||f;const r=mockFrameSVG({items,cam:c,sc,W:560,sensor:c.sensor,f:fv,N:parseFloat(CALC.dof&&CALC.dof.stop)||2.8,focus:view.focus||foc,idp:'x'+sh.id+c.id+ph,view,bg:CALC.dof&&CALC.dof.bg,bgDist:Math.max(foc+2,parseFt(CALC.dof&&CALC.dof.bgDist)||15)});
+  out.push({sc,su,sh,c,f:fv,phase:ph,note:view.notes.join(' '),svg:r.svg+viewTag(view,r.W)+'</svg>'});});});})));return out;}
 function openMockFrames(){const all=!!V.mfAll;const scs=all?P.scenes:[scene()];const fr=shotFrames(scs);
   const card=x=>`<div class="mfCard"><div class="mfHead"><b>${esc(x.sh.num)}</b>${x.phase?` · ${x.phase==='start'?'Start':'End'} of ${esc(x.sh.move.toLowerCase())}`:''} · ${esc(x.sh.size||'')}${x.c.cam?` · ${esc(x.c.cam)} cam`:''} · ${x.f}mm<span>${esc(x.su.name||'')}</span></div>${x.svg}<div class="mfDesc">${esc(x.sh.desc||'')}${x.note?`<div style="color:#ffcf7a;margin-top:3px">${esc(x.note)}</div>`:''}</div></div>`;
   const grid=fr.length?fr.map(card).join(''):'<div class="pSub">No shots have a camera yet. Add a camera to a shot to get its frame.</div>';
@@ -4949,37 +4949,48 @@ function bgScene(bg,W,H,P,k,camH,tod){
   if(tod!=='day'&&bgHasTod(bg))o+=`<rect x="-${W}" y="-${H}" width="${W*3}" height="${H*3}" fill="${night?'#050810':'#3a2a55'}" opacity="${night?.5:.22}"/>`;
   return o+lit;}
 /* ============================================================
-   Camera tilt in the mock-ups. The shot's angle sets where the lens
-   points: eye level is level, high / low / ground aim at the subject from
-   the camera's height, overhead looks straight down over the subject, and
-   Dutch rolls the frame. A typed tilt overrides the angle. Tilt up and
-   tilt down are separate moves, with a start and an end frame.
+   Camera angle and movement in the mock-ups. The shot's angle sets where
+   the lens points: eye level is level, high / low / ground aim at the
+   subject from the camera's height, overhead looks straight down over the
+   subject, and Dutch rolls the frame. A move has one "how far" box; the
+   plot is where the move ends, and the box says where it starts.
    ============================================================ */
-{const i=MOVES.indexOf('Tilt');if(i>=0)MOVES.splice(i,1,'Tilt up','Tilt down');}
-if(typeof SEQ_MOVE==='object'){SEQ_MOVE['tilt up']='Tilt up';SEQ_MOVE['tilt down']='Tilt down';}
+MOVES.splice(0,MOVES.length,'Static','Pan left','Pan right','Tilt up','Tilt down','Push in','Pull out','Dolly / track','Arc','Crane / jib','Zoom in','Zoom out','Whip pan','Steadicam / gimbal','Handheld');
+if(typeof SEQ_MOVE==='object')Object.assign(SEQ_MOVE,{'pan left':'Pan left','pan right':'Pan right','tilt up':'Tilt up','tilt down':'Tilt down','zoom in':'Zoom in','zoom out':'Zoom out','whip pan':'Whip pan','crane':'Crane / jib','jib':'Crane / jib','boom up':'Crane / jib'});
 const isTiltMove=m=>m==='Tilt up'||m==='Tilt down';
+const MOVE_AMT={'Pan left':['How far it pans left (°)',30],'Pan right':['How far it pans right (°)',30],'Tilt up':['How far it tilts up (°)',30],'Tilt down':['How far it tilts down (°)',30],
+  'Push in':['How far it pushes in (ft)',3],'Pull out':['How far it pulls out (ft)',3],'Dolly / track':['How far it tracks (ft, + right, − left)',6],'Arc':['How far it arcs around the subject (°, + right, − left)',45],
+  'Crane / jib':['How far it booms (ft, + up, − down)',4],'Zoom in':['Focal length it starts at (mm)',null],'Zoom out':['Focal length it starts at (mm)',null],'Whip pan':['How far it whips (°, + right, − left)',90]};
+const hasStart=m=>!!MOVE_AMT[m];
+function moveAmt(sh,f){const s=MOVE_AMT[sh.move];if(!s)return 0;let v=numOr(sh.moveAmt,null);if(v===null&&isTiltMove(sh.move))v=numOr(sh.tiltAmt,null);if(v!==null)return v;
+  return s[1]!==null?s[1]:sh.move==='Zoom in'?Math.max(8,Math.round(f/2)):Math.round(f*2);}
 // where the lens is aimed on the subject, by shot size (feet off the floor)
 function sizeAimZ(size){return /ECU|^CU|MCU/.test(size||'')?5.35:/^MS/.test(size||'')?4.7:/MWS|^FS/.test(size||'')?3.6:/WS|EWS/.test(size||'')?3.2:4.6;}
 const numOr=(v,d)=>v!==undefined&&v!==null&&v!==''&&isFinite(+v)?+v:d;
-function shotView(sh,cam,target,phase,size){sh=sh||{};const ang=sh.angle||'Eye level';const notes=[];
+function shotView(sh,cam,target,phase,size,lens){sh=sh||{};const ang=sh.angle||'Eye level';const notes=[];
   let h=+cam.height||5,x=cam.x,y=cam.y,t=0,roll=0,focus=null;const tz=sizeAimZ(size||sh.size);
   const dist=target?Math.max(.5,Math.hypot(target.x-x,target.y-y)):8;const aim=Math.atan2(tz-h,dist)/D2R;const who=target&&target.label?target.label:'the subject';
-  const manual=numOr(sh.tilt,null);
+  const manual=null;
   if(ang==='Overhead'&&manual===null){t=-90;if(target){x=target.x;y=target.y;}if(h<8){notes.push(`Overhead: shown from 10' straight over ${who}. Set the camera height on the plot to change it.`);h=10;}else notes.push(`Overhead: straight down over ${who} from ${fmtFt(h)}.`);focus=Math.max(1,h-5.6);}
   else if(manual!==null)t=manual;
   else if(ang==='High'){t=aim;if(h<=tz+.3)notes.push(`High angle, but the camera is at ${fmtFt(h)}, at or below ${who}'s eye line. Raise the camera height on the plot.`);}
   else if(ang==='Low'){t=aim;if(h>=tz-.3)notes.push(`Low angle, but the camera is at ${fmtFt(h)}, at or above ${who}'s eye line. Lower the camera height on the plot.`);}
   else if(ang==='Ground'){t=aim;if(h>2)notes.push(`Ground angle, but the camera is at ${fmtFt(h)}. Set it to 1' or lower on the plot.`);}
   if(ang==='Dutch')roll=numOr(sh.dutch,15);
-  if(isTiltMove(sh.move)&&phase==='start'){const a=numOr(sh.tiltAmt,30);t+=sh.move==='Tilt up'?-a:a;}
+  let r=cam.r||0,fl=null;const anchor={x,y,r,ux:Math.cos(r*D2R),uy:Math.sin(r*D2R)};
+  if(phase==='start'&&hasStart(sh.move)){const f0=+lens||+cam.lens||35;const a=moveAmt(sh,f0);const ux=anchor.ux,uy=anchor.uy;
+    switch(sh.move){case 'Pan left':r+=a;break;case 'Pan right':case 'Whip pan':r-=a;break;case 'Tilt up':t-=a;break;case 'Tilt down':t+=a;break;
+      case 'Push in':x-=ux*a;y-=uy*a;break;case 'Pull out':x+=ux*a;y+=uy*a;break;case 'Dolly / track':x+=uy*a;y-=ux*a;break;case 'Crane / jib':h=Math.max(.5,h-a);break;
+      case 'Arc':{const c0=target||{x:x+ux*8,y:y+uy*8};const vx=x-c0.x,vy=y-c0.y,q=a*D2R;x=c0.x+vx*Math.cos(q)-vy*Math.sin(q);y=c0.y+vx*Math.sin(q)+vy*Math.cos(q);r+=a;break;}
+      case 'Zoom in':case 'Zoom out':fl=Math.max(4,a);break;}}
   t=Math.max(-90,Math.min(90,t));if(t<=-89.5)t=-89.5;
-  return {t,roll,h,x,y,notes,focus,phase};}
+  return {t,roll,h,x,y,r,f:fl,anchor,notes,focus,phase,move:sh.move};}
 function dofTarget(c){const D=CALC.dof;const acts=activeItems().filter(i=>i.t==='actor');let a=D.subRef&&acts.find(i=>i.id===D.subRef.id);
   if(!a){const r=(c.r||0)*D2R;a=acts.map(i=>({i,d:(i.x-c.x)*Math.cos(r)+(i.y-c.y)*Math.sin(r),l:Math.abs(-(i.x-c.x)*Math.sin(r)+(i.y-c.y)*Math.cos(r))})).filter(o=>o.d>1).sort((p,q)=>p.l-q.l)[0];a=a&&a.i;}return a||null;}
-function dofView(c,size){const sh=shot();if(!size){const n=dofNums();size=n&&!n.bad?shotSize(n.fh)[0]:null;}return shotView(sh,c,dofTarget(c),isTiltMove(sh&&sh.move)&&CALC.dof.phase==='start'?'start':'end',size);}
-const viewActive=v=>v&&(Math.abs(v.t)>.5||v.roll||v.notes.length);
+function dofView(c,size){const sh=shot();if(!size){const n=dofNums();size=n&&!n.bad?shotSize(n.fh)[0]:null;}return shotView(sh,c,dofTarget(c),hasStart(sh&&sh.move)&&CALC.dof.phase==='start'?'start':'end',size,CALC.dof.f);}
+const viewActive=v=>v&&(Math.abs(v.t)>.5||v.roll||v.notes.length||(v.phase==='start'&&hasStart(v.move)));
 function viewTag(v,W){if(!v)return '';const bits=[];if(Math.abs(v.t)>.5)bits.push(v.t<=-89?'looking straight down':`tilted ${Math.abs(Math.round(v.t))}° ${v.t>0?'up':'down'}`);if(v.roll)bits.push(`Dutch ${Math.round(v.roll)}°`);
-  if(v.phase==='start')bits.push('start of the tilt');
+  if(v.phase==='start'&&hasStart(v.move))bits.push('start of the '+v.move.toLowerCase());
   let o='';if(bits.length){const t=bits.join(' · ');o+=`<rect x="${W-18-t.length*6.6}" y="8" rx="5" width="${t.length*6.6+10}" height="22" fill="rgba(0,0,0,.6)"/><text x="${W-13}" y="23" text-anchor="end" font-family="Lato,sans-serif" font-size="12" font-weight="700" fill="#ffcf7a">${t}</text>`;}
   return o;}
 // a person seen from a tilted camera: P(z) is where a point on their centre line at height z lands, S(z,u) the same point u feet to the side
@@ -4992,13 +5003,15 @@ function viewProj(x,y,d,W,H,F,h,ct,st,pan){const zr=y-h;const d2=Math.max(.05,d*
 
 /* depth of field mock without a set: the backdrop, the floor and the people, through a tilted lens */
 {const _dm=dofMock;dofMock=function(n){const D=CALC.dof;const c=dofCam();if(!c)return _dm(n);const v=dofView(c);if(!viewActive(v))return _dm(n);
+  if(v.f&&v.f!==n.f){const sv=D.f;D.f=v.f;const n2=dofNums();D.f=sv;if(!n2.bad)n=n2;}
   if(mockHasSet(activeItems(),c))return _dm(n);
   const W=640,H=Math.round(W*Math.max(.42,Math.min(.75,n.S.h/n.S.w)));const ppm=W/n.S.w,F=n.f*ppm;const sd=dmm=>Math.min(40,dmm*ppm/2.4);const t=v.t*D2R,ct=Math.cos(t),st=Math.sin(t);
-  const K={x:v.x,y:v.y,ux:Math.cos((c.r||0)*D2R),uy:Math.sin((c.r||0)*D2R),h:v.h};const cam=(p,z)=>{const dx=p.x-K.x,dy=p.y-K.y;return {l:-dx*K.uy+dy*K.ux,d:dx*K.ux+dy*K.uy,z};};
+  const K={x:v.x,y:v.y,ux:Math.cos(v.r*D2R),uy:Math.sin(v.r*D2R),h:v.h};const A=v.anchor;const cam=(p,z)=>{const dx=p.x-K.x,dy=p.y-K.y;return {l:-dx*K.uy+dy*K.ux,d:dx*K.ux+dy*K.uy,z};};
   const pr=(x,y,d)=>viewProj(x,y,d,W,H,F,v.h,ct,st);const Dbg=dofBgDist(n);const bgB=sd(n.blurAt(Dbg));
   let o=`<svg viewBox="0 0 ${W} ${H}" class="sky" style="cursor:default;background:#000"><defs><clipPath id="dfc"><rect width="${W}" height="${H}"/></clipPath><filter id="dfb" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="${bgB.toFixed(2)}"/></filter></defs><g clip-path="url(#dfc)"><g transform="rotate(${v.roll||0} ${W/2} ${H/2})">`;
   const floor=bgFloor(D.bg);o+=`<rect x="${-W}" y="${-2*H}" width="${3*W}" height="${5*H}" fill="${floor}"/>`;
-  if(st>-.8){o+=`<g filter="url(#dfb)">${dofScene(D.bg,W,H,(x,y)=>pr(x,y,Dbg),n.f/Dbg*ppm,v.h)}</g>`;const fy=pr(0,0,Dbg).y;o+=`<rect x="${-W}" y="${fy}" width="${3*W}" height="${Math.max(0,3*H-fy)}" fill="${floor}" filter="url(#dfb)"/>`;}
+  const bw=(x,y)=>{const q=cam({x:A.x+Dbg*A.ux-x*A.uy,y:A.y+Dbg*A.uy+x*A.ux},y);return pr(q.l,y,q.d);};
+  if(st>-.8){o+=`<g filter="url(#dfb)">${dofScene(D.bg,W,H,bw,n.f/Dbg*ppm,v.h)}</g>`;o+=`<path d="${groundPath(bw,W,H)}" fill="${floor}" filter="url(#dfb)"/>`;}
   const acts=activeItems().filter(i=>i.t==='actor').map(a=>{const q=cam(a,0);const qd=q.d*ct+(0-v.h)*st;return {a,q,dd:Math.max(1,Math.hypot(a.x-c.x,a.y-c.y))};}).filter(o2=>{const head=cam(o2.a,0);const hd=head.d*ct+(5.5-v.h)*st;return hd>.5;}).sort((p,q)=>q.dd-p.dd);
   const labs=[];acts.forEach((o2,i)=>{const a=o2.a;const P=z=>pr(o2.q.l,z,o2.q.d);const S=(z,u)=>pr(o2.q.l+u,z,o2.q.d);const b=sd(n.blurAt(o2.dd));const inF=Math.abs(o2.dd-n.s)<.6;
     const col=D.subRef&&a.id===D.subRef.id?'#e07a5f':D.sub2Ref&&a.id===D.sub2Ref.id?'#6aa8d8':'#b9a3d6';
@@ -5009,20 +5022,20 @@ function viewProj(x,y,d,W,H,F,h,ct,st,pan){const zr=y-h;const d2=Math.max(.05,d*
 
 /* the depth of field tab: start / end of a tilt, and any note about the angle */
 {const _do=dofOut;dofOut=function(){let h=_do();try{const c=dofCam();if(!c)return h;const sh=shot();const v=dofView(c);let x='';
-  if(isTiltMove(sh.move)){const ph=CALC.dof.phase==='start'?'start':'end';x+=`<div class="f2" style="margin:8px 0">${['start','end'].map(p=>`<button class="btn sm ${ph===p?'pri':''}" data-dofphase="${p}">${p==='start'?'Start':'End'} of the ${sh.move.toLowerCase()}</button>`).join('')}</div>`;}
+  if(hasStart(sh.move)){const ph=CALC.dof.phase==='start'?'start':'end';x+=`<div class="f2" style="margin:8px 0">${['start','end'].map(p=>`<button class="btn sm ${ph===p?'pri':''}" data-dofphase="${p}">${p==='start'?'Start':'End'} of the ${sh.move.toLowerCase()}</button>`).join('')}</div>`;}
   if(v.notes.length)x+=`<div style="margin:6px 0;padding:6px 8px;border:1px solid #c98a1a;border-radius:6px;color:#ffcf7a;font-size:12px">${v.notes.map(esc).join('<br>')}</div>`;
   if(x)h=h.replace('</svg></div>','</svg>'+x+'</div>');}catch(e){}return h;};}
 document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-dofphase]');if(!b)return;CALC.dof.phase=b.dataset.dofphase;renderCalc();});
 
-/* shot tab: tilt amount for tilt moves, an optional typed tilt, and how far a Dutch angle rolls */
-function shotTiltFields(sh){const inp=(k,v,ph)=>`<input class="in" data-o="shot" data-k="${k}" value="${esc(v==null?'':String(v))}" placeholder="${ph}" inputmode="decimal">`;let a='',b='';
-  if(isTiltMove(sh.move))a=fld(`How far it tilts ${sh.move==='Tilt up'?'up':'down'} (°)`,inp('tiltAmt',sh.tiltAmt,'30'));
-  if(sh.angle==='Dutch')b=fld('Dutch roll (°)',inp('dutch',sh.dutch,'15'));
-  const auto=sh.angle==='Overhead'?'straight down':sh.angle==='Eye level'||!sh.angle||sh.angle==='Dutch'?'level':'aimed at the subject';
-  const c=fld('Camera tilt (°, + up, − down)',inp('tilt',sh.tilt,`auto: ${auto}`));
-  return `<div class="f2">${c}${a||b}</div>${a&&b?`<div class="f2">${b}</div>`:''}<div class="pSub" style="margin-top:-2px">Leave the tilt blank to set it from the angle. ${isTiltMove(sh.move)?'The depth of field mock shows the end of the move, with a button for the start. Mock-up frames show both.':''}</div>`;}
+/* shot tab: one box for how far the move goes, worded for the move you picked */
+function shotTiltFields(sh){const s=MOVE_AMT[sh.move];if(!s)return '';const cam=(sh.items||[]).find(i=>i.t==='camera')||activeItems().find(i=>i.t==='camera');const f=cam?(+cam.lens||35):35;
+  return `${fld(s[0],`<input class="in" data-o="shot" data-k="moveAmt" value="${esc(sh.moveAmt==null?'':String(sh.moveAmt))}" placeholder="${moveAmt({move:sh.move},f)}" inputmode="decimal">`)}<div class="pSub" style="margin-top:-2px">The plot is where the move ends; this says where it starts. The mock-ups show both.</div>`;}
 document.addEventListener('change',e=>{const t=e.target;if(t&&t.dataset&&t.dataset.o==='shot'&&['angle','move'].includes(t.dataset.k)){setTimeout(()=>{renderPanel();if(CALC.open)renderCalc();},0);}},false);
-document.addEventListener('input',e=>{const t=e.target;if(t&&t.dataset&&t.dataset.o==='shot'&&['tilt','tiltAmt','dutch'].includes(t.dataset.k)&&CALC.open){clearTimeout(window.__tlt);window.__tlt=setTimeout(()=>{const a=document.activeElement;const k=a&&a.dataset&&a.dataset.k;renderCalc();},250);}},false);
+document.addEventListener('input',e=>{const t=e.target;if(t&&t.dataset&&t.dataset.o==='shot'&&['moveAmt'].includes(t.dataset.k)&&CALC.open){clearTimeout(window.__tlt);window.__tlt=setTimeout(()=>{const a=document.activeElement;const k=a&&a.dataset&&a.dataset.k;renderCalc();},250);}},false);
+
+// the floor from the foot of the backdrop down to the bottom of the frame, following the backdrop's ground line
+function groundPath(P,W,H){const pts=[];for(let x=-120;x<=120;x+=6){const p=P(x,0);if(isFinite(p.x)&&isFinite(p.y))pts.push(p);}if(pts.length<2)return '';pts.sort((a,b)=>a.x-b.x);
+  const L=pts[0],R=pts[pts.length-1];return `M${-W} ${L.y.toFixed(1)} `+pts.map(p=>`L${p.x.toFixed(1)} ${p.y.toFixed(1)}`).join(' ')+` L${2*W} ${R.y.toFixed(1)} L${2*W} ${3*H} L${-W} ${3*H}Z`;}
 const BRANDFF=(()=>{let o='';for(const sh of document.styleSheets){try{for(const r of sh.cssRules)if(r.type===5&&/EB Garamond|Lato/.test(r.cssText))o+=r.cssText;}catch(e){}}return o;})();
 /* ============================================================
    Export
