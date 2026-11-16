@@ -2370,8 +2370,7 @@ function gripSurfaces(it){const out=[];const a=(it.r||0)*D2R,ux=-Math.sin(a),uy=
 function fanPath(a,b,c,ang,sp,len){const P=t=>[c.x+len*Math.cos(t),c.y+len*Math.sin(t)];let p1=P(ang-sp),p2=P(ang+sp),sw=1;const d=(u,v)=>Math.hypot(u.x-v[0],u.y-v[1]);if(d(a,p1)+d(b,p2)>d(a,p2)+d(b,p1)){[p1,p2]=[p2,p1];sw=0;}return `M${a.x} ${a.y} L${p1[0]} ${p1[1]} A${len} ${len} 0 0 ${sw} ${p2[0]} ${p2[1]} L${b.x} ${b.y}Z`;}
 function beamFx(it,gid,items,o,Lb,b,col,ga){const res={attr:'',defs:'',extra:''};try{const px=o.px;const soft=softOf(it);const a0=(it.r||0)*D2R,ca=Math.cos(a0),sa=Math.sin(a0);const loc=p=>{const dx=p.x-it.x,dy=p.y-it.y;return {x:dx*ca+dy*sa,y:-dx*sa+dy*ca};};const half=b>=180?Math.PI:b/2*D2R;
     if(soft>0){const sd=(.12+.75*soft)*Math.min(1,Lb/8+.3);res.defs+=`<filter id="s${gid}" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="${sd.toFixed(3)}"/></filter>`;res.attr+=` filter="url(#s${gid})"`;}
-    const polys=[];items.forEach(g=>{if(g.t==='line'||g.id===it.id)return;const L=LIB[g.t];if(!L||(L.kind!=='grip'&&g.t!=='blackout'))return;gripSurfaces(g).forEach(s=>{const A=loc(s.a),B=loc(s.b),M=loc(s.c);const dA=Math.hypot(A.x,A.y),dB=Math.hypot(B.x,B.y),dM=Math.hypot(M.x,M.y);if(dM<.35||Math.min(dA,dB,dM)>Lb)return;const inB=q=>Math.abs(Math.atan2(q.y,q.x))<=half+.05;if(!(inB(A)||inB(B)||inB(M)))return;
-        if(dA<.05||dB<.05)return;const R=Lb*4+40;polys.push(`<path d="M${A.x} ${A.y} L${B.x} ${B.y} L${B.x/dB*R} ${B.y/dB*R} L${A.x/dA*R} ${A.y/dA*R}Z" fill="#000" fill-opacity="${(1-s.T).toFixed(2)}"/>`);
+    const polys=[];items.forEach(g=>{if(g.t==='line'||g.id===it.id)return;const L=LIB[g.t];if(!L||(L.kind!=='grip'&&g.t!=='blackout'))return;gripSurfaces(g).forEach(s=>{const A=loc(s.a),B=loc(s.b),M=loc(s.c);const dA=Math.hypot(A.x,A.y),dB=Math.hypot(B.x,B.y),dM=Math.hypot(M.x,M.y);const isW=!!g.__blk;if((!isW&&dM<.35)||segDist(A,B)>Lb)return;if(dA<.02||dB<.02)return;polys.push(`<path d="${shadowD(A,B,Lb*4+40)}" fill="#000" fill-opacity="${(1-s.T).toFixed(2)}"/>`);const inB=q=>Math.abs(Math.atan2(q.y,q.x))<=half+.05;if(!(inB(A)||inB(B)||inB(M)))return;if(isW)return;
         const dist=Math.hypot(s.c.x-it.x,s.c.y-it.y);const dx=(s.c.x-it.x)/dist,dy=(s.c.y-it.y)/dist;const rem=Lb-dist;if(rem<=0)return;
         if(s.bounce){let nx=s.n.x,ny=s.n.y;if(s.oneSide){if(nx*-dx+ny*-dy<=.05)return;}else if(nx*dx+ny*dy>0){nx=-nx;ny=-ny;}const dn=dx*nx+dy*ny;const rx=dx-2*dn*nx,ry=dy-2*dn*ny;let ox=nx*(1-s.bounce.mix)+rx*s.bounce.mix,oy=ny*(1-s.bounce.mix)+ry*s.bounce.mix;const ol=Math.hypot(ox,oy)||1;ox/=ol;oy/=ol;const inc=Math.max(.3,Math.abs(dn));
           const len=Math.min(18,Math.max(2.5,rem*s.bounce.eff+s.w*.8));const sp=s.bounce.spread/2*D2R;const ang=Math.atan2(oy,ox);const bc=s.bounce.gold?'#ffc36b':col;const id='b'+gid+polys.length;const al=Math.min(.85,ga*1.7*inc*s.bounce.eff);
@@ -4487,6 +4486,11 @@ function calcExpHTML(){const E=CALC.exp;const as=actsNow();const opt=(k,arr,v)=>
   items.filter(i=>i.t==='actor').forEach(a=>{const rows=lightsOnActor(a);const tot=rows.reduce((x,r)=>x+r.lux,0);const t=tot>.5?`≈${Math.round(fcOf(tot))} fc · ${fmtT(tFor(tot,E))}`:'no light';
     s+=`<text x="${a.x}" y="${a.y+1.6}" text-anchor="middle" font-family="${o.C.mono}" font-weight="700" font-size="${9.5*px}" fill="#f2a93b" paint-order="stroke" stroke="${o.C.bg}" stroke-width="${3*px}" pointer-events="none">${esc(t)}</text>`;});
   L.labels=(L.labels||'')+s;}}catch(e){}return L;};}
+
+// the shadow a surface casts from a light at the origin: the surface, then out along both rays and round the far arc
+function segDist(A,B){const dx=B.x-A.x,dy=B.y-A.y,L2=dx*dx+dy*dy||1e-9;const t=Math.max(0,Math.min(1,-(A.x*dx+A.y*dy)/L2));return Math.hypot(A.x+t*dx,A.y+t*dy);}
+function shadowD(A,B,R){let a1=Math.atan2(A.y,A.x),a2=Math.atan2(B.y,B.x);let d=a2-a1;while(d>Math.PI)d-=2*Math.PI;while(d<-Math.PI)d+=2*Math.PI;const n=Math.max(2,Math.ceil(Math.abs(d)/(Math.PI/18)));
+  let s=`M${A.x.toFixed(3)} ${A.y.toFixed(3)} L${B.x.toFixed(3)} ${B.y.toFixed(3)}`;for(let i=0;i<=n;i++){const a=a2-d*i/n;s+=` L${(Math.cos(a)*R).toFixed(2)} ${(Math.sin(a)*R).toFixed(2)}`;}return s+'Z';}
 /* ============================================================
    180° line: the line of action between two characters, set by the first
    shot that sees them; any later shot whose camera is on the other side
