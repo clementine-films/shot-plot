@@ -753,7 +753,7 @@ function renderItems(items,o){
     const sel=o.selSet?o.selSet.has(it.id):o.sel===it.id;
     if(it.t==='line'){drawLine(it,L1,o,sel);return;}
     const L=LIB[it.t];if(!L)return;
-    const tr=`translate(${it.x} ${it.y}) rotate(${it.r||0})`;const SZ=szOf(it);const SXs=scalable(it)?SZ*(+it.sx||1):1,SYs=scalable(it)?SZ*(+it.sy||1):1;const trS=(SXs===1&&SYs===1)?tr:tr+` scale(${SXs} ${SYs})`;
+    const tr=`translate(${it.x} ${it.y}) rotate(${it.r||0})`;const SZ=szOf(it);const SXs=scalable(it)?SZ*(+it.sx||1):1,SYs=scalable(it)?SZ*(+it.sy||1):1;const FX=it.fx&&L.kind==='set'?-1:1,FY=it.fy&&L.kind==='set'?-1:1;const trS=(SXs===1&&SYs===1&&FX===1&&FY===1)?tr:tr+` scale(${SXs*FX} ${SYs*FY})`;
     const ida=o.ghost?'':`data-id="${it.id}"`;
     const selStroke=sel?`<circle r="${Math.max(1.1,(L.s||1)*.9)}" fill="none" stroke="#f2a93b" stroke-width="${1.5*px}" stroke-dasharray="${4*px} ${3*px}"/>`:'';
     let g='';
@@ -4564,7 +4564,7 @@ function shade(hex,k){const n=parseInt(hex.slice(1),16);const r=Math.min(255,Mat
 /* camera space: l = across the frame (+ right), d = depth along the lens, z = height */
 function mockCam(c,v){const r=(c.r||0)*D2R;const K={x:c.x,y:c.y,ux:Math.cos(r),uy:Math.sin(r),h:+c.height||5,ct:1,st:0};if(v){K.x=v.x;K.y=v.y;K.h=v.h;if(v.r!=null){const rr=v.r*D2R;K.ux=Math.cos(rr);K.uy=Math.sin(rr);}const t=v.t*D2R;K.ct=Math.cos(t);K.st=Math.sin(t);}return K;}
 // a tilted camera (K.st ≠ 0) turns depth and height around the lens: + tilts up, − tilts down
-const toCam=(K,p,z)=>{const dx=p.x-K.x,dy=p.y-K.y;const l=-dx*K.uy+dy*K.ux,d=dx*K.ux+dy*K.uy;if(!K.st)return {l,d,z};const zr=z-K.h;return {l,d:d*K.ct+zr*K.st,z:zr*K.ct-d*K.st+K.h};};
+const toCam=(K,p,z)=>{if(MOCK_Z)z=MOCK_Z.b+(z-MOCK_Z.b)*MOCK_Z.k+MOCK_Z.d;const dx=p.x-K.x,dy=p.y-K.y;const l=-dx*K.uy+dy*K.ux,d=dx*K.ux+dy*K.uy;if(!K.st)return {l,d,z};const zr=z-K.h;return {l,d:d*K.ct+zr*K.st,z:zr*K.ct-d*K.st+K.h};};
 function clipNear(P,near){const out=[];for(let i=0;i<P.length;i++){const a=P[i],b=P[(i+1)%P.length];const ina=a.d>=near,inb=b.d>=near;if(ina)out.push(a);if(ina!==inb){const t=(near-a.d)/(b.d-a.d);out.push({l:a.l+(b.l-a.l)*t,d:near,z:a.z+(b.z-a.z)*t});}}return out;}
 
 function mockFrameSVG(o){// o: {items, cam, sc, W, sensor, f, N, focus, bgFallback, idp, labels}
@@ -4659,7 +4659,7 @@ function mockWindow(piece,g,tod){const z0=2.8,z1=7.2,fr='#f2efe9';const sky=tod=
    Local axes match the plot: lights face +x; furniture backs are at -y
    (chairs and armchairs at -x).
    ============================================================ */
-const W3=(it,lx,ly)=>{const r=(it.r||0)*D2R,c=Math.cos(r),s=Math.sin(r);return {x:it.x+lx*c-ly*s,y:it.y+lx*s+ly*c};};
+const W3=(it,lx,ly)=>{if(it.fx)lx=-lx;if(it.fy)ly=-ly;const r=(it.r||0)*D2R,c=Math.cos(r),s=Math.sin(r);return {x:it.x+lx*c-ly*s,y:it.y+lx*s+ly*c};};
 function boxL(ctx,it,x0,x1,y0,y1,z0,z1,col){ctx.extrude([W3(it,x0,y0),W3(it,x1,y0),W3(it,x1,y1),W3(it,x0,y1)],z0,z1,col);}
 function quad3(ctx,P,fill,extra){const cP=P.map(p=>toCam(ctx.K,p,p.z));const dd=cP.reduce((s,q)=>s+Math.max(q.d,0),0)/cP.length;ctx.add(cP,fill,dd,extra);}
 function quadL(ctx,it,pts,fill,extra){quad3(ctx,pts.map(([lx,ly,z])=>Object.assign(W3(it,lx,ly),{z})),fill,extra);}
@@ -4667,7 +4667,7 @@ function line3(ctx,a,b,wft,col){let A=toCam(ctx.K,a,a.z),B=toCam(ctx.K,b,b.z);if
   const pa=ctx.proj(A),pb=ctx.proj(B);const dm=(A.d+B.d)/2;const k=ctx.f/dm*ctx.ppm;ctx.polys.push({d:dm,svg:`<path d="M${pa[0].toFixed(1)} ${pa[1].toFixed(1)} L${pb[0].toFixed(1)} ${pb[1].toFixed(1)}" stroke="${col}" stroke-width="${Math.max(.5,wft*k).toFixed(2)}" stroke-linecap="round"/>`});}
 function bill(ctx,p,z,draw){const c=toCam(ctx.K,p,z);if(c.d<ctx.near)return;const k=ctx.f/c.d*ctx.ppm;const [X,Y]=ctx.proj(c);ctx.polys.push({d:c.d-.02,svg:draw(k,X,Y)});}
 // what a lamp is standing on: the top of the furniture under it
-function surfaceTop(ctx,p){let top=0;ctx.items.forEach(s=>{const L=LIB[s.t];if(!L||L.kind!=='set'||s.t==='line'||FLAT.has(s.t))return;const z=MH[s.t];if(!z||z[0]>0)return;const r=-(s.r||0)*D2R,dx=p.x-s.x,dy=p.y-s.y;const lx=dx*Math.cos(r)-dy*Math.sin(r),ly=dx*Math.sin(r)+dy*Math.cos(r);if(Math.abs(lx)<=(+s.w||2)/2&&Math.abs(ly)<=(+s.h||2)/2)top=Math.max(top,z[1]);});return top;}
+function surfaceTop(ctx,p){let top=0;ctx.items.forEach(s=>{const L=LIB[s.t];if(!L||L.kind!=='set'||s.t==='line'||FLAT.has(s.t))return;const z=effZ(s);if(z[0]>.01)return;const r=-(s.r||0)*D2R,dx=p.x-s.x,dy=p.y-s.y;const lx=dx*Math.cos(r)-dy*Math.sin(r),ly=dx*Math.sin(r)+dy*Math.cos(r);if(Math.abs(lx)<=(+s.w||2)/2&&Math.abs(ly)<=(+s.h||2)/2)top=Math.max(top,z[1]);});return top;}
 // a path outline (odd shapes, curved custom shapes) as points
 function samplePath(d,n){try{const el=document.createElementNS('http://www.w3.org/2000/svg','path');el.setAttribute('d',d);const L=el.getTotalLength();const out=[];for(let i=0;i<n;i++){const p=el.getPointAtLength(L*i/n);out.push({x:p.x,y:p.y});}return out;}catch(e){return null;}}
 const STAND='#2b2d30',LIT='#fff2cf',SHADE_ON='#f6dfae',SHADE_OFF='#d9d2c2';
@@ -5230,6 +5230,100 @@ function mockDetail2(it,L,ctx,w,h){const a=-w/2,b=w/2,T=-h/2,B=h/2;const z=MH[it
   case 'blackout':box(a,b,T,B,0,8,'#141518');return 1;
   }
   return 0;}
+/* ============================================================
+   More control over a set piece than its size:
+   - flip it left to right or front to back
+   - its height, how high it sits, or set it on the piece under it
+   - its parts (arms, seats, drawers, shelves, doors open, bases, headboards)
+   - reshape its outline: it becomes a custom shape with corners to drag
+   ============================================================ */
+let MOCK_Z=null;   // read by toCam while one piece is being built: {b: its usual bottom, k: height stretch, d: lift}
+function mhBase(t){return MH[t]||[0,2.5];}
+function effZ(it){const b=mhBase(it.t);const z0=numOr(it.z0,null),zh=numOr(it.zh,null);const lo=z0!==null?z0:b[0];return [lo,lo+(zh!==null?zh:b[1]-b[0])];}
+function pieceUnder(it,items){let best=null,top=0;items.forEach(s=>{if(s===it||s.id===it.id||s.t==='line')return;const L=LIB[s.t];if(!L||L.kind!=='set'||FLAT.has(s.t)||isOpening(s))return;
+    const r=-(s.r||0)*D2R,dx=it.x-s.x,dy=it.y-s.y;const lx=dx*Math.cos(r)-dy*Math.sin(r),ly=dx*Math.sin(r)+dy*Math.cos(r);if(Math.abs(lx)>(+s.w||2)/2||Math.abs(ly)>(+s.h||2)/2)return;
+    if((+s.w||2)*(+s.h||2)<(+it.w||1)*(+it.h||1)*.6)return;const z=effZ(s);if(z[0]>.01)return;if(z[1]>top){top=z[1];best=s;}});return best?{s:best,top}:null;}
+function placedZ(it,items){const b=mhBase(it.t);let [lo,hi]=effZ(it);if(it.stack&&items){const u=pieceUnder(it,items);if(u){const h=hi-lo;lo=u.top;hi=lo+h;}}return [lo,hi,b];}
+{const _ms=mockSet;mockSet=function(it,L,ctx){if(isOpening(it))return _ms(it,L,ctx);const [lo,hi,b]=placedZ(it,ctx.items);const k=(hi-lo)/Math.max(.01,b[1]-b[0]);
+  if(Math.abs(lo-b[0])<.001&&Math.abs(k-1)<.001)return _ms(it,L,ctx);MOCK_Z={b:b[0],k,d:lo-b[0]};try{return _ms(it,L,ctx);}finally{MOCK_Z=null;}};}
+
+/* ---------- parts ---------- */
+const PARTS={
+  arms:{lab:'Arms',opts:[['both','Both ends'],['left','Left end only'],['right','Right end only'],['none','No arms']],types:['couch','loveseat','futon']},
+  seats:{lab:'Seat cushions',num:1,types:['couch','loveseat','futon','sectional','booth']},
+  chairarms:{lab:'Arms',opts:[['no','No arms'],['yes','With arms']],types:['chair']},
+  base:{lab:'Base',opts:[['legs','Four legs'],['pedestal','Pedestal'],['trestle','Trestle']],types:['table','diningtable','conftable','coffeetable','twotop','fourtop']},
+  head:{lab:'Headboard',opts:[['yes','Yes'],['no','No']],types:['bed','bedtwin','bedking']},
+  foot:{lab:'Footboard',opts:[['no','No'],['yes','Yes']],types:['bed','bedtwin','bedking']},
+  shelves:{lab:'Shelves',num:1,types:['bookshelf']},
+  fill:{lab:'Books',opts:[['full','Full'],['half','Half full'],['empty','Empty']],types:['bookshelf']},
+  drawers:{lab:'Drawers',num:1,types:['dresser','nightstand','filecab']},
+  open:{lab:'Doors',opts:[['closed','Closed'],['open','Open']],types:['fridge','wardrobe','cabinets','dishwasher','linen','curtain','sheers']}};
+const PART_DEF={seats:it=>Math.max(1,Math.round((+it.w||6)/2.4)),shelves:()=>5,drawers:it=>it.t==='nightstand'?1:it.t==='filecab'?4:3};
+function partOf(it,k){const v=it['p_'+k];const P=PARTS[k];if(P.num){const n=numOr(v,null);return n!==null?Math.max(0,Math.min(12,Math.round(n))):PART_DEF[k](it);}return v||P.opts[0][0];}
+function partsFor(t){return Object.keys(PARTS).filter(k=>PARTS[k].types.includes(t));}
+
+// pieces whose parts change how they're built
+{const _md=mockDetail;mockDetail=function(it,L,ctx,w,h){if(partsFor(it.t).length&&mockParts(it,L,ctx,w,h))return 1;return _md(it,L,ctx,w,h);};}
+function mockParts(it,L,ctx,w,h){const a=-w/2,b=w/2,T=-h/2,B=h/2;const H=mhBase(it.t)[1];const col=mockColor(it);
+  const box=(x0,x1,y0,y1,z0,z1,c)=>boxL(ctx,it,x0,x1,y0,y1,z0,z1,c||col);const face=(x0,x1,z0,z1,c,ex)=>quadL(ctx,it,[[x0,B+.012,z0],[x1,B+.012,z0],[x1,B+.012,z1],[x0,B+.012,z1]],c,ex||'');
+  const seams=(x0,x1,y0,y1,z,n)=>{for(let i=1;i<n;i++){const x=x0+i*(x1-x0)/n;quadL(ctx,it,[[x-.02,y0,z+.005],[x+.02,y0,z+.005],[x+.02,y1,z+.005],[x-.02,y1,z+.005]],shade(col,.6));}};
+  switch(it.t){
+  case 'couch':case 'loveseat':case 'futon':{const arms=partOf(it,'arms'),n=partOf(it,'seats');const arm=Math.min(.7,w*.1);const L0=arms==='both'||arms==='left',R0=arms==='both'||arms==='right';const sx0=L0?a+arm:a,sx1=R0?b-arm:b;
+    box(a,b,T,B,0,1.4);box(a,b,T,T+Math.min(.85,h*.3),1.4,2.8,shade(col,.85));if(L0)box(a,a+arm,T,B,1.4,2.1,shade(col,.9));if(R0)box(b-arm,b,T,B,1.4,2.1,shade(col,.9));
+    seams(sx0,sx1,T+Math.min(.85,h*.3),B,1.4,n);for(let i=1;i<n;i++){const x=sx0+i*(sx1-sx0)/n;box(x-.02,x+.02,T+Math.min(.85,h*.3)+.005,T+Math.min(.85,h*.3)+.02,1.45,2.75,shade(col,.6));}return 1;}
+  case 'sectional':{const n=partOf(it,'seats');box(a,b,T,T+2.8,0,1.4);box(a,a+2.8,T,B,0,1.4);box(a,b,T,T+.8,1.4,2.8,shade(col,.85));box(a,a+.8,T,B,1.4,2.8,shade(col,.85));seams(a+.8,b,T+.8,T+2.8,1.4,n);return 1;}
+  case 'booth':{const n=partOf(it,'seats');box(a,b,T,B,0,1.5);box(a,b,T,T+.6,1.5,3.6,shade(col,.85));seams(a,b,T+.6,B,1.5,n);return 1;}
+  case 'chair':{if(partOf(it,'chairarms')!=='yes')return 0;const sz=1.5;box(a+w*.12,b,T,B,sz-.15,sz);box(a,a+.15,T,B,sz,2.9);[[a+.2,T+.2],[b-.15,T+.2],[a+.2,B-.2],[b-.15,B-.2]].forEach(([x,y])=>box(x-.08,x+.08,y-.08,y+.08,0,sz-.15));
+    [T,B-.12].forEach(y=>{box(a+.15,b-.1,y,y+.12,2.15,2.27);box(b-.2,b-.1,y,y+.12,sz,2.15);});return 1;}
+  case 'table':case 'diningtable':case 'conftable':case 'coffeetable':case 'twotop':case 'fourtop':{const base=partOf(it,'base');const top=it.t==='coffeetable'?MAT.light:MAT.wood;box(a,b,T,B,H-.12,H,top);
+    if(base==='pedestal'){box(-.18,.18,-.18,.18,0,H-.12,MAT.dark);box(-Math.min(w,h)*.3,Math.min(w,h)*.3,-Math.min(w,h)*.3,Math.min(w,h)*.3,0,.1,MAT.dark);}
+    else if(base==='trestle'){[a+w*.15,b-w*.15].forEach(x=>{box(x-.1,x+.1,-.12,.12,.1,H-.12,MAT.dark);box(x-.12,x+.12,T+.2,B-.2,0,.12,MAT.dark);});box(a+w*.15,b-w*.15,-.06,.06,.6,.75,MAT.dark);}
+    else [[a+.2,T+.2],[b-.2,T+.2],[a+.2,B-.2],[b-.2,B-.2]].forEach(([x,y])=>box(x-.07,x+.07,y-.07,y+.07,0,H-.12,MAT.dark));return 1;}
+  case 'bed':case 'bedtwin':case 'bedking':{const hb=partOf(it,'head')==='yes',fb=partOf(it,'foot')==='yes';box(a,b,T+(hb?.3:0),B-(fb?.2:0),0,1.9,'#e6ebef');if(hb)box(a,b,T,T+.3,0,3.6,'#6e5238');if(fb)box(a,b,B-.2,B,0,2.4,'#6e5238');box(a+.3,b-.3,T+(hb?.45:.15),T+(hb?1.4:1.1),1.9,2.25,'#ffffff');quadL(ctx,it,[[a-.02,T+1.6,1.91],[b+.02,T+1.6,1.91],[b+.02,B-(fb?.2:0),1.91],[a-.02,B-(fb?.2:0),1.91]],'#9fb0c2');return 1;}
+  case 'bookshelf':{const c=MAT.dark,n=Math.max(1,partOf(it,'shelves')),fill=partOf(it,'fill');box(a,a+.08,T,B,0,H,c);box(b-.08,b,T,B,0,H,c);box(a,b,T,T+.05,0,H,shade(c,.8));box(a,b,T,B,H-.08,H,c);box(a,b,T,B,0,.25,c);
+    const cols=['#8a3b33','#2f5d7a','#c9a44a','#3f6b4a','#d8d2c4','#5a3f6b','#b8643c'];const step=(H-.33)/n;let i=0;for(let k=0;k<n;k++){const s=.25+k*step;if(k)box(a+.08,b-.08,T+.05,B,s,s+.06,c);if(fill==='empty')continue;
+      const end=fill==='half'?a+.1+(w-.2)*.5:b-.2;for(let x=a+.12;x<end;){const bw=.08+((i*37)%7)/60,bh=Math.min(.55+((i*13)%5)/18,step-.12);box(x,x+bw,T+.1,B-.12,s+.06,s+.06+bh,cols[i%cols.length]);x+=bw+.01;i++;}}return 1;}
+  case 'dresser':case 'nightstand':case 'filecab':{const n=Math.max(1,partOf(it,'drawers'));const c=it.t==='filecab'?MAT.gray:MAT.wood;const z0=it.t==='dresser'?.3:it.t==='nightstand'?.4:0;box(a,b,T,B,z0,H,c);
+    if(z0)[[a+.08,T+.08],[b-.08,T+.08],[a+.08,B-.08],[b-.08,B-.08]].forEach(([x,y])=>box(x-.06,x+.06,y-.06,y+.06,0,z0,MAT.dark));const s=(H-z0-.1)/n;
+    for(let i=0;i<n;i++){face(a+.06,b-.06,z0+.05+i*s,z0+(i+1)*s,shade(c,1.08),`stroke="${shade(c,.6)}" stroke-width=".8"`);face(-.2,.2,z0+(i+.5)*s,z0+(i+.5)*s+.06,'#d8c9a8');}return 1;}
+  case 'fridge':case 'wardrobe':case 'linen':case 'cabinets':case 'dishwasher':{if(partOf(it,'open')!=='open')return 0;const z0=it.t==='cabinets'?mhBase('cabinets')[0]:0;const c=it.t==='fridge'||it.t==='dishwasher'?MAT.steel:it.t==='linen'?MAT.white:MAT.wood;
+    box(a,b,T,T+.06,z0,H,c);box(a,a+.06,T,B,z0,H,c);box(b-.06,b,T,B,z0,H,c);box(a,b,T,B,H-.06,H,c);box(a,b,T,B,z0,z0+.08,c);
+    const inside=it.t==='fridge'?'#f6f2e6':it.t==='linen'?'#ffffff':'#4a3626';quadL(ctx,it,[[a+.06,T+.07,z0+.08],[b-.06,T+.07,z0+.08],[b-.06,T+.07,H-.06],[a+.06,T+.07,H-.06]],inside);
+    const sh=it.t==='dishwasher'?[]:[.3,.5,.7];sh.forEach(f=>box(a+.06,b-.06,T+.06,B-.1,z0+(H-z0)*f,z0+(H-z0)*f+.04,it.t==='fridge'?'#e9eef2':shade(c,.9)));
+    if(it.t==='fridge'){[[a+.3,'#e2b84a'],[a+.9,'#c94a3a'],[b-.6,'#3f6f4a']].forEach(([x,cc],j)=>box(x,x+.35,T+.3,T+.7,(H)*(.3+j*.2)+.04,(H)*(.3+j*.2)+.5,cc));box(b,b+.12,B,B+w*.95,.12,H-.06,MAT.steel);}
+    else if(it.t==='dishwasher')box(a,b,B,B+H*.8,.12,.22,MAT.steel);
+    else{const d=it.t==='cabinets'?Math.max(2,Math.round(w/1.5)):2;const dw=w/d;for(let i=0;i<d;i++){const hingeL=i%2===0;const x=hingeL?a+i*dw:a+(i+1)*dw;box(x-(hingeL?.06:0),x+(hingeL?0:.06),B,B+dw*.9,z0+.05,H-.05,shade(c,1.05));}}return 1;}
+  case 'curtain':case 'sheers':{if(partOf(it,'open')!=='open')return 0;const c=it.t==='sheers'?'#eef2f5':(it.color||'#8a3b33');const op=it.t==='sheers'?'fill-opacity=".55"':'';const pw=w*.18;
+    [[a,a+pw],[b-pw,b]].forEach(([x0,x1])=>{const n=4;for(let i=0;i<n;i++){const q0=x0+i*(x1-x0)/n,q1=q0+(x1-x0)/n;const yy=i%2?T+.25:B-.05;quadL(ctx,it,[[q0,yy,0],[q1,yy,0],[q1,yy,H],[q0,yy,H]],shade(c,i%2?.8:1.05),op);}});box(a-.2,b+.2,-.04,.04,H,H+.12,'#2f3236');return 1;}
+  }
+  return 0;}
+
+/* ---------- reshape: becomes a custom shape with draggable corners ---------- */
+function outlineOf(it){const L=LIB[it.t]||{};const w=+it.w||2,h=+it.h||2;let loc;
+  if(L.shape==='odd'){try{const g=oddGeom(it,L);let p=samplePath(g.d,32);if(p&&g.tx){const m=g.tx.match(/translate\(([-\d.e]+) ([-\d.e]+)\)/);if(m)p=p.map(q=>({x:q.x+ +m[1],y:q.y+ +m[2]}));}if(p)loc=p.map(q=>[q.x,q.y]);}catch(e){}}
+  if(!loc&&/round|stool|ottomanround|hightop|clawfoot|pedsink/.test(it.t))loc=[...Array(16)].map((_,i)=>[w/2*Math.cos(i*Math.PI/8),h/2*Math.sin(i*Math.PI/8)]);
+  if(!loc)loc=[[-w/2,-h/2],[w/2,-h/2],[w/2,h/2],[-w/2,h/2]];
+  return loc.map(([x,y])=>W3(it,x,y));}
+function otypeFor(t){return /couch|loveseat|futon|sectional|armchair|ottoman|bed/.test(t)?'Sofa / upholstered':/booth|banquette/.test(t)?'Booth seat':/counter|reception|vanity|bar/.test(t)?'Counter':/stage|deck|riser|platform/.test(t)?'Platform / riser':/shelf|dresser|wardrobe|cabinet|linen|filecab|fridge|console|stand/.test(t)?'Cabinet / storage':'Table';}
+function reshapeSel(){const it=selItem();if(!it||it.t==='line')return;const f=findItem(it.id);if(!f)return;snap();const pts=outlineOf(it);pts.push(Object.assign({},pts[0]));
+  const ln=newLine('shape',pts);ln.otype=otypeFor(it.t);ln.label=it.label||(LIB[it.t]&&LIB[it.t].name)||'';if(it.color)ln.color=it.color;ln.scope=it.scope;
+  f.arr.splice(f.i,1,ln);V.sel=ln.id;changed();renderPanel&&renderPanel();toast('Now a custom shape: drag any corner, click an edge to add one. Undo to go back.');}
+
+/* ---------- the panel ---------- */
+function manipGroup(it){const L=LIB[it.t];if(!L||L.kind!=='set'||isOpening(it)||it.t==='line'||L.shape==='kit'||it.t==='north')return '';const b=mhBase(it.t);
+  const inp=(k,ph)=>`<input class="in" type="text" inputmode="decimal" data-k="${k}" value="${esc(it[k]==null?'':String(it[k]))}" placeholder="${ph}">`;
+  const parts=partsFor(it.t).map(k=>{const P=PARTS[k];return fld(P.lab,P.num?inp('p_'+k,String(PART_DEF[k](it))):`<select class="in" data-k="p_${k}">${P.opts.map(([v,n])=>`<option value="${v}" ${partOf(it,k)===v?'selected':''}>${n}</option>`).join('')}</select>`);});
+  let g=`<div class="grp"><h4>Shape &amp; parts</h4><div class="f2"><button class="btn sm" data-flip="x" title="Flip left to right">⇋ Flip left–right</button><button class="btn sm" data-flip="y" title="Flip front to back">⇵ Flip front–back</button></div>`;
+  g+=`<div class="f2" style="margin-top:6px">${fld('Height (ft)',inp('zh',fmtNum(b[1]-b[0])))}${fld('Sits this high (ft)',inp('z0',fmtNum(b[0])))}</div>`;
+  g+=`<label class="chk"><input type="checkbox" data-k="stack" ${it.stack?'checked':''}> Sits on the piece under it (a lamp on a dresser, a TV on a console)</label>`;
+  for(let i=0;i<parts.length;i+=2)g+=`<div class="f2">${parts[i]}${parts[i+1]||''}</div>`;
+  g+=`<button class="btn sm" data-reshape="1" style="margin-top:6px" title="Turn the outline into corners you can drag">✎ Reshape the outline</button><div class="pSub">Reshaping turns it into a custom shape: drag any corner, click an edge to add one. Height and parts show in the mock-ups.</div></div>`;return g;}
+const fmtNum=v=>String(Math.round(v*100)/100);
+{const _pi=panelItem;panelItem=function(){let h=_pi();try{const it=selItem();if(it){const g=manipGroup(it);if(g){const key='<div class="f" style="grid-template-columns:96px 1fr"><label>Notes';const i=h.indexOf(key);h=i>=0?h.slice(0,i)+g+h.slice(i):h+g;}}}catch(e){}return h;};}
+document.addEventListener('click',e=>{const t=e.target.closest&&e.target.closest('[data-flip],[data-reshape]');if(!t||!t.closest('#panel'))return;const it=selItem();if(!it)return;
+  if(t.dataset.reshape){reshapeSel();return;}snap();const k=t.dataset.flip==='x'?'fx':'fy';if(it[k])delete it[k];else it[k]=true;changed();if(typeof CALC!=='undefined'&&CALC.open)renderCalc();});
+document.addEventListener('change',e=>{const k=e.target&&e.target.dataset&&e.target.dataset.k;if(!k||!/^(zh|z0|stack|p_)/.test(k)||!e.target.closest('#panel'))return;setTimeout(()=>{if(typeof CALC!=='undefined'&&CALC.open)renderCalc();},0);});
 const BRANDFF=(()=>{let o='';for(const sh of document.styleSheets){try{for(const r of sh.cssRules)if(r.type===5&&/EB Garamond|Lato/.test(r.cssText))o+=r.cssText;}catch(e){}}return o;})();
 /* ============================================================
    Export
