@@ -2466,7 +2466,7 @@ function dofMock(n){const D=CALC.dof;const W=640,H=Math.round(W*Math.max(.42,Mat
   const proj=(x,y,d)=>({x:W/2+pan+x*n.f/d*ppm,y:H/2-(y-camH)*n.f/d*ppm});const Dbg=dofBgDist(n);const kbg=n.f/Dbg*ppm;
   const bgB=sd(n.blurAt(Dbg));let o=`<svg viewBox="0 0 ${W} ${H}" class="sky" style="cursor:default;background:#000"><defs><clipPath id="dfc"><rect width="${W}" height="${H}"/></clipPath><filter id="dfb" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="${bgB.toFixed(2)}"/></filter></defs><g clip-path="url(#dfc)">`;
   o+=`<g filter="url(#dfb)">${dofScene(D.bg,W,H,(x,y)=>proj(x,y,Dbg),kbg,camH)}</g>`;
-  const floorY=proj(0,0,Dbg).y;o+=`<rect x="0" y="${floorY}" width="${W}" height="${Math.max(0,H-floorY)}" fill="${D.bg==='night'?'#141821':/street/.test(D.bg)?'#5f5f5f':D.bg==='park'?'#678f49':D.bg==='kitchen'?'#8b8b84':'#5a4637'}" filter="url(#dfb)" opacity=".98"/>`;
+  const floorY=proj(0,0,Dbg).y;o+=`<rect x="0" y="${floorY}" width="${W}" height="${Math.max(0,H-floorY)}" fill="${bgFloor(D.bg)}" filter="url(#dfb)" opacity=".98"/>`;
   const subs=[{x:D.two?-(parseFt(D.apart)||0)/2:0,d:n.s,col:'#e07a5f',lab:D.two?'1':''}];if(D.two)subs.push({x:(parseFt(D.apart)||0)/2,d:Math.max(1,n.s+(parseFt(D.stag)||0)),col:'#6aa8d8',lab:'2'});
   subs.slice().sort((a,b)=>b.d-a.d).forEach((s,i)=>{const k=n.f/s.d*ppm;const b=sd(n.blurAt(s.d));const P0=proj(s.x,0,s.d);o+=`<filter id="dfs${i}" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="${b.toFixed(2)}"/></filter><g filter="url(#dfs${i})">${dofPerson(s.x,s.d,P0,k,s.col,s.lab)}</g>`;});
   const sz=shotSize(n.fh);o+=`</g><rect x="8" y="8" rx="5" width="${sz[0].length*11+sz[1].length*6.4+24}" height="24" fill="rgba(0,0,0,.6)"/><text x="18" y="25" font-family="Lato,sans-serif" font-size="14" font-weight="700" fill="#fff">${sz[0]}<tspan font-weight="400" font-size="12" fill="#ddd"> · ${sz[1]}</tspan></text>`;
@@ -2484,7 +2484,7 @@ calcDofHTML=function(){const D=CALC.dof;const cs=camsNow();if(!D.sensor)seedDof(
      <div class="f2">${num('Focal length (mm)','f',D.f,'type="number" min="4" max="600" step="1" list="dofLens"')}${fld('Stop',`<select class="in" data-c="dof.stop">${STOPS.map(s=>`<option ${String(D.stop)===s?'selected':''}>${s}</option>`).join('')}</select>`)}</div><datalist id="dofLens">${lensList.map(f=>`<option value="${f}">`).join('')}</datalist>
      ${num('Focus distance to the subject','dist',D.dist,'placeholder="e.g. 8 or 8\' 6&quot;"')}${D.cam&&D.cam!=='manual'&&actsNow().length?`<button class="btn sm" data-dofseed="1">Measure from the plot</button>`:''}
      <label class="chk" style="margin-top:8px"><input type="checkbox" data-c="dof.show" ${D.show?'checked':''}> Draw the in-focus zone on the plot <span style="font-weight:400">(it stays after you close this)</span></label></div>
-   <div><h4>Scene</h4>${fld('Background',`<select class="in" data-c="dof.bg">${DOFBG.map(([k,n])=>`<option value="${k}" ${D.bg===k?'selected':''}>${n}</option>`).join('')}</select>`)}${num('Background distance from camera','bgDist',D.bgDist)}
+   <div><h4>Scene</h4>${fld('Background',`<select class="in" data-c="dof.bg">${bgOptions(D.bg)}</select>`)}${bgTodField(D)}${num('Background distance from camera','bgDist',D.bgDist)}
      <div class="f"><label>Subjects</label><div class="seg"><button data-dofsub="1" class="${D.two?'':'on'}">One</button><button data-dofsub="2" class="${D.two?'on':''}">Two</button></div></div>
      ${D.two?`${num('Subject 2 behind subject 1 (use a minus for in front)','stag',D.stag)}${num('Side to side between them','apart',D.apart)}`:''}
      <div class="pSub">Distances in feet. Subject 1 is in focus.</div></div></div>
@@ -4135,7 +4135,7 @@ function splitFocus(n){const a=Math.min(n.d1,n.d2),b=Math.max(n.d1,n.d2);const s
   const proj=(x,y,d)=>({x:W/2+x*n.f/d*ppm,y:H/2-(y-camH)*n.f/d*ppm});const Dbg=dofBgDist(n);const kbg=n.f/Dbg*ppm;const bgB=sd(n.blurAt(Dbg));
   let o=`<svg viewBox="0 0 ${W} ${H}" class="sky" style="cursor:default;background:#000"><defs><clipPath id="dfc"><rect width="${W}" height="${H}"/></clipPath><filter id="dfb" x="-20%" y="-20%" width="140%" height="140%"><feGaussianBlur stdDeviation="${bgB.toFixed(2)}"/></filter></defs><g clip-path="url(#dfc)">`;
   o+=`<g filter="url(#dfb)">${dofScene(D.bg,W,H,(x,y)=>proj(x,y,Dbg),kbg,camH)}</g>`;
-  const floorY=proj(0,0,Dbg).y;o+=`<rect x="0" y="${floorY}" width="${W}" height="${Math.max(0,H-floorY)}" fill="${D.bg==='night'?'#141821':/street/.test(D.bg)?'#5f5f5f':D.bg==='park'?'#678f49':D.bg==='kitchen'?'#8b8b84':'#5a4637'}" filter="url(#dfb)" opacity=".98"/>`;
+  const floorY=proj(0,0,Dbg).y;o+=`<rect x="0" y="${floorY}" width="${W}" height="${Math.max(0,H-floorY)}" fill="${bgFloor(D.bg)}" filter="url(#dfb)" opacity=".98"/>`;
   const labs=[];subs.slice().sort((a,b)=>b.d-a.d).forEach((s,i)=>{const k=n.f/s.d*ppm;const b=sd(n.blurAt(s.de));const P0=proj(s.x,0,s.d);const lab=s.lab+(Math.abs(s.de-n.s)<.3?' ◎':'');
     o+=`<filter id="dfs${i}" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="${b.toFixed(2)}"/></filter><g filter="url(#dfs${i})">${dofPerson(s.x,s.d,P0,k,s.col,'')}</g>`;labs.push({P:proj(s.x,6.2,s.d),lab,col:s.col});});
   labs.forEach(l=>{const tx=Math.max(8,Math.min(W-8,l.P.x)),ty=Math.max(48,Math.min(H-24,l.P.y));const anc=tx<60?'start':tx>W-60?'end':'middle';o+=`<text x="${tx}" y="${ty}" text-anchor="${anc}" font-family="Lato,sans-serif" font-weight="700" font-size="14" fill="#fff" stroke="${l.col}" stroke-width="4" paint-order="stroke">${esc(l.lab)}</text>`;});
@@ -4493,38 +4493,43 @@ function calcExpHTML(){const E=CALC.exp;const as=actsNow();const opt=(k,arr,v)=>
    gets a warning (unless you mark the cross as intentional).
    ============================================================ */
 function sceneActorLabels(sc){const seen=[];(sc.setups||[]).forEach(su=>{[su.items,...su.shots.map(s=>s.items)].forEach(arr=>arr.forEach(i=>{if(i.t==='actor'&&i.label&&!seen.includes(i.label))seen.push(i.label);}));});return seen;}
-function lineCfg(sc){sc=sc||scene();const labs=sceneActorLabels(sc);const L=sc.line180||{};const a=labs.includes(L.a)?L.a:labs[0],b=labs.includes(L.b)&&L.b!==a?L.b:labs.find(x=>x!==a);return {a,b,show:L.show!==false,labs};}
+function lineCfg(sc){sc=sc||scene();const labs=sceneActorLabels(sc);const L=sc.line180||{};const a=labs.includes(L.a)?L.a:labs[0],b=labs.includes(L.b)&&L.b!==a?L.b:labs.find(x=>x!==a);return {a,b,show:L.show!==false,off:!!L.off,labs};}
 function sideOf(su,sh,cfg){const items=activeItems(su,sh);const A=items.find(i=>i.t==='actor'&&i.label===cfg.a),B=items.find(i=>i.t==='actor'&&i.label===cfg.b);if(!A||!B)return null;
   const cams=items.filter(i=>i.t==='camera');if(!cams.length)return null;const dx=B.x-A.x,dy=B.y-A.y;if(Math.hypot(dx,dy)<.3)return null;
   return cams.map(c=>({c,s:Math.sign(dx*(c.y-A.y)-dy*(c.x-A.x))||1,A,B}));}
-function lineReport(sc){sc=sc||scene();const cfg=lineCfg(sc);if(!cfg.a||!cfg.b)return {cfg,rows:[],ref:null};const rows=[];let ref=null;
-  (sc.setups||[]).forEach(su=>su.shots.forEach(sh=>{const r=sideOf(su,sh,cfg);if(!r)return;r.forEach(x=>{if(ref==null&&!sh.crossOK)ref={s:x.s,num:sh.num};rows.push({su,sh,c:x.c,s:x.s});});}));
-  rows.forEach(r=>r.bad=ref&&r.s!==ref.s&&!r.sh.crossOK);return {cfg,rows,ref};}
+/* each shot is checked against the side in force when it comes up: the first shot that sees both
+   characters sets it, a shot marked "starts a new side" resets it for the shots after it, and a
+   shot marked "crosses on purpose" is a one-off that leaves the side alone */
+function lineReport(sc){sc=sc||scene();const cfg=lineCfg(sc);if(!cfg.a||!cfg.b||cfg.off)return {cfg,rows:[],ref:null};const rows=[];let ref=null,first=null;
+  (sc.setups||[]).forEach(su=>su.shots.forEach(sh=>{const r=sideOf(su,sh,cfg);if(!r)return;r.forEach(x=>{if(sh.newSide||(ref==null&&!sh.crossOK)){if(!sh.newSide||ref==null||ref.s!==x.s||ref.num!==sh.num)ref={s:x.s,num:sh.num,isNew:!!sh.newSide&&first!=null};if(first==null)first=ref;}
+    rows.push({su,sh,c:x.c,s:x.s,ref});});}));
+  rows.forEach(r=>r.bad=r.ref&&r.s!==r.ref.s&&!r.sh.crossOK&&!r.sh.newSide);return {cfg,rows,ref:first};}
+function lineRefFor(rep,su,sh){const own=rep.rows.find(r=>r.sh===sh&&r.su===su);if(own)return own.ref;let last=null;for(const s2 of (scene().setups||[]))for(const h of s2.shots){const r=rep.rows.find(x=>x.sh===h);if(r)last=r.ref;if(h===sh)return last||rep.ref;}return rep.ref;}
 
 /* on the plot: the line, the safe side, and a warning on a camera that crosses */
 {const _ri=renderItems;renderItems=function(items,o){const L=_ri(items,o);try{if(!o||o.ghost||!P)return L;const sc=scene();const rep=lineReport(sc);if(!rep.cfg.show||!rep.ref)return L;
-  const su=setup(),sh=shot();const A=items.find(i=>i.t==='actor'&&i.label===rep.cfg.a),B=items.find(i=>i.t==='actor'&&i.label===rep.cfg.b);if(!A||!B)return L;
+  const su=setup(),sh=shot();const REF=lineRefFor(rep,su,sh)||rep.ref;const A=items.find(i=>i.t==='actor'&&i.label===rep.cfg.a),B=items.find(i=>i.t==='actor'&&i.label===rep.cfg.b);if(!A||!B)return L;
   const dx=B.x-A.x,dy=B.y-A.y,len=Math.hypot(dx,dy);if(len<.3)return L;const ux=dx/len,uy=dy/len,E=40;const p1={x:A.x-ux*E,y:A.y-uy*E},p2={x:B.x+ux*E,y:B.y+uy*E};
-  const nx=-uy*rep.ref.s,ny=ux*rep.ref.s;// the safe side is where the first shot's camera sits: sign of cross = +, i.e. along (−uy, ux)
+  const nx=-uy*REF.s,ny=ux*REF.s;// the safe side is where the first shot's camera sits: sign of cross = +, i.e. along (−uy, ux)
   const px=o.px,col='#e0b13a';
   let s=`<g pointer-events="none"><path d="M${p1.x} ${p1.y} L${p2.x} ${p2.y} L${p2.x+nx*E} ${p2.y+ny*E} L${p1.x+nx*E} ${p1.y+ny*E}Z" fill="${col}" fill-opacity=".045"/><path d="M${p1.x} ${p1.y} L${p2.x} ${p2.y}" stroke="${col}" stroke-width="${1.6*px}" stroke-dasharray="${10*px} ${5*px}" opacity=".85"/>`;
   const mx=(A.x+B.x)/2+ux*Math.min(6,len/2+2),my=(A.y+B.y)/2+uy*Math.min(6,len/2+2);const ang=Math.atan2(uy,ux)/D2R;const ang2=ang>90||ang<-90?ang+180:ang;
-  s+=`<text transform="translate(${mx+nx*.6} ${my+ny*.6}) rotate(${ang2})" text-anchor="middle" font-family="${o.C.mono}" font-weight="700" font-size="${9*px}" fill="${col}" paint-order="stroke" stroke="${o.C.bg}" stroke-width="${3*px}">180° line · ${esc(rep.cfg.a)}–${esc(rep.cfg.b)} · camera side set by ${esc(rep.ref.num)}</text>`;
+  s+=`<text transform="translate(${mx+nx*.6} ${my+ny*.6}) rotate(${ang2})" text-anchor="middle" font-family="${o.C.mono}" font-weight="700" font-size="${9*px}" fill="${col}" paint-order="stroke" stroke="${o.C.bg}" stroke-width="${3*px}">180° line · ${esc(rep.cfg.a)}–${esc(rep.cfg.b)} · camera side set by ${esc(REF.num)}</text>`;
   rep.rows.filter(r=>r.sh===sh&&r.su===su&&r.bad).forEach(r=>{s+=`<text x="${r.c.x}" y="${r.c.y-1.4}" text-anchor="middle" font-family="${o.C.font}" font-weight="700" font-size="${11*px}" fill="#e5484d" paint-order="stroke" stroke="${o.C.bg}" stroke-width="${3*px}">⚠ crosses the 180° line</text>`;});
   L.labels=(L.labels||'')+s+'</g>';}catch(e){}return L;};}
 
 /* Shot tab: pick the two characters, see each shot's side, mark an intentional cross */
-{const _ps=panelShot;panelShot=function(){let h=_ps();try{const sc=scene();const rep=lineReport(sc);const cfg=rep.cfg;if(cfg.labs.length<2)return h;const sh=shot();
+{const _ps=panelShot;panelShot=function(){let h=_ps();try{const sc=scene();const rep=lineReport(sc);const cfg=rep.cfg;if(cfg.labs.length<2)return h;const sh=shot();if(cfg.off){h+=`<div class="grp"><h4>180° line</h4><label class="chk"><input type="checkbox" data-l180="off"> Check the 180° line in this scene</label><div class="pSub">Off for this scene. Turn it on to check which side of the line each camera is on.</div></div>`;return h;}
   const opts=(k,v)=>`<select class="in" data-l180="${k}">${cfg.labs.map(l=>`<option ${l===v?'selected':''}>${esc(l)}</option>`).join('')}</select>`;
-  let rows='';rep.rows.forEach(r=>{rows+=`<div class="kv"><span>${esc(r.sh.num)}${r.c.cam?' · '+esc(r.c.cam)+' cam':''}</span><b style="${r.bad?'color:#e5484d':''}">${r.bad?'⚠ crosses the line':r.sh.crossOK?'crosses on purpose':rep.ref&&r.sh.num===rep.ref.num?'sets the side':'same side ✓'}</b></div>`;});
+  let rows='';rep.rows.forEach(r=>{rows+=`<div class="kv"><span>${esc(r.sh.num)}${r.c.cam?' · '+esc(r.c.cam)+' cam':''}</span><b style="${r.bad?'color:#e5484d':''}">${r.bad?'⚠ crosses the line':r.sh.newSide&&r.ref&&r.ref.isNew?'starts a new side':r.sh.crossOK?'crosses on purpose':r.ref&&r.sh.num===r.ref.num?'sets the side':'same side ✓'}</b></div>`;});
   const bad=rep.rows.filter(r=>r.bad).length;
   h+=`<div class="grp"><h4>180° line</h4><div class="f2">${fld('Between',opts('a',cfg.a))}${fld('and',opts('b',cfg.b))}</div>
-    <label class="chk"><input type="checkbox" data-l180="show" ${cfg.show?'checked':''}> Show the line on the plot</label>
+    <label class="chk"><input type="checkbox" data-l180="off" checked> Check the 180° line in this scene</label><label class="chk"><input type="checkbox" data-l180="show" ${cfg.show?'checked':''}> Show the line on the plot</label>
     ${rows||'<div class="pSub">Add a camera to a shot that has both characters to set the side.</div>'}
-    <label class="chk" style="margin-top:6px"><input type="checkbox" data-l180="cross" ${sh.crossOK?'checked':''}> Shot ${esc(sh.num)} crosses the line on purpose</label>
-    <div class="pSub">${bad?`${bad} shot${bad>1?'s':''} on the other side. Screen direction will flip unless the move is motivated or you cut through a neutral shot.`:'The first shot that sees both characters sets the side; later shots should keep the camera on it.'}</div></div>`;}catch(e){}return h;};}
+    <div style="margin-top:6px">${fld(`Shot ${esc(sh.num)}`,`<select class="in" data-l180="mode"><option value="" ${!sh.crossOK&&!sh.newSide?'selected':''}>Stays on the side</option><option value="cross" ${sh.crossOK&&!sh.newSide?'selected':''}>Crosses on purpose, just this shot</option><option value="new" ${sh.newSide?'selected':''}>Crosses on purpose and starts a new side</option></select>`)}</div>
+    <div class="pSub">${bad?`${bad} shot${bad>1?'s':''} on the other side. Screen direction will flip unless the move is motivated or you cut through a neutral shot.`:'The first shot that sees both characters sets the side. A shot that starts a new side resets it for the shots after it.'}</div></div>`;}catch(e){}return h;};}
 document.addEventListener('change',e=>{const k=e.target&&e.target.dataset&&e.target.dataset.l180;if(!k)return;e.stopPropagation();snap();const sc=scene();sc.line180=Object.assign({},lineCfg(sc),sc.line180||{});delete sc.line180.labs;
-  if(k==='a'||k==='b')sc.line180[k]=e.target.value;if(k==='show')sc.line180.show=e.target.checked;if(k==='cross')shot().crossOK=e.target.checked;changed(true);},true);
+  if(k==='a'||k==='b')sc.line180[k]=e.target.value;if(k==='show')sc.line180.show=e.target.checked;if(k==='off')sc.line180.off=!e.target.checked;if(k==='cross')shot().crossOK=e.target.checked;if(k==='mode'){const h=shot(),v=e.target.value;h.crossOK=v==='cross';h.newSide=v==='new';}changed(true);},true);
 // the shot list flags shots that cross
 {const _rt=renderTree;renderTree=function(){_rt();try{const rep=lineReport();rep.rows.filter(r=>r.bad).forEach(r=>{document.querySelectorAll(`#tree [data-shot="${r.sh.id}"]`).forEach(b=>{if(!b.querySelector('.x180'))b.insertAdjacentHTML('beforeend','<span class="x180" title="Crosses the 180° line" style="color:#e5484d;margin-left:3px">⚠</span>');});});}catch(e){}};}
 /* ============================================================
@@ -4822,6 +4827,120 @@ function setupTimeText(su){const e=setupEstimate(su);return e.over?`${fmtMins(e.
     <div class="pSub">A planning estimate from what's on the plot. Lights and grip already standing from the setup shot just before (same location, in shooting-day order if you've set days) count as kept. Set Build to “Carried over from the previous setup” when nothing moves. It only appears on exported shot sheets if you tick it there.</div></div>`;
   const i=h.indexOf('<div class="grp"><h4>180° line');h=i>=0?h.slice(0,i)+g+h.slice(i):h+g;}catch(e){}return h;};}
 document.addEventListener('change',e=>{const k=e.target&&e.target.dataset&&e.target.dataset.lt;if(!k)return;e.stopPropagation();snap();if(k==='over'){const v=+e.target.value;if(v>0)setup().lightMins=v;else delete setup().lightMins;}if(k==='pace'){P.settings.pace=e.target.value;}changed(true);},true);
+/* ============================================================
+   More backgrounds for the depth-of-field mock-up: interiors, exteriors
+   (with day / dusk / night) and two neutral choices (plain wall, cyc).
+   The backdrop is a flat plane at the background distance; x is feet
+   across, y is feet up from the floor.
+   ============================================================ */
+DOFBG.length=0;
+[['living','Living room','int'],['kitchen','Kitchen','int'],['bedroom','Bedroom','int'],['bathroom','Bathroom','int'],['office','Office','int'],
+ ['restaurant','Restaurant / bar','int'],['hallway','Hallway / corridor','int'],['classroom','Classroom / meeting room','int'],['bodega','Store / bodega','int'],
+ ['carint','Car interior','int'],['stairwell','Stairwell','int'],['warehouse','Large open space (warehouse, loft, gym)','int'],
+ ['street','City street','ext'],['brownstone','Brownstone / residential block','ext'],['rooftop','Rooftop, skyline','ext'],['subway','Subway platform','ext'],
+ ['storefront','Storefront / sidewalk','ext'],['suburb','Suburban house and yard','ext'],['park','Park, trees','ext'],['beach','Beach / waterfront','ext'],
+ ['field','Field / open landscape','ext'],['forest','Forest / woods','ext'],['alley','Alley / parking lot','ext'],['highway','Highway / roadside','ext'],
+ ['studio','Plain wall','neu'],['cyc','Backdrop / cyc','neu']].forEach(r=>DOFBG.push(r));
+const BG_TOD={day:'Day',dusk:'Dusk',night:'Night'};
+const BG_NO_TOD=['subway'];                 // underground: no sky
+function bgKind(bg){const r=DOFBG.find(x=>x[0]===bg);return r?r[2]:'int';}
+function bgHasTod(bg){return (bgKind(bg)==='ext'||bg==='carint')&&!BG_NO_TOD.includes(bg);}
+function bgTod(){const D=CALC.dof;if(D.bg==='night'){D.bg='street';D.tod='night';}return BG_TOD[D.tod]?D.tod:'day';}
+function bgOptions(cur){if(cur==='night')cur='street';const g=(k,lab)=>`<optgroup label="${lab}">${DOFBG.filter(r=>r[2]===k).map(([v,n])=>`<option value="${v}" ${cur===v?'selected':''}>${n}</option>`).join('')}</optgroup>`;
+  return g('int','Interior')+g('ext','Exterior')+g('neu','Neutral');}
+function bgTodField(D){bgTod();if(!bgHasTod(D.bg))return '';return fld('Time of day',`<select class="in" data-c="dof.tod">${Object.entries(BG_TOD).map(([k,n])=>`<option value="${k}" ${bgTod()===k?'selected':''}>${n}</option>`).join('')}</select>`);}
+const BG_FLOOR={living:'#5a4637',kitchen:'#8b8b84',studio:'#55595e',street:'#5f5f5f',park:'#678f49',bedroom:'#7b6250',bathroom:'#c9cfd2',office:'#6c7178',restaurant:'#3d2a20',
+  hallway:'#8a7f70',classroom:'#9a8f7d',bodega:'#bdb6a6',carint:'#26282c',stairwell:'#77716a',warehouse:'#7d7a74',brownstone:'#8e8b86',rooftop:'#6d6a66',subway:'#a7a196',
+  storefront:'#8f8c87',suburb:'#5f8a45',beach:'#d9c39a',field:'#7b9a4f',forest:'#4a5634',alley:'#5d5b58',highway:'#55575a',cyc:'#d4d4d4'};
+function bgFloor(bg){bgTod();const t=CALC.dof.tod;let c=BG_FLOOR[bg]||'#5a4637';if(bgHasTod(bg)&&t!=='day')c=shadeHex(c,t==='night'?.28:.62);return c;}
+function shadeHex(c,k){const n=parseInt(c.slice(1),16);const f=v=>Math.round(v*k).toString(16).padStart(2,'0');return '#'+f(n>>16&255)+f(n>>8&255)+f(n&255);}
+
+{const _ds=dofScene;dofScene=function(bg,W,H,P,k,camH){
+  const tod=bgHasTod(bg)?bgTod():'day';
+  if(bg==='street'&&tod==='night')return _ds('night',W,H,P,k,camH);
+  if(['living','kitchen','studio','street','park','night'].includes(bg)){let o=_ds(bg,W,H,P,k,camH);if(tod!=='day')o+=`<rect x="-${W}" y="-${H}" width="${W*3}" height="${H*3}" fill="${tod==='night'?'#050810':'#3a2a55'}" opacity="${tod==='night'?.65:.3}"/>`;
+    if(bg==='park'&&tod!=='day')[-21,0,21].forEach(x=>{const p=P(x,10);o+=`<circle cx="${p.x}" cy="${p.y}" r="${Math.max(1,.5*k)}" fill="#ffe4a8"/>`;});return o;}
+  return bgScene(bg,W,H,P,k,camH,tod);};}
+
+function bgScene(bg,W,H,P,k,camH,tod){
+  const R=(x0,y0,x1,y1,fill,extra)=>{const a=P(x0,y1),b=P(x1,y0);return `<rect x="${a.x.toFixed(1)}" y="${a.y.toFixed(1)}" width="${Math.max(0,b.x-a.x).toFixed(1)}" height="${Math.max(0,b.y-a.y).toFixed(1)}" fill="${fill}" ${extra||''}/>`;};
+  const C=(x,y,r,fill,op)=>{const p=P(x,y);return `<circle cx="${p.x.toFixed(1)}" cy="${p.y.toFixed(1)}" r="${Math.max(.6,r*k).toFixed(1)}" fill="${fill}" opacity="${op??1}"/>`;};
+  const PL=(pts,fill,extra)=>`<path d="M${pts.map(([x,y])=>{const p=P(x,y);return p.x.toFixed(1)+' '+p.y.toFixed(1);}).join(' L')}Z" fill="${fill}" ${extra||''}/>`;
+  const LN=(x0,y0,x1,y1,col,w)=>{const a=P(x0,y0),b=P(x1,y1);return `<path d="M${a.x.toFixed(1)} ${a.y.toFixed(1)} L${b.x.toFixed(1)} ${b.y.toFixed(1)}" stroke="${col}" stroke-width="${Math.max(.5,(w||.1)*k).toFixed(1)}"/>`;};
+  const all=fill=>`<rect x="-${W}" y="-${H}" width="${W*3}" height="${H*3}" fill="${fill}"/>`;
+  let seed=11;const gid='bgsk'+(bgScene.n=(bgScene.n||0)+1);const gy1=P(0,70).y.toFixed(1),gy2=P(0,camH-2).y.toFixed(1);const rnd=()=>{seed=(seed*9301+49297)%233280;return seed/233280;};
+  const night=tod==='night',dusk=tod==='dusk';let lit='';
+  const sky=()=>night?`<defs><linearGradient id="${gid}" gradientUnits="userSpaceOnUse" x1="0" y1="${gy1}" x2="0" y2="${gy2}"><stop offset="0" stop-color="#05070e"/><stop offset="1" stop-color="#18203a"/></linearGradient></defs><rect x="-${W}" y="-${H}" width="${W*3}" height="${H*3}" fill="url(#${gid})"/>`
+    :dusk?`<defs><linearGradient id="${gid}" gradientUnits="userSpaceOnUse" x1="0" y1="${gy1}" x2="0" y2="${gy2}"><stop offset="0" stop-color="#4b4a7a"/><stop offset=".6" stop-color="#d9826a"/><stop offset="1" stop-color="#f5b57a"/></linearGradient></defs><rect x="-${W}" y="-${H}" width="${W*3}" height="${H*3}" fill="url(#${gid})"/>`
+    :`<defs><linearGradient id="${gid}" gradientUnits="userSpaceOnUse" x1="0" y1="${gy1}" x2="0" y2="${gy2}"><stop offset="0" stop-color="#8fb9df"/><stop offset="1" stop-color="#cfe3f2"/></linearGradient></defs><rect x="-${W}" y="-${H}" width="${W*3}" height="${H*3}" fill="url(#${gid})"/>`;
+  // a window: dark glass by day; at dusk / night some are lit
+  const win=(x0,y0,x1,y1,glass)=>{const p=night?.6:dusk?.35:0;if(p&&rnd()<p){lit+=R(x0,y0,x1,y1,rnd()<.8?'#ffd28a':'#fff1c9');return R(x0,y0,x1,y1,'#1b2230');}return R(x0,y0,x1,y1,glass||(night?'#1b2230':'#46525c'));};
+  const lamp=(x,y,r)=>{if(night||dusk)lit+=C(x,y,r*2.2,'#ffd28a',.25)+C(x,y,r,'#fff1c9');};
+  const tree=(x,h,r,c)=>R(x-.3,0,x+.3,h,'#4a3b2c')+C(x,h+r*.6,r,c||'#4f7a3f')+C(x-r*.5,h+r*.2,r*.75,shadeHex(c||'#4f7a3f',1.12))+C(x+r*.5,h+r*.3,r*.7,shadeHex(c||'#4f7a3f',.9));
+  const car=(x,col)=>PL([[x,0.6],[x,2.4],[x+1.5,2.6],[x+3.2,4.2],[x+9.5,4.2],[x+11.5,2.6],[x+14,2.4],[x+14,.6]],col)+R(x+3.6,2.7,x+6.2,3.9,night?'#10141b':'#7e95a6')+R(x+6.6,2.7,x+9.2,3.9,night?'#10141b':'#7e95a6')+C(x+3,.7,1,'#1b1b1b')+C(x+11,.7,1,'#1b1b1b');
+  let o='';
+  switch(bg){
+  /* ---------------- interiors ---------------- */
+  case 'bedroom':o+=all('#b9a99a')+R(-60,0,60,.4,'#7b6250');
+    o+=R(2,3,7.5,7.8,'#d5e6f3')+R(4.7,3,4.8,7.8,'#f2efe9')+R(1,2.4,2.6,8.6,'#7d5a5a')+R(6.9,2.4,8.5,8.6,'#7d5a5a')+R(.6,8.6,8.9,8.8,'#3b3029');
+    o+=R(-10,0,-1,4.4,'#5b4636')+R(-10.4,0,-.6,2.2,'#ece7df')+R(-9.6,2.2,-6,3.1,'#f7f4ef')+R(-5.6,2.2,-1.6,3.1,'#f7f4ef')+R(-10.4,1.2,-.6,2.2,'#6f7e95');
+    o+=R(-13,0,-11,2.2,'#6b5442')+R(-12.2,2.2,-11.8,3.2,'#b5a58a')+PL([[-12.9,3.2],[-11.1,3.2],[-11.5,4.4],[-12.5,4.4]],'#f1e4c6')+R(-8,5.2,-3,7.6,'#3b3029')+R(-7.8,5.4,-3.2,7.4,'#9bb0a2')+R(10,0,15,6.5,'#8a6d55')+R(10.2,3.4,14.8,3.5,'#5b4636');break;
+  case 'bathroom':o+=all('#e3e8ea');for(let x=-30;x<30;x+=1)o+=LN(x,0,x,8.5,'#c7ced2',.03);for(let y=1;y<8.5;y+=1)o+=LN(-30,y,30,y,'#c7ced2',.03);o+=R(-30,8.5,30,40,'#f2f2ee');
+    o+=R(-4,0,2,2.8,'#7a6a5a')+R(-4.2,2.8,2.2,3,'#efefef')+R(-1.6,2.95,-.4,3.1,'#ffffff')+R(-3.4,3.8,1.4,7,'#9eb2bd','stroke="#c9b48a" stroke-width="'+Math.max(.6,.08*k)+'"')+C(-4.4,7.4,.25,'#fff1c9')+C(2.4,7.4,.25,'#fff1c9');
+    o+=R(4.5,0,10,7.6,'#cfe2ea','fill-opacity=".55" stroke="#aebfc7" stroke-width="'+Math.max(.6,.06*k)+'"')+C(8.5,6.6,.35,'#9aa3ab')+R(-8.5,3.2,-6.5,5.4,'#c97b6a')+R(-8.7,5.4,-6.3,5.55,'#9aa3ab');break;
+  case 'office':o+=all('#d7d9d6')+R(-80,3,80,8.4,'#cfe3f2');for(let x=-80;x<=80;x+=5)o+=R(x-.15,3,x+.15,8.4,'#6c7178');o+=R(-80,8.4,80,30,'#ecedea');for(let x=-60;x<60;x+=8)o+=R(x,9.2,x+4,9.4,'#fffbe8');
+    for(let x=-36;x<36;x+=7.5)o+=R(x,0,x+6,2.5,'#9a9fa4')+R(x+1,2.6,x+3.2,4.1,'#1d2126')+R(x+1.95,2.5,x+2.25,2.6,'#3a3f45')+R(x+3.6,2.6,x+5.4,3.9,'#1d2126')+R(x+2,0,x+3.6,3.2,'#2d3035');break;
+  case 'restaurant':o+=all('#5a3a2e')+R(-11,3.4,11,8.2,'#3a271f');for(let y=4.2;y<8;y+=1.3){o+=R(-11,y-.1,11,y,'#7a5a3e');for(let x=-10.5;x<10.5;x+=.55)o+=R(x,y,x+.3,y+.75+((x*7)%.4),['#3f6f4a','#9a5a2a','#d9c27a','#6a2f2f','#cfd8dc'][Math.abs(Math.round(x*3))%5]);}
+    o+=R(-12,0,12,3.6,'#6b4430')+R(-12.3,3.6,12.3,3.85,'#2a1b15')+R(14,0,22,4.2,'#7a2f2f')+R(-22,0,-14,4.2,'#7a2f2f')+R(-60,8.2,60,30,'#2a1d18');[-8,-3,3,8,18,-18].forEach(x=>{o+=LN(x,12,x,8.8,'#1b1b1b',.04)+PL([[x-.5,8.8],[x+.5,8.8],[x+.3,9.3],[x-.3,9.3]],'#c98d4a');lit+=C(x,8.6,.35,'#ffd28a',.95);});break;
+  case 'hallway':{const vx=0,vy=camH;o+=all('#cfc6b4');o+=PL([[-80,-20],[-2.5,0],[-2.5,8.5],[-80,60]],'#bfb5a2')+PL([[80,-20],[2.5,0],[2.5,8.5],[80,60]],'#b3a994')+PL([[-80,60],[-2.5,8.5],[2.5,8.5],[80,60]],'#e7e2d6');
+    o+=R(-2.5,0,2.5,8.5,'#d9d1bf')+R(-1.2,0,1.2,6.8,'#6b4f3a')+C(.8,3.2,.08,'#c9a44a');[[-14,-4.5],[-30,-8],[14,4.5],[30,8]].forEach(([a,b])=>{const s=Math.sign(a),t=Math.abs(b);o+=PL([[a,-3*t/4.5],[a+s*t*.2,-3*t/4.5*.9],[a+s*t*.2,7.5],[a,7.5+t*.4]],'#7a5a42');});
+    for(let i=1;i<6;i++){const f=i/6;o+=R(-1.2*f*4,8.5+f*20,1.2*f*4,8.5+f*20+.3,'#fffbe8');}break;}
+  case 'classroom':o+=all('#e3e0d8')+R(-9,3,9,7.2,'#fbfbfb','stroke="#9aa3ab" stroke-width="'+Math.max(.6,.1*k)+'"')+R(-9,2.8,9,3,'#9aa3ab')+R(12,2.4,20,7.6,'#cfe3f2','stroke="#9aa3ab" stroke-width="'+Math.max(.6,.1*k)+'"')+R(-60,8.6,60,30,'#f1efe9');
+    o+=LN(-7,6,-2,6,'#2f6b9a',.06)+LN(-7,5.2,1,5.2,'#2f6b9a',.06)+LN(-7,4.4,-1,4.4,'#c94a3a',.06);o+=R(-20,0,20,2.5,'#9b8565');for(let x=-18;x<18;x+=3)o+=R(x,1.6,x+1.6,3.4,'#3f4a51');o+=R(-16,7.6,-12,8.2,'#2d3035');break;
+  case 'bodega':o+=all('#e8e2d0')+R(-60,8.6,60,30,'#f4f0e4')+R(-14,8.8,14,10.2,'#c94a3a');
+    for(let x=-30;x<14;x+=6.4){o+=R(x,0,x+6,7,'#bfc4c8');for(let y=.5;y<7;y+=1.3){o+=R(x,y-.08,x+6,y,'#8a9096');for(let q=x+.2;q<x+5.8;q+=.45)o+=R(q,y,q+.35,y+.55+((q*13)%.5),['#c94a3a','#e2b84a','#3f6f4a','#2f6b9a','#e07a3a','#f2efe9'][Math.abs(Math.round(q*5))%6]);}}
+    o+=R(15,0,30,7.2,'#cfd8dc');for(let x=15;x<30;x+=3.75){o+=R(x+.15,.3,x+3.6,7,'#e6f2f7','fill-opacity=".7"');for(let y=1;y<7;y+=1.4)for(let q=x+.4;q<x+3.4;q+=.5)o+=R(q,y,q+.35,y+.9,['#c94a3a','#2f6b9a','#3f6f4a','#e2b84a'][Math.abs(Math.round(q*7+y))%4]);}break;
+  case 'carint':o+=sky();
+    {let ox=-70;while(ox<70){const w=10+rnd()*14,h=18+rnd()*40;o+=R(ox,0,ox+w,h,['#8d7d70','#b9a68f','#7f8a92','#c7b59b'][Math.floor(rnd()*4)]);for(let x=ox+1.4;x<ox+w-1.4;x+=3)for(let y=3;y<h-2;y+=4)o+=win(x,y,x+1.6,y+2.4);ox+=w;}}
+    o+=R(-90,0,90,1.2,night?'#24272c':'#6e6e6e');if(night||dusk)[-30,-5,22].forEach(x=>{o+=LN(x,0,x,14,'#2b2b2b',.25);lamp(x,14,.6);});
+    o+=R(-90,-40,90,3.4,'#2d2f33')+R(-90,3.2,90,3.6,'#1b1c1f')+R(-90,7.6,90,60,'#4a4a4c')+R(-3,3.4,-1.2,7.6,'#2a2b2e')+R(-90,3.4,-16,7.6,'#2a2b2e')+R(16,3.4,90,7.6,'#2a2b2e')+R(-14,1.6,-9,2.2,'#4a4b4f');break;
+  case 'stairwell':o+=all('#cfc9bd')+R(-60,0,60,.3,'#77716a');{const st=[];for(let i=0;i<14;i++){st.push([-12+i*1.1,i*.62],[-12+i*1.1+1.1,i*.62]);}o+=PL([[-12,0]].concat(st).concat([[3.4,8.7],[3.4,0]]),'#9a948a');
+    o+=LN(-12,3,3.4,11.7,'#3f4a51',.12);for(let i=0;i<14;i+=2)o+=LN(-12+i*1.1+.5,i*.62+.62,-12+i*1.1+.5,i*.62+3.4,'#3f4a51',.06);o+=R(3.4,8.4,14,8.8,'#9a948a')+R(6,0,9.4,7,'#7f8a92')+R(6.4,5,9,6.4,'#cfe3f2')+R(-20,9,-16,10,'#c94a3a');lamp(10,12,.5);o+=R(9.5,11.6,10.5,12.2,'#fffbe8');}break;
+  case 'warehouse':o+=all('#8d8a84');for(let y=.7;y<24;y+=.7)o+=LN(-90,y,90,y,'#7f7b75',.04);o+=R(-90,14,90,20,'#b9cbd8');for(let x=-90;x<90;x+=4)o+=R(x-.15,14,x+.15,20,'#5d5b58');
+    for(let x=-60;x<=60;x+=15)o+=R(x-.6,0,x+.6,26,'#6e6b66');o+=R(-90,21,90,22,'#5d5b58')+R(-90,24,90,60,'#6f6c67');for(let x=-50;x<60;x+=12)o+=R(x,21.5,x+5,21.8,'#fffbe8');o+=R(-8,0,8,12,'#7b7f84');for(let y=.6;y<12;y+=.6)o+=LN(-8,y,8,y,'#6a6e73',.05);break;
+  /* ---------------- exteriors ---------------- */
+  case 'brownstone':o+=sky();for(let x=-80;x<80;x+=20){const c=['#7a4a3a','#8a5a44','#6e4032','#93624c'][Math.abs(x/20)%4|0];o+=R(x,0,x+20,46,c)+R(x,44,x+20,47,'#4a2f25');
+      for(let f=0;f<3;f++){const y=14+f*10;[2.5,8.5,14.5].forEach(dx=>{o+=R(x+dx-.3,y-.3,x+dx+3.3,y+6.3,'#d9cbb5')+win(x+dx,y,x+dx+3,y+6);});}
+      o+=R(x+2.5,3,x+5.5,8,'#d9cbb5')+win(x+2.8,3.3,x+5.2,7.7);o+=PL([[x+8,0],[x+8,4],[x+12,10],[x+16,10],[x+16,0]],'#5a3a2e')+R(x+12,10,x+15.5,17.5,'#2a1d18')+R(x+11.6,17.5,x+15.9,18.3,'#d9cbb5')+LN(x+8,4.6,x+12,10.6,'#1b1b1b',.12);lamp(x+11.8,15,.25);}
+    o+=car(-26,'#7d8a96')+car(-10,'#a33b32')+car(6,'#2f3a46')+car(22,'#c9c4b8')+tree(-30,10,4.5)+tree(14,10,4.2);break;
+  case 'rooftop':o+=sky();{let ox=-90;while(ox<90){const w=6+rnd()*12,h=camH+3+rnd()*30;o+=R(ox,camH-2,ox+w,h,night?'#121826':['#8a96a3','#a9b3bc','#7d8791','#b8b1a6'][Math.floor(rnd()*4)]);for(let x=ox+.8;x<ox+w-.8;x+=1.6)for(let y=camH;y<h-1;y+=2)o+=win(x,y,x+.8,y+1.1,night?'#1b2230':'#5d6b78');ox+=w+rnd()*2;}}
+    o+=R(-90,-10,90,3.6,'#8a7e74')+R(-90,3.4,90,3.8,'#6f655d');o+=R(14,3.8,22,20,'#7a5a42')+PL([[13.5,20],[22.5,20],[18,24]],'#5a3a2e');for(let x=15;x<22;x+=1.2)o+=LN(x,3.8,x,20,'#5a4232',.05);o+=LN(14,3.8,14.6,-4,'#3a3a3a',.2)+LN(22,3.8,21.4,-4,'#3a3a3a',.2);break;
+  case 'subway':o+=all('#e9e4d6');for(let x=-60;x<60;x+=.6)o+=LN(x,0,x,9.5,'#d9d3c3',.02);o+=R(-90,6,90,6.8,'#2c6e49')+R(-6,7,6,8.4,'#1b1b1b')+R(-90,9.5,90,40,'#4a4d50');
+    o+=`<text x="${P(0,7.7).x}" y="${P(0,7.45).y}" text-anchor="middle" font-family="Lato,sans-serif" font-weight="700" font-size="${(.9*k).toFixed(1)}" fill="#fff">STATION</text>`;for(let x=-40;x<=40;x+=10)o+=R(x-.35,0,x+.35,9.5,'#2f4f78')+R(x-.6,9.2,x+.6,9.5,'#2f4f78');for(let x=-50;x<50;x+=6)o+=R(x,9.6,x+3,9.8,'#fffbe8');
+    o+=R(-90,-6,90,0,'#2a2826')+R(-90,-.4,90,0,'#e2b84a');break;
+  case 'storefront':o+=sky();[[-60,-30,'#8d7d70'],[-30,-2,'#b9a68f'],[-2,26,'#7f8a92'],[26,56,'#a7958a']].forEach(([a,b,c],i)=>{o+=R(a,0,b,40,c);for(let x=a+2;x<b-2;x+=4)for(let y=14;y<38;y+=6)o+=win(x,y,x+2.4,y+3.6);
+      const glass=R(a+2,.6,b-2,9,night||dusk?'#e9c48a':'#5e7480');o+=glass;if(night||dusk)lit+=R(a+2,.6,b-2,9,'#ffd9a0','opacity=".85"');o+=R(a+2,.6,b-2,1.2,'#3a3a3a')+R((a+b)/2-1.8,.6,(a+b)/2+1.8,8.2,'#3a2a20','opacity=".5"');
+      const aw=['#2f6b4f','#a33b32','#2f4f78','#c9a44a'][i];o+=PL([[a+1,11.6],[b-1,11.6],[b,9.6],[a,9.6]],aw)+R(a+4,12.2,b-4,13.6,'#1b1b1b');for(let x=a+1.5;x<b-1.5;x+=2)o+=PL([[x,11.6],[x+1,11.6],[x+1.05,9.6],[x+.05,9.6]],'#f2efe9','opacity=".55"');});
+    o+=R(-90,0,90,.5,'#a9a49b');[-35,8].forEach(x=>{o+=LN(x,0,x,14,'#2b2b2b',.25);lamp(x,14,.6);});break;
+  case 'suburb':o+=sky()+R(-90,0,90,3,'#6f9a4f');o+=tree(-34,12,6,'#3e6a33')+tree(30,11,6.5,'#46753a');
+    o+=R(-16,0,10,13,'#d9d2c2')+PL([[-18,13],[12,13],[-3,22]],'#5b5149');for(let y=1.5;y<13;y+=.8)o+=LN(-16,y,10,y,'#c9c1af',.03);o+=R(-13,6.5,-8,10.5,'#f2efe9')+win(-12.6,6.9,-8.4,10.1)+R(-6.5,0,-3,8,'#6b2f2f')+R(-1,6.5,4,10.5,'#f2efe9')+win(-.6,6.9,3.6,10.1);
+    o+=R(10,0,24,10,'#d9d2c2')+PL([[9,10],[25,10],[17,15]],'#5b5149')+R(12,0,22,7.5,'#ece8de');for(let y=1.5;y<7.5;y+=1.5)o+=LN(12,y,22,y,'#c9c1af',.06);lamp(-7.2,7.4,.25);for(let x=-90;x<-18;x+=1)o+=R(x,0,x+.4,3.4,'#f2efe9');o+=R(-90,2.6,-18,2.9,'#f2efe9');break;
+  case 'beach':o+=sky()+R(-90,-5,90,camH,night?'#0e1a2a':dusk?'#7a6a8a':'#3f7fa6');for(let i=0;i<10;i++){const y=camH*(i/10);o+=LN(-90,y,90,y,night?'#1a2a3e':'#7fb2cf',.04);}
+    o+=R(-90,-5,90,.6,night?'#3a3a3a':'#e9dcc0');if(dusk)o+=C(18,camH+1.5,3,'#ffc27a',.9);if(night)o+=C(-20,camH+30,1.6,'#f2efe9');break;
+  case 'field':o+=sky()+PL([[-90,camH-1],[-50,camH+3],[-20,camH+1],[10,camH+4],[50,camH+.5],[90,camH+2.5],[90,-5],[-90,-5]],night?'#1d2a1a':'#7d9a60')+R(-90,-5,90,camH-1,night?'#26341f':'#93b064');
+    [-40,-36,25].forEach(x=>{o+=R(x-.15,camH-1,x+.15,camH+1.5,'#4a3b2c')+C(x,camH+2.2,1.2,night?'#1b2a17':'#3e6a33');});if(night)for(let i=0;i<60;i++)o+=C(-80+rnd()*160,camH+10+rnd()*60,.2,'#f2efe9',.8);break;
+  case 'forest':o+=all(night?'#0d140f':'#3f5a3a');for(let i=0;i<70;i++){const x=-80+rnd()*160,c=['#2f4a2b','#3e6a33','#355e2e','#4f7f3d'][i%4];o+=C(x,10+rnd()*20,4+rnd()*4,night?shadeHex(c,.3):c);}
+    for(let i=0;i<40;i++){const x=-80+rnd()*160,w=.4+rnd()*1.2;o+=R(x-w/2,0,x+w/2,30,night?'#151410':['#4a3b2c','#5a4632','#3d3226'][i%3]);}o+=R(-90,-5,90,1.2,night?'#161c12':'#4a5634');break;
+  case 'alley':o+=sky()+all(night?'#2a1914':'#8a4a3a');for(let y=.35;y<40;y+=.35)o+=LN(-90,y,90,y,night?'#1f130f':'#7a3e30',.03);
+    o+=R(-6,0,6,9,'#6e7378');for(let y=.6;y<9;y+=.6)o+=LN(-6,y,6,y,'#5d6267',.05);o+=R(-15,0,-8,4.6,'#2f5a3a')+R(-15.3,4.4,-7.7,4.9,'#24452d')+win(10,9,14,14)+win(18,9,22,14)+win(10,20,14,25)+win(18,20,22,25);
+    for(let y=8;y<30;y+=11){o+=R(8,y,24,y+.3,'#1b1b1b');for(let x=8;x<24;x+=.6)o+=LN(x,y+.3,x,y+3,'#1b1b1b',.04);o+=LN(9,y,22,y+11,'#1b1b1b',.12);}lit+='';o+=R(-1,10,1,10.8,'#2b2b2b');lamp(0,10,.6);break;
+  case 'highway':o+=sky()+PL([[-90,camH],[-40,camH+6],[0,camH+2],[40,camH+8],[90,camH+3],[90,0],[-90,0]],night?'#141c18':dusk?'#4d4a5a':'#7f9a72');
+    o+=R(-90,0,90,1.2,night?'#2a2b2d':'#6b6d70');o+=R(-90,1.8,90,2.5,'#b9bdc0');for(let x=-90;x<90;x+=6)o+=R(x-.15,0,x+.15,2.5,'#8a8f94');
+    for(let x=-60;x<70;x+=30){o+=LN(x,0,x,22,'#5a4632',.3)+LN(x-2,20,x+2,20,'#5a4632',.15);}o+=LN(-90,20,90,19,'#2b2b2b',.04)+R(10,6,18,10,'#2f6b4f')+LN(12,0,12,6,'#8a8f94',.2)+LN(16,0,16,6,'#8a8f94',.2);if(night)for(let x=-80;x<80;x+=7)lit+=C(x,camH+1,.25,'#ff6b5a',.9)+C(x+3,camH+1,.25,'#fff1c9',.9);break;
+  case 'cyc':o+=`<defs><radialGradient id="${gid}c" cx="50%" cy="40%" r="75%"><stop offset="0" stop-color="#f2f2f2"/><stop offset="1" stop-color="#d4d4d4"/></radialGradient></defs><rect x="-${W}" y="-${H}" width="${W*3}" height="${H*3}" fill="url(#${gid}c)"/>`;break;
+  default:return '';}
+  if(tod!=='day'&&bgHasTod(bg))o+=`<rect x="-${W}" y="-${H}" width="${W*3}" height="${H*3}" fill="${night?'#050810':'#3a2a55'}" opacity="${night?.5:.22}"/>`;
+  return o+lit;}
 const BRANDFF=(()=>{let o='';for(const sh of document.styleSheets){try{for(const r of sh.cssRules)if(r.type===5&&/EB Garamond|Lato/.test(r.cssText))o+=r.cssText;}catch(e){}}return o;})();
 /* ============================================================
    Export
