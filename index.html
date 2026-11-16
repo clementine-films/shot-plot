@@ -4983,15 +4983,15 @@ if(typeof SEQ_MOVE==='object')Object.assign(SEQ_MOVE,{'pan left':'Pan left','pan
 const isTiltMove=m=>m==='Tilt up'||m==='Tilt down';
 const MOVE_AMT={'Pan left':['How far it pans left (°)',30],'Pan right':['How far it pans right (°)',30],'Tilt up':['How far it tilts up (°)',30],'Tilt down':['How far it tilts down (°)',30],
   'Push in':['How far it pushes in (ft)',3],'Pull out':['How far it pulls out (ft)',3],'Dolly / track':['How far it tracks (ft, + right, − left)',6],'Arc':['How far it arcs around the subject (°, + right, − left)',45],
-  'Crane / jib':['How far it booms (ft, + up, − down)',4],'Zoom in':['Focal length it starts at (mm)',null],'Zoom out':['Focal length it starts at (mm)',null],'Whip pan':['How far it whips (°, + right, − left)',90]};
+  'Crane / jib':['How far it booms (ft, + up, − down)',4],'Zoom in':['Focal length it ends at (mm)',null],'Zoom out':['Focal length it ends at (mm)',null],'Whip pan':['How far it whips (°, + right, − left)',90]};
 const hasStart=m=>!!MOVE_AMT[m];
 function moveAmt(sh,f){const s=MOVE_AMT[sh.move];if(!s)return 0;let v=numOr(sh.moveAmt,null);if(v===null&&isTiltMove(sh.move))v=numOr(sh.tiltAmt,null);if(v!==null)return v;
-  return s[1]!==null?s[1]:sh.move==='Zoom in'?Math.max(8,Math.round(f/2)):Math.round(f*2);}
+  return s[1]!==null?s[1]:sh.move==='Zoom in'?Math.round(f*2):Math.max(8,Math.round(f/2));}
 // where the lens is aimed on the subject, by shot size (feet off the floor)
 function sizeAimZ(size){return /ECU|^CU|MCU/.test(size||'')?5.35:/^MS/.test(size||'')?4.7:/MWS|^FS/.test(size||'')?3.6:/WS|EWS/.test(size||'')?3.2:4.6;}
 const numOr=(v,d)=>v!==undefined&&v!==null&&v!==''&&isFinite(+v)?+v:d;
 function shotView(sh,cam,target,phase,size,lens,path){sh=sh||{};const ang=sh.angle||'Eye level';const notes=[];
-  let h=+cam.height||5,x=cam.x,y=cam.y,t=0,roll=0,focus=null;if(path){x=path.b.x;y=path.b.y;}const tz=sizeAimZ(size||sh.size);
+  let h=+cam.height||5,x=cam.x,y=cam.y,t=0,roll=0,focus=null;if(path){x=path.a.x;y=path.a.y;}const tz=sizeAimZ(size||sh.size);
   const dist=target?Math.max(.5,Math.hypot(target.x-x,target.y-y)):8;const aim=Math.atan2(tz-h,dist)/D2R;const who=target&&target.label?target.label:'the subject';
   const manual=null;
   const amt=numOr(sh.angAmt,null);
@@ -5002,11 +5002,12 @@ function shotView(sh,cam,target,phase,size,lens,path){sh=sh||{};const ang=sh.ang
   else if(ang==='Ground'){t=amt!==null?Math.abs(amt):aim;if(h>2)notes.push(`Ground angle, but the camera is at ${fmtFt(h)}. Set it to 1' or lower on the plot.`);}
   if(ang==='Dutch')roll=amt!==null?amt:numOr(sh.dutch,15);
   let r=cam.r||0,fl=null;const anchor={x,y,r,ux:Math.cos(r*D2R),uy:Math.sin(r*D2R)};
-  if(phase==='start'&&path){x=path.a.x;y=path.a.y;if(target&&sh.move==='Arc'){const be=(p)=>Math.atan2(target.y-p.y,target.x-p.x)/D2R;r+=be(path.a)-be(path.b);}}
-  if(phase==='start'&&hasStart(sh.move)){const f0=+lens||+cam.lens||35;const a=moveAmt(sh,f0);const ux=anchor.ux,uy=anchor.uy;
-    if(path&&['Push in','Pull out','Dolly / track','Arc'].includes(sh.move));else switch(sh.move){case 'Pan left':r+=a;break;case 'Pan right':case 'Whip pan':r-=a;break;case 'Tilt up':t-=a;break;case 'Tilt down':t+=a;break;
-      case 'Push in':x-=ux*a;y-=uy*a;break;case 'Pull out':x+=ux*a;y+=uy*a;break;case 'Dolly / track':x+=uy*a;y-=ux*a;break;case 'Crane / jib':h=Math.max(.5,h-a);break;
-      case 'Arc':{const c0=target||{x:x+ux*8,y:y+uy*8};const vx=x-c0.x,vy=y-c0.y,q=a*D2R;x=c0.x+vx*Math.cos(q)-vy*Math.sin(q);y=c0.y+vx*Math.sin(q)+vy*Math.cos(q);r+=a;break;}
+  // the plot and the angle are where the shot starts; the move says where it goes
+  if(phase==='end'&&path){x=path.b.x;y=path.b.y;if(target&&sh.move==='Arc'){const be=(p)=>Math.atan2(target.y-p.y,target.x-p.x)/D2R;r+=be(path.b)-be(path.a);}}
+  if(phase==='end'&&hasStart(sh.move)){const f0=+lens||+cam.lens||35;const a=moveAmt(sh,f0);const ux=anchor.ux,uy=anchor.uy;
+    if(path&&['Push in','Pull out','Dolly / track','Arc'].includes(sh.move));else switch(sh.move){case 'Pan left':r-=a;break;case 'Pan right':case 'Whip pan':r+=a;break;case 'Tilt up':t+=a;break;case 'Tilt down':t-=a;break;
+      case 'Push in':x+=ux*a;y+=uy*a;break;case 'Pull out':x-=ux*a;y-=uy*a;break;case 'Dolly / track':x-=uy*a;y+=ux*a;break;case 'Crane / jib':h=Math.max(.5,h+a);break;
+      case 'Arc':{const c0=target||{x:x+ux*8,y:y+uy*8};const vx=x-c0.x,vy=y-c0.y,q=-a*D2R;x=c0.x+vx*Math.cos(q)-vy*Math.sin(q);y=c0.y+vx*Math.sin(q)+vy*Math.cos(q);r-=a;break;}
       case 'Zoom in':case 'Zoom out':fl=Math.max(4,a);break;}}
   t=Math.max(-90,Math.min(90,t));if(t<=-89.5)t=-89.5;
   return {t,roll,h,x,y,r,f:fl,anchor,notes,focus,phase,move:sh.move,path:!!path};}
@@ -5016,9 +5017,9 @@ function dofView(c,size){const sh=shot();if(!size){const n=dofNums();size=n&&!n.
 // a camera move or track drawn on the plot from (or to) this camera: it runs from its first point to its last
 function camPath(items,c){const L=items.filter(i=>i.t==='line'&&(i.kind==='cammove'||i.kind==='track')&&i.pts&&i.pts.length>1).map(l=>({a:l.pts[0],b:l.pts[l.pts.length-1]})).map(p=>({p,d:Math.min(Math.hypot(p.a.x-c.x,p.a.y-c.y),Math.hypot(p.b.x-c.x,p.b.y-c.y))})).filter(o=>o.d<4).sort((p,q)=>p.d-q.d)[0];return L?L.p:null;}
 const isMoving=(v)=>v&&(v.path||hasStart(v.move));
-const viewActive=v=>v&&(Math.abs(v.t)>.5||v.roll||v.notes.length||(v.phase==='start'&&(v.path||hasStart(v.move))));
+const viewActive=v=>v&&(Math.abs(v.t)>.5||v.roll||v.notes.length||(v.phase==='end'&&(v.path||hasStart(v.move))));
 function viewTag(v,W){if(!v)return '';const bits=[];if(Math.abs(v.t)>.5)bits.push(v.t<=-89?'looking straight down':`tilted ${Math.abs(Math.round(v.t))}° ${v.t>0?'up':'down'}`);if(v.roll)bits.push(`Dutch ${Math.round(v.roll)}°`);
-  if(v.phase==='start'&&(v.path||hasStart(v.move)))bits.push('start of the '+(hasStart(v.move)?v.move.toLowerCase():'move'));
+  if(v.phase==='end'&&(v.path||hasStart(v.move)))bits.push('end of the '+(hasStart(v.move)?v.move.toLowerCase():'move'));
   let o='';if(bits.length){const t=bits.join(' · ');o+=`<rect x="${W-18-t.length*6.6}" y="8" rx="5" width="${t.length*6.6+10}" height="22" fill="rgba(0,0,0,.6)"/><text x="${W-13}" y="23" text-anchor="end" font-family="Lato,sans-serif" font-size="12" font-weight="700" fill="#ffcf7a">${t}</text>`;}
   return o;}
 // a person seen from a tilted camera: P(z) is where a point on their centre line at height z lands, S(z,u) the same point u feet to the side
@@ -5064,7 +5065,7 @@ const ANG_AMT={High:'How far it looks down (°)',Low:'How far it looks up (°)',
 function angleField(sh,cam){const lab=ANG_AMT[sh.angle];if(!lab)return '';let ph='';try{if(sh.angle==='Dutch')ph='15';else if(sh.angle==='Overhead')ph='90';else if(cam){const v=shotView(Object.assign({},sh,{angAmt:'',move:'Static'}),cam,dofTarget(cam),'end');ph=Math.abs(v.t)<.5?'auto: level with the subject':`auto: ${Math.abs(Math.round(v.t))}° ${v.t<0?'down':'up'}, aimed at the subject`;}}catch(e){}
   return `${fld(lab,`<input class="in" data-o="shot" data-k="angAmt" value="${esc(sh.angAmt==null?'':String(sh.angAmt))}" placeholder="${ph}" inputmode="decimal">`)}`;}
 function moveField(sh,cam){const s=MOVE_AMT[sh.move];if(!s)return '';const f=cam?(+cam.lens||35):35;
-  return `${fld(s[0],`<input class="in" data-o="shot" data-k="moveAmt" value="${esc(sh.moveAmt==null?'':String(sh.moveAmt))}" placeholder="${moveAmt({move:sh.move},f)}" inputmode="decimal">`)}<div class="pSub" style="margin-top:-2px">${cam&&camPath(activeItems(),cam)&&['Push in','Pull out','Dolly / track','Arc'].includes(sh.move)?'The camera move drawn on the plot sets where it starts and ends.':'The plot is where the move ends; this says where it starts.'} The mock-ups show both.</div>`;}
+  return `${fld(s[0],`<input class="in" data-o="shot" data-k="moveAmt" value="${esc(sh.moveAmt==null?'':String(sh.moveAmt))}" placeholder="${moveAmt({move:sh.move},f)}" inputmode="decimal">`)}<div class="pSub" style="margin-top:-2px">${cam&&camPath(activeItems(),cam)&&['Push in','Pull out','Dolly / track','Arc'].includes(sh.move)?'The camera move drawn on the plot sets where it starts and ends.':'The plot and the angle are where the shot starts; this says how far the move goes.'} The mock-ups show both.</div>`;}
 document.addEventListener('change',e=>{const t=e.target;if(t&&t.dataset&&t.dataset.o==='shot'&&['angle','move'].includes(t.dataset.k)){setTimeout(()=>{renderPanel();if(CALC.open)renderCalc();},0);}},false);
 document.addEventListener('input',e=>{const t=e.target;if(t&&t.dataset&&t.dataset.o==='shot'&&['moveAmt','angAmt'].includes(t.dataset.k)&&CALC.open){clearTimeout(window.__tlt);window.__tlt=setTimeout(()=>{const a=document.activeElement;const k=a&&a.dataset&&a.dataset.k;renderCalc();},250);}},false);
 
