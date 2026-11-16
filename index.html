@@ -5780,6 +5780,48 @@ function barGlyph(it,C,px){const p=barPath(it);const tk=partOf(it,'btop'),top=BA
     quadL(ctx,it,[[x0,T+.02,3.1],[x1,T+.02,3.1],[x1,T+.02,7.4],[x0,T+.02,7.4]],'#7f949e');boxL(ctx,it,x0-.1,x1+.1,T,T+1.1,7.4,7.9,BAR_FRONT.wood[1]);boxL(ctx,it,x0-.15,x1+.15,T,T+1.2,7.9,8.05,shade(BAR_FRONT.wood[1],.8));[x0,x1].forEach(x=>boxL(ctx,it,x-.12,x+.12,T,T+1.1,3.1,7.4,BAR_FRONT.wood[1]));for(let x=x0+.8;x<x1-.4;x+=2.4)quadL(ctx,it,[[x,T+1.405,.4],[x+2,T+1.405,.4],[x+2,T+1.405,2.7],[x,T+1.405,2.7]],shade(BAR_FRONT.wood[1],1.15),'stroke="#20140e" stroke-width=".8"');boxL(ctx,it,x1-1.6,x1-.6,T+.3,T+1.2,3.1,3.75,'#2b2d30');const cols=['#3f6f4a','#9a5a2a','#d9c27a','#6a2f2f','#cfd8dc','#2f4f78'];let n=0;
     [3.1,4.5,5.9].forEach(z=>{boxL(ctx,it,x0,x1,T+.05,T+.85,z+1.3,z+1.36,BAR_FRONT.wood[1]);for(let x=x0+.15;x<x1-.2;x+=.3){const hgt=.55+((n*7)%4)*.08,c=cols[n%cols.length];boxL(ctx,it,x,x+.2,T+.3,T+.5,z+.02,z+.02+hgt,c);boxL(ctx,it,x+.07,x+.13,T+.37,T+.43,z+.02+hgt,z+.32+hgt,shade(c,.8));boxL(ctx,it,x+.065,x+.135,T+.365,T+.435,z+.32+hgt,z+.36+hgt,'#2b2b2b');n++;}});}}
   return 1;};}
+/* ============================================================
+   Wall mounts for screens and frames: flat on the wall, tilted down, or on
+   a swing arm that pulls the piece out from the wall and turns it.
+   Plan first: the arm, its wall plate and the screen at its real angle;
+   then the mock-ups.  Local axes: the wall is at the back (−y).
+   ============================================================ */
+const MOUNTABLE=['tv','picture','mirror','whiteboard','chalkboard'];
+const WALL_MOUNTS=[['flat','Flat on the wall'],['tilt','Tilting (angled down)'],['arm','Swing arm (pulled out and turned)']];
+function mountOf(it){const m=it.mount||'flat';return {m,tilt:m==='flat'?0:Math.max(-30,Math.min(45,numOr(it.mTilt,m==='tilt'?15:5))),swivel:m==='arm'?Math.max(-80,Math.min(80,numOr(it.mSwivel,30))):0,out:m==='arm'?Math.max(.3,Math.min(3,numOr(it.mOut,1.5))):0};}
+/* the plan */
+{const _sg=setGlyph;setGlyph=function(it,L,C,px){const g=_sg(it,L,C,px);if(!MOUNTABLE.includes(it.t)||!it.mount||it.mount==='flat')return g;const M=mountOf(it);const w=+it.w||4,h=+it.h||.3,T=-h/2;
+  const z=MH[it.t]||[3.6,6];const drop=(z[1]-z[0])*Math.sin(Math.abs(M.tilt)*D2R);const dash=`stroke="${C.setStroke}" stroke-width="${px}" stroke-dasharray="${3*px} ${2*px}" fill="none"`;let o='';
+  if(M.m==='arm'){const plate=`<rect x="-.35" y="${T-.02}" width=".7" height=".14" fill="${C.setStroke}"/>`;const ex=Math.sin(M.swivel*D2R)*.4,ey=M.out*.55;
+    o+=plate+`<path d="M0 ${T+.1} L${ex.toFixed(3)} ${(T+.1+ey).toFixed(3)} L0 ${(M.out).toFixed(3)}" fill="none" stroke="${C.setStroke}" stroke-width="${2*px}" stroke-linejoin="round"/><circle cx="${ex.toFixed(3)}" cy="${(T+.1+ey).toFixed(3)}" r=".07" fill="${C.setStroke}"/>`;
+    o+=`<g transform="translate(0 ${M.out.toFixed(3)}) rotate(${M.swivel})">${g}${drop>.05?`<rect x="${-w/2}" y="${h/2}" width="${w}" height="${drop.toFixed(3)}" ${dash}/>`:''}</g>`;
+    o+=`<text x="0" y="${(M.out+h/2+drop+.45).toFixed(3)}" text-anchor="middle" font-size="${10*px}" font-family="${C.font}" fill="${C.setStroke}">${Math.abs(Math.round(M.swivel))}° ${M.swivel<0?'left':'right'}${M.tilt?` · ${Math.abs(Math.round(M.tilt))}° ${M.tilt>0?'down':'up'}`:''}</text>`;return o;}
+  // tilting: the bottom edge comes off the wall; its footprint shows dashed
+  return g+`<rect x="${-w/2}" y="${h/2}" width="${w}" height="${Math.max(.05,drop).toFixed(3)}" ${dash}/><text x="0" y="${(h/2+drop+.45).toFixed(3)}" text-anchor="middle" font-size="${10*px}" font-family="${C.font}" fill="${C.setStroke}">tilted ${Math.abs(Math.round(M.tilt))}° ${M.tilt>0?'down':'up'}</text>`;};}
+/* the mock-ups: the panel built at its real angle on its arm */
+{const _md=mockDetail;mockDetail=function(it,L,ctx,w,h){if(!MOUNTABLE.includes(it.t)||!it.mount||it.mount==='flat')return _md(it,L,ctx,w,h);const M=mountOf(it);const z=MH[it.t]||[3.6,6],z0=z[0],H=z[1],T=-h/2;
+  const r=(it.r||0)*D2R,f=[-Math.sin(r),Math.cos(r)];const pane={x:it.x+f[0]*M.out,y:it.y+f[1]*M.out,r:(it.r||0)+M.swivel,fx:it.fx,fy:it.fy};
+  const d=.18,t=M.tilt*D2R,H2=H-z0;const P=(x,y,zz)=>{const q=W3(pane,x,y);return toCam(ctx.K,q,zz);};
+  // corners of the panel's front and back: tilted about its top edge
+  const yb=-h/2+d,yf=yb+0;const pt=(x,face,top)=>{const yy=(face?yb:yb-d);return top?[x,yy,H]:[x,yy+H2*Math.sin(t),H-H2*Math.cos(t)];};
+  const quad=(A,B2,C2,D2,col,ex)=>{const pts=[A,B2,C2,D2].map(([x,y,zz])=>P(x,y,zz));ctx.add(pts,col,pts.reduce((s,q)=>s+q.d,0)/4,ex||'');};
+  const a=-w/2,b=w/2;const front=it.t==='tv'?'#1f2a33':it.t==='mirror'?'#c7dbe8':it.t==='whiteboard'?'#fbfbfb':it.t==='chalkboard'?'#2f4a3a':'#c9b48a';const frame=it.t==='tv'?'#141518':it.t==='mirror'?'#c9b48a':'#3b2c22';
+  quad(pt(a,0,1),pt(b,0,1),pt(b,0,0),pt(a,0,0),frame);                                   // back
+  quad(pt(a,1,1),pt(b,1,1),pt(b,0,1),pt(a,0,1),frame);quad(pt(a,1,0),pt(b,1,0),pt(b,0,0),pt(a,0,0),frame);   // top, bottom
+  quad(pt(a,1,1),pt(a,0,1),pt(a,0,0),pt(a,1,0),frame);quad(pt(b,1,1),pt(b,0,1),pt(b,0,0),pt(b,1,0),frame);   // sides
+  quad(pt(a,1,1),pt(b,1,1),pt(b,1,0),pt(a,1,0),frame);const ins=(p,q,k)=>[p[0]+(q[0]-p[0])*k,p[1]+(q[1]-p[1])*k,p[2]+(q[2]-p[2])*k];
+  const A=pt(a+.08,1,1),B2=pt(b-.08,1,1),C2=pt(b-.08,1,0),D2=pt(a+.08,1,0);quad(ins(A,D2,.03),ins(B2,C2,.03),ins(C2,B2,.03),ins(D2,A,.03),front);   // screen / glass / board
+  if(M.m==='arm'){const mid=(z0+H)/2;const plate={x:it.x-f[0]*(h/2-.05),y:it.y-f[1]*(h/2-.05)};const back=W3(pane,0,-h/2);const elb=W3({x:it.x,y:it.y,r:(it.r||0)+M.swivel/2},Math.sin(M.swivel*D2R)*.4,M.out*.4-h/2);
+    line3(ctx,Object.assign({},plate,{z:mid}),Object.assign(elb,{z:mid}),.12,'#2b2d30');line3(ctx,Object.assign({},elb,{z:mid}),Object.assign(back,{z:mid}),.12,'#2b2d30');boxL(ctx,it,-.35,.35,T,T+.08,mid-.5,mid+.5,'#2b2d30');}
+  return 1;};}
+/* the panel */
+{const _pi=panelItem;panelItem=function(){let h=_pi();try{const it=selItem();if(it&&MOUNTABLE.includes(it.t)&&!/data-k="mount"/.test(h)){const M=mountOf(it);const inp=(k,ph)=>`<input class="in" type="text" inputmode="decimal" data-k="${k}" value="${esc(it[k]==null?'':String(it[k]))}" placeholder="${ph}">`;
+  let g=`<div class="grp"><h4>Mount</h4>${fld('Mount',`<select class="in" data-k="mount">${WALL_MOUNTS.map(([v,n])=>`<option value="${v}" ${M.m===v?'selected':''}>${n}</option>`).join('')}</select>`)}`;
+  if(M.m==='tilt')g+=fld('Tilted down (°)',inp('mTilt','15'));
+  if(M.m==='arm')g+=`<div class="f2">${fld('Out from the wall (ft)',inp('mOut','1.5'))}${fld('Turned (°, + right, − left)',inp('mSwivel','30'))}</div>${fld('Tilted down (°)',inp('mTilt','5'))}`;
+  g+=`<div class="pSub" style="margin-top:-2px">Right and left are as you face the screen.</div></div>`;
+  const key='<div class="f" style="grid-template-columns:96px 1fr"><label>Notes';const i=h.indexOf(key);h=i>=0?h.slice(0,i)+g+h.slice(i):h+g;}}catch(e){}return h;};}
+document.addEventListener('change',e=>{const k=e.target&&e.target.dataset&&e.target.dataset.k;if(!/^(mount|mTilt|mSwivel|mOut)$/.test(k||''))return;setTimeout(()=>{if(k==='mount'&&UI.R)renderPanel();renderCanvas();if(typeof CALC!=='undefined'&&CALC.open)renderCalc();},0);});
 const BRANDFF=(()=>{let o='';for(const sh of document.styleSheets){try{for(const r of sh.cssRules)if(r.type===5&&/EB Garamond|Lato/.test(r.cssText))o+=r.cssText;}catch(e){}}return o;})();
 /* ============================================================
    Export
