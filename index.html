@@ -2241,7 +2241,7 @@ $('#panel').addEventListener('click',async e=>{const a=e.target.dataset&&e.targe
 /* ---- furniture sits flush against a wall when dropped close to one ---- */
 const FLUSH_GAP=.3;
 function flushToWall(it){if(V.altDown)return false;const L=LIB[it.t];if(!L||L.kind!=='set'||L.wallSnap||it.t==='north'||it.t==='rug'||!(+it.w)||!(+it.h))return false;let best=null;const hw=it.w/2,hh=it.h/2;
-  wallSegs(activeItems()).forEach(([a,b])=>{const len=Math.hypot(b.x-a.x,b.y-a.y);if(len<.5)return;const ux=(b.x-a.x)/len,uy=(b.y-a.y)/len,nx=-uy,ny=ux;const wa=Math.atan2(uy,ux)/D2R;let dl=(((it.r||0)-wa)%90+135)%90-45;if(Math.abs(dl)>14)return;
+  wallSegs(activeItems()).forEach(([a,b])=>{const len=Math.hypot(b.x-a.x,b.y-a.y);if(len<.5)return;const ux=(b.x-a.x)/len,uy=(b.y-a.y)/len,nx=-uy,ny=ux;const wa=Math.atan2(uy,ux)/D2R;let dl=(((it.r||0)-wa)%90+135)%90-45;if(Math.abs(dl)>.5)return;
     const r2n=(it.r||0)-dl;const k=Math.round((r2n-wa)/90);const en=(k%2===0)?hh:hw;const t=(it.x-a.x)*ux+(it.y-a.y)*uy;if(t<0||t>len)return;const dn=(it.x-a.x)*nx+(it.y-a.y)*ny;const gap=Math.abs(dn)-en-.19;if(gap>FLUSH_GAP||gap<-en*.6)return;if(!best||Math.abs(gap)<Math.abs(best.gap))best={gap,nx,ny,s:Math.sign(dn)||1,r:r2n};});
   if(!best||(Math.abs(best.gap)<.005&&Math.abs((it.r||0)-best.r)<.01))return false;it.x=r2(it.x-best.nx*best.s*best.gap);it.y=r2(it.y-best.ny*best.s*best.gap);it.r=Math.round((((best.r+540)%360)-180)*100)/100;return true;}
 {const last={};window.addEventListener('pointerup',()=>setTimeout(()=>{if(drag&&ptrs.size)return;const ids=selIds();if(ids.length!==1)return;const f=findItem(ids[0]);if(!f||f.it.t==='line')return;const it=f.it;const key=it.x+','+it.y;const was=last[it.id];last[it.id]=key;if(was===undefined||was===key||!V.snap)return;
@@ -3833,7 +3833,7 @@ const PORC='#eef2f5',WATER='#9fd3ff';
 function nearestWallDir(it){let best=null;wallSegs(activeItems()).forEach(([p,q])=>{const len=Math.hypot(q.x-p.x,q.y-p.y);if(len<.5)return;const ux=(q.x-p.x)/len,uy=(q.y-p.y)/len;const t=Math.max(0,Math.min(len,(it.x-p.x)*ux+(it.y-p.y)*uy));const wx=p.x+ux*t,wy=p.y+uy*t;const d=Math.hypot(wx-it.x,wy-it.y);if(d>.01&&(!best||d<best.d))best={d,dx:(wx-it.x)/d,dy:(wy-it.y)/d,wx,wy};});return best;}
 function backToWall(it){const L=LIB[it.t];if(!L||!L.backToWall||L.wallMount)return false;const nw=nearestWallDir(it);if(!nw)return false;const reach=Math.max(+it.w||1,+it.h||1)/2+1.2;if(nw.d>reach)return false;
   it.r=Math.round(Math.atan2(nw.dx,-nw.dy)/D2R);const off=(+it.h||1)/2+.19;it.x=r2(nw.wx-nw.dx*off);it.y=r2(nw.wy-nw.dy*off);return true;}
-{const _ft=flushToWall;flushToWall=function(it){const L=LIB[it.t];if(L&&L.backToWall&&!L.wallMount&&!V.altDown){const was=it.x+','+it.y+','+it.r;backToWall(it);return was!==it.x+','+it.y+','+it.r;}return _ft(it);};}
+// moving a piece never turns it: only placing it from the library sets it back to the wall (see placeAt below)
 // wall-mounted pieces: face into the room, back on the wall
 {const _sw=snapToWall;snapToWall=function(it,p){const ok=_sw(it,p);try{const L=LIB[it.t];if(ok&&L&&L.backToWall&&L.wallMount&&L.kind==='set'){faceAway(it);it.r=Math.round((((it.r||0)-90)%360+540)%360-180);}}catch(e){}return ok;};}
 // dropped next to a wall from the library: turn and sit flush straight away
@@ -5363,6 +5363,11 @@ const fmtNum=v=>String(Math.round(v*100)/100);
 document.addEventListener('click',e=>{const t=e.target.closest&&e.target.closest('[data-flip],[data-reshape]');if(!t||!t.closest('#panel'))return;const it=selItem();if(!it)return;
   if(t.dataset.reshape){if(t.dataset.reshape==='reset')resetShape();else startReshape();return;}snap();const it2=selItem()||it;const k=t.dataset.flip==='x'?'fx':'fy';if(it2[k])delete it2[k];else it2[k]=true;changed();if(typeof CALC!=='undefined'&&CALC.open)renderCalc();});
 document.addEventListener('change',e=>{const k=e.target&&e.target.dataset&&e.target.dataset.k;if(!k||!/^(zh|z0|stack|p_)/.test(k)||!e.target.closest('#panel'))return;setTimeout(()=>{if(typeof CALC!=='undefined'&&CALC.open)renderCalc();},0);});
+
+/* dragging a wall piece (door, window, sconce, mirror) along its wall keeps the way it faces;
+   it only turns when you take it to a different wall */
+{const _sw=snapToWall;snapToWall=function(it,p){const o=typeof drag!=='undefined'&&drag&&drag.type==='move'&&drag.origs?drag.origs[it.id]:null;const r0=o?(o.r||0):null;const ok=_sw(it,p);
+  if(ok&&o){const a=(it.r||0)*D2R;const off=Math.abs(-(o.x-it.x)*Math.sin(a)+(o.y-it.y)*Math.cos(a));const par=Math.abs(((((it.r||0)-r0)%180)+270)%180-90)<1;if(off<.7&&par)it.r=r0;}return ok;};}
 const BRANDFF=(()=>{let o='';for(const sh of document.styleSheets){try{for(const r of sh.cssRules)if(r.type===5&&/EB Garamond|Lato/.test(r.cssText))o+=r.cssText;}catch(e){}}return o;})();
 /* ============================================================
    Export
