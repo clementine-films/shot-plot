@@ -4425,7 +4425,13 @@ let _blkCache=null;
 {const _ri=renderItems;renderItems=function(items,o){_blkCache={items,list:blockSurfaces(items)};try{return _ri(items,o);}finally{_blkCache=null;}};}
 {const _gs=gripSurfaces;gripSurfaces=function(g){if(g&&g.__blk)return [g.__blk];return _gs(g);};}
 {const _bf=beamFx;beamFx=function(it,gid,items,o,Lb,b,col,ga){let extra=[];try{const L=LIB[it.t];if(L&&L.shape!=='sun'){const list=(_blkCache&&_blkCache.items===items?_blkCache.list:blockSurfaces(items));
-    extra=list.filter(s=>{const d=Math.abs((it.x-s.a.x)*s.n.x+(it.y-s.a.y)*s.n.y);return d>.12;}).map((s,i)=>({id:'__blk'+i,t:'blackout',__blk:s}));}}catch(e){}
+    const segD=s=>{const dx=s.b.x-s.a.x,dy=s.b.y-s.a.y,L2=dx*dx+dy*dy||1e-9;const t=Math.max(0,Math.min(1,((it.x-s.a.x)*dx+(it.y-s.a.y)*dy)/L2));return Math.hypot(it.x-s.a.x-t*dx,it.y-s.a.y-t*dy);};
+    // a light mounted on a wall (a sconce) shines only into the room it faces: the wall behind it gets a backing a hair behind the fixture
+    const onWall=s=>s.wall&&segD(s)<=.12;const room=wallCentroid(items);
+    extra=list.map(s=>{if(!onWall(s))return s;const a0=(it.r||0)*D2R;let side=Math.cos(a0)*s.n.x+Math.sin(a0)*s.n.y;if(Math.abs(side)<.2&&room)side=(room.x-it.x)*s.n.x+(room.y-it.y)*s.n.y;const sg=side>=0?-1:1;
+      const L=Math.hypot(s.b.x-s.a.x,s.b.y-s.a.y)||1,ux=(s.b.x-s.a.x)/L,uy=(s.b.y-s.a.y)/L;const off={x:s.n.x*sg*.14,y:s.n.y*sg*.14};
+      const a={x:s.a.x-ux*.5+off.x,y:s.a.y-uy*.5+off.y},b={x:s.b.x+ux*.5+off.x,y:s.b.y+uy*.5+off.y};return Object.assign({},s,{a,b,c:{x:(a.x+b.x)/2,y:(a.y+b.y)/2}});})
+      .filter(s=>segD(s)>.12).map((s,i)=>({id:'__blk'+i,t:'blackout',__blk:s}));}}catch(e){}
   return _bf(it,gid,extra.length?items.concat(extra):items,o,Lb,b,col,ga);};}
 // the blackout key is treated as grip by beamFx; make sure fake pieces never reach anything else
 function pathBlockT(p,q,list){let T=1;for(const s of list){if(segX(p,q,s.a,s.b)){T*=s.T;if(T<.02)return 0;}}return T;}
@@ -4491,6 +4497,8 @@ function calcExpHTML(){const E=CALC.exp;const as=actsNow();const opt=(k,arr,v)=>
 function segDist(A,B){const dx=B.x-A.x,dy=B.y-A.y,L2=dx*dx+dy*dy||1e-9;const t=Math.max(0,Math.min(1,-(A.x*dx+A.y*dy)/L2));return Math.hypot(A.x+t*dx,A.y+t*dy);}
 function shadowD(A,B,R){let a1=Math.atan2(A.y,A.x),a2=Math.atan2(B.y,B.x);let d=a2-a1;while(d>Math.PI)d-=2*Math.PI;while(d<-Math.PI)d+=2*Math.PI;const n=Math.max(2,Math.ceil(Math.abs(d)/(Math.PI/18)));
   let s=`M${A.x.toFixed(3)} ${A.y.toFixed(3)} L${B.x.toFixed(3)} ${B.y.toFixed(3)}`;for(let i=0;i<=n;i++){const a=a2-d*i/n;s+=` L${(Math.cos(a)*R).toFixed(2)} ${(Math.sin(a)*R).toFixed(2)}`;}return s+'Z';}
+
+function wallCentroid(items){let sx=0,sy=0,n=0;items.forEach(w=>{if(w.t==='line'&&w.kind==='wall')w.pts.forEach(p=>{sx+=p.x;sy+=p.y;n++;});});return n?{x:sx/n,y:sy/n}:null;}
 /* ============================================================
    180° line: the line of action between two characters, set by the first
    shot that sees them; any later shot whose camera is on the other side
