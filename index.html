@@ -5519,6 +5519,29 @@ const FACE8=[['N',0],['NE',45],['E',90],['SE',135],['S',180],['SW',225],['W',270
   h=h.replace('On location: select a wall or window first.','On location: select a wall, window or door first. Any wall works, so rooms with no windows can use one too.').replace('pointing out through the selected wall or window, then tap.','pointing straight out from the selected wall (through it, if it has a window), then tap.');}catch(e){}return h;};}
 $('#calc').addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-face8]');if(!b)return;const it=selItem();if(!it)return;const B=+b.dataset.face8;snap();northFromBearing(it,B);changed();renderCalc();toast(`That wall faces ${compass(B)}. North is set.`);});
 $('#calc').addEventListener('change',e=>{if(e.target&&e.target.id==='sunFace')SUN_FACE=e.target.value;});
+/* ============================================================
+   The calculators keep what you set:
+   - depth of field: saved with each shot (camera, subject, stop, distances,
+     second subject, rack focus…), restored when you come back to that shot
+   - sun and moon: saved with each scene (sunOf already lives on the scene);
+     every change is written to the project straight away
+   ============================================================ */
+const DOF_SKIP=new Set(['bg','tod','phase']);   // background and time of day belong to the scene
+function dofSnapshot(){const o={};Object.keys(CALC.dof).forEach(k=>{if(!DOF_SKIP.has(k)&&!k.startsWith('__'))o[k]=CALC.dof[k];});return JSON.parse(JSON.stringify(o));}
+function dofLoadFor(sh){const D=CALC.dof;const keep={stop:D.stop,coc:D.coc,show:D.show,bg:D.bg,tod:D.tod,phase:D.phase};
+  // a shot with nothing saved yet keeps what's already set up for one of its own cameras
+  if(!(sh&&sh.dofSet)&&D.cam&&D.cam!=='manual'&&camsNow().some(c=>c.id===D.cam))return;
+  Object.keys(D).forEach(k=>{if(!DOF_SKIP.has(k))delete D[k];});
+  if(sh&&sh.dofSet){Object.assign(D,JSON.parse(JSON.stringify(sh.dofSet)));if(D.cam&&D.cam!=='manual'&&!camsNow().some(c=>c.id===D.cam)){D.cam='';D.sensor='';}}
+  else{Object.assign(D,{cam:'',act:'',stop:keep.stop,coc:keep.coc,show:keep.show});const c=camsNow()[0];seedDof(c&&c.id);}
+  ['bg','tod','phase'].forEach(k=>{if(keep[k]!==undefined)D[k]=keep[k];});}
+{const _rc=renderCalc;renderCalc=function(){let sh=null;try{sh=shot();if(sh&&CALC.__dofShot!==sh.id){CALC.__dofShot=sh.id;dofLoadFor(sh);}}catch(e){}
+  _rc.apply(this,arguments);
+  try{if(sh&&CALC.__dofShot===sh.id&&CALC.dof.sensor){const snap1=dofSnapshot();const s=JSON.stringify(snap1);if(s!==JSON.stringify(sh.dofSet||null)){sh.dofSet=snap1;scheduleSave();}}}catch(e){}};}
+// typing in a depth of field box saves as you go, even before the panel redraws
+$('#calc').addEventListener('input',e=>{const k=e.target&&e.target.dataset&&e.target.dataset.c;if(!k||!/^dof\./.test(k))return;setTimeout(()=>{try{const sh=shot();if(sh&&CALC.__dofShot===sh.id){sh.dofSet=dofSnapshot();scheduleSave();}}catch(_){}},0);});
+// the sun and moon: every change is saved with the scene
+$('#calc').addEventListener('change',e=>{if(e.target&&e.target.dataset&&e.target.dataset.sun)setTimeout(()=>{try{scheduleSave();}catch(_){}},0);});
 const BRANDFF=(()=>{let o='';for(const sh of document.styleSheets){try{for(const r of sh.cssRules)if(r.type===5&&/EB Garamond|Lato/.test(r.cssText))o+=r.cssText;}catch(e){}}return o;})();
 /* ============================================================
    Export
