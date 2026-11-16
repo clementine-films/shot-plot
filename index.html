@@ -5441,6 +5441,57 @@ const POSE_TAG={sit:'sitting',lie:'lying down',kneel:'kneeling',crouch:'crouchin
 function poseSelect(it,qf){const s=`<select class="in" data-k="pose" ${qf?'style="width:auto"':''}>${POSES.map(([v,n])=>`<option value="${v}" ${poseOf(it)===v?'selected':''}>${n}</option>`).join('')}</select>`;return qf?`<label class="qf">Pose${s}</label>`:fld('Pose',s);}
 {const _pi=panelItem;panelItem=function(){let h=_pi();try{const it=selItem();if(it&&it.t==='actor'&&!/data-k="pose"/.test(h)){const key='data-k="label"';const i=h.indexOf(key);if(i>=0){const j=h.indexOf('</div>',i)+6;h=h.slice(0,j)+poseSelect(it)+`<div class="pSub" style="margin-top:-2px">Sitting and lying use the seat, couch or bed under them; otherwise the floor. Each shot keeps its own.</div>`+h.slice(j);}}}catch(e){}return h;};}
 document.addEventListener('change',e=>{if(e.target&&e.target.dataset&&e.target.dataset.k==='pose')setTimeout(()=>{renderCanvas();if(typeof CALC!=='undefined'&&CALC.open)renderCalc();},0);});
+/* ============================================================
+   Easier ways to tell the plot which way is north:
+   1. Line up on the map: your walls are drawn over the map at the pin, at real size.
+      "Match the building" turns them to the building's own edges (from OpenStreetMap);
+      "Turn 90°" picks the right side; the slider fine-tunes.
+   2. Phone compass: on location, select a wall or window, point the top of the phone
+      out through it, and tap.
+   ============================================================ */
+let sunAlign=false,sunOverlay=null,sunBldg=null;
+function plotWallPts(){return setup().items.filter(isWall).map(w=>w.pts);}
+function plotCentre(){const P=plotWallPts().flat();if(!P.length)return null;const xs=P.map(p=>p.x),ys=P.map(p=>p.y);return {x:(Math.min(...xs)+Math.max(...xs))/2,y:(Math.min(...ys)+Math.max(...ys))/2};}
+// a point on the plot (feet) to a point on the map around the pin, with the plot's north
+function plotToLL(p,c,s){const dx=p.x-c.x,dy=p.y-c.y;const d=Math.hypot(dx,dy);const th=Math.atan2(dx,-dy)/D2R;const b=(th-getNorth())*D2R;const ftLat=364000;return [+s.lat+d*Math.cos(b)/ftLat,+s.lng+d*Math.sin(b)/(ftLat*Math.cos(+s.lat*D2R))];}
+function drawSunOverlay(){if(!sunMap||!window.L)return;if(sunOverlay){sunMap.removeLayer(sunOverlay);sunOverlay=null;}if(!sunAlign)return;const c=plotCentre();if(!c)return;const s=sunOf();
+  sunOverlay=L.layerGroup(plotWallPts().map(pts=>L.polyline(pts.map(p=>plotToLL(p,c,s)),{color:'#f2a93b',weight:4,opacity:.95})));
+  // a north arrow for the plot's own "up", so it's clear which way is which
+  sunOverlay.addTo(sunMap);if(sunBldg)L.polygon(sunBldg,{color:'#4aa3ff',weight:2,fill:false,dashArray:'4 4'}).addTo(sunOverlay);}
+// the main direction of a set of edges, folded into 0–90°, weighted by length
+function mainAngle(edges){let sx=0,sy=0;edges.forEach(([a,L])=>{const t=a*4*D2R;sx+=Math.cos(t)*L;sy+=Math.sin(t)*L;});return ((Math.atan2(sy,sx)/D2R/4)+90)%90;}
+async function matchBuilding(){const s=sunOf();const hint=$('#sunAlignHint');if(hint)hint.textContent='Looking up the building at the pin…';
+  try{const q=`[out:json][timeout:15];way(around:35,${+s.lat},${+s.lng})[building];out geom;`;const res=await fetch('https://overpass-api.de/api/interpreter',{method:'POST',body:'data='+encodeURIComponent(q)});const js=await res.json();
+    const ways=(js.elements||[]).filter(w=>w.geometry&&w.geometry.length>2);if(!ways.length){if(hint)hint.textContent='No building outline found at the pin. Move the pin onto the building, or turn the plot with the slider.';return;}
+    const inside=(pt,g)=>{let c=false;for(let i=0,j=g.length-1;i<g.length;j=i++){const a=g[i],b=g[j];if(((a.lat>pt.lat)!==(b.lat>pt.lat))&&(pt.lng<(b.lon-a.lon)*(pt.lat-a.lat)/(b.lat-a.lat)+a.lon))c=!c;}return c;};
+    const pin={lat:+s.lat,lng:+s.lng};let w=ways.find(w=>inside(pin,w.geometry))||ways.map(w=>({w,d:Math.min(...w.geometry.map(g=>Math.hypot(g.lat-pin.lat,g.lon-pin.lng)))})).sort((a,b)=>a.d-b.d)[0].w;
+    sunBldg=w.geometry.map(g=>[g.lat,g.lon]);const ftLon=Math.cos(pin.lat*D2R);
+    const bE=[];for(let i=1;i<w.geometry.length;i++){const a=w.geometry[i-1],b=w.geometry[i];const dn=(b.lat-a.lat),de=(b.lon-a.lon)*ftLon;const L=Math.hypot(dn,de);if(L>0)bE.push([Math.atan2(de,dn)/D2R,L]);}
+    const pE=[];plotWallPts().forEach(pts=>{for(let i=1;i<pts.length;i++){const a=pts[i-1],b=pts[i];const L=Math.hypot(b.x-a.x,b.y-a.y);if(L>0)pE.push([Math.atan2(b.x-a.x,-(b.y-a.y))/D2R,L]);}});
+    if(!pE.length){if(hint)hint.textContent='Draw the walls on the plot first.';return;}
+    const base=mainAngle(pE)-mainAngle(bE);const cur=getNorth();let best=null;for(let k=0;k<4;k++){const n=((base+k*90)%360+360)%360;const d=Math.abs(((n-cur)%360+540)%360-180);if(!best||d<best.d)best={n,d};}
+    snap();setNorth(best.n);changed();renderCalc();toast('Lined up with the building. If the plot sits the wrong way round, use Turn 90°.');}
+  catch(e){if(hint)hint.textContent='The building lookup did not respond. Turn the plot with the slider instead.';}}
+// phone compass: the reading along the phone's top edge
+function phoneHeading(){return new Promise(async(res,rej)=>{try{if(typeof DeviceOrientationEvent!=='undefined'&&typeof DeviceOrientationEvent.requestPermission==='function'){const p=await DeviceOrientationEvent.requestPermission();if(p!=='granted')return rej('denied');}}catch(e){}
+  const got=[];let done=false;const fin=()=>{if(done)return;done=true;window.removeEventListener('deviceorientation',h,true);window.removeEventListener('deviceorientationabsolute',h,true);if(!got.length)return rej('none');let sx=0,sy=0;got.forEach(a=>{sx+=Math.cos(a*D2R);sy+=Math.sin(a*D2R);});res((Math.atan2(sy,sx)/D2R+360)%360);};
+  const h=e=>{let a=null;if(typeof e.webkitCompassHeading==='number')a=e.webkitCompassHeading;else if(e.absolute&&typeof e.alpha==='number')a=(360-e.alpha)%360;if(a!=null){got.push(a);if(got.length>=12)fin();}};
+  window.addEventListener('deviceorientation',h,true);window.addEventListener('deviceorientationabsolute',h,true);setTimeout(fin,1500);});}
+
+{const _cs=calcSunHTML;calcSunHTML=function(){let h=_cs();try{const sel=selItem();const wsel=sel&&(isWall(sel)&&sel.pts.length===2||sel.t==='window'||sel.t==='door');
+  let g=`<div style="margin-top:10px;padding-top:8px;border-top:1px solid var(--line2)"><b style="font-size:12px">Quicker ways</b>`;
+  if(MAP_OK)g+=`<label class="chk" style="display:block;margin-top:6px"><input type="checkbox" id="sunAlignOn" ${sunAlign?'checked':''}> Line up the plot on the map</label>${sunAlign?`<div class="f2" style="margin-top:6px"><button class="btn sm pri" id="sunMatch">Match the building</button><button class="btn sm" id="sunTurn">Turn 90°</button></div><input type="range" id="sunRot" min="0" max="359.5" step=".5" value="${getNorth()}" style="width:100%;margin-top:6px"><div class="pSub" id="sunAlignHint">Your walls are drawn in orange over the map at the pin. Put the pin on the building, then Match the building, or turn them with the slider until they sit on it.</div>`:''}`;
+  g+=`<button class="btn sm" id="sunPhone" style="margin-top:8px" ${wsel?'':'disabled'}>📱 Use my phone’s compass</button><div class="pSub" style="margin-top:3px">${wsel?'On location: stand inside, hold the phone flat with its top edge pointing out through the selected wall or window, then tap.':'On location: select a wall or window first.'}</div></div>`;
+  const i=h.indexOf('<div class="note" style="margin-top:10px">This shows where the sun');h=i>=0?h.slice(0,i)+g+h.slice(i):h+g;}catch(e){}return h;};}
+{const _mi=sunMapInit;sunMapInit=async function(){await _mi();drawSunOverlay();};}
+$('#calc').addEventListener('click',async e=>{const t=e.target;if(!t||!t.id)return;
+  if(t.id==='sunMatch'){matchBuilding();return;}
+  if(t.id==='sunTurn'){snap();setNorth(getNorth()+90);changed();renderCalc();return;}
+  if(t.id==='sunPhone'){const it=selItem();if(!it)return;t.textContent='Reading the compass…';try{const B=await phoneHeading();snap();northFromBearing(it,B);changed();renderCalc();toast(`That wall faces ${Math.round(B)}° ${compass(B)}. North is set.`);}
+    catch(err){t.textContent='📱 Use my phone’s compass';toast(err==='denied'?'Compass access was turned down. Allow motion and orientation access for this site, then try again.':'No compass reading came through. This works on a phone or tablet, not a laptop.');}}});
+$('#calc').addEventListener('change',e=>{const t=e.target;if(t&&t.id==='sunAlignOn'){sunAlign=t.checked;renderCalc();}});
+$('#calc').addEventListener('input',e=>{const t=e.target;if(t&&t.id==='sunRot'){setNorth(+t.value);const n=$('#calc [data-sun="north"]');if(n)n.value=Math.round(getNorth()*10)/10;renderCanvas();drawSunOverlay();clearTimeout(window.__srt);window.__srt=setTimeout(()=>{scheduleSave();calcSky&&calcSky();const o=$('#sunOut');if(o)o.innerHTML=sunReadout();},150);}});
+$('#calc').addEventListener('pointerdown',e=>{if(e.target&&e.target.id==='sunRot')snap();});
 const BRANDFF=(()=>{let o='';for(const sh of document.styleSheets){try{for(const r of sh.cssRules)if(r.type===5&&/EB Garamond|Lato/.test(r.cssText))o+=r.cssText;}catch(e){}}return o;})();
 /* ============================================================
    Export
