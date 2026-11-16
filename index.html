@@ -4997,8 +4997,8 @@ function shotView(sh,cam,target,phase,size,lens,path){sh=sh||{};const ang=sh.ang
   const amt=numOr(sh.angAmt,null);
   if(ang==='Overhead'&&manual===null){t=amt!==null?-Math.abs(amt):-90;if(target){x=target.x;y=target.y;}if(h<8){notes.push(`Overhead: shown from 10' straight over ${who}. Set the camera height on the plot to change it.`);h=10;}else notes.push(`Overhead: straight down over ${who} from ${fmtFt(h)}.`);focus=Math.max(1,h-5.6);}
   else if(manual!==null)t=manual;
-  else if(ang==='High'){t=amt!==null?-Math.abs(amt):aim;if(h<=tz+.3)notes.push(`High angle, but the camera is at ${fmtFt(h)}, at or below ${who}'s eye line. Raise the camera height on the plot.`);}
-  else if(ang==='Low'){t=amt!==null?Math.abs(amt):aim;if(h>=tz-.3)notes.push(`Low angle, but the camera is at ${fmtFt(h)}, at or above ${who}'s eye line. Lower the camera height on the plot.`);}
+  else if(ang==='High'){t=amt!==null?-Math.abs(amt):aim;if(amt===null&&h<=tz+.3)notes.push(`High angle, but the camera is at ${fmtFt(h)}, at or below ${who}'s eye line. Raise the camera height on the plot.`);}
+  else if(ang==='Low'){t=amt!==null?Math.abs(amt):aim;if(amt===null&&h>=tz-.3)notes.push(`Low angle, but the camera is at ${fmtFt(h)}, at or above ${who}'s eye line. Lower the camera height on the plot.`);}
   else if(ang==='Ground'){t=amt!==null?Math.abs(amt):aim;if(h>2)notes.push(`Ground angle, but the camera is at ${fmtFt(h)}. Set it to 1' or lower on the plot.`);}
   if(ang==='Dutch')roll=amt!==null?amt:numOr(sh.dutch,15);
   let r=cam.r||0,fl=null;const anchor={x,y,r,ux:Math.cos(r*D2R),uy:Math.sin(r*D2R)};
