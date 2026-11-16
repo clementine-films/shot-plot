@@ -792,7 +792,7 @@ function renderItems(items,o){
     }
     if(L.kind==='talent'){
       const col=it.color||'#ff7a7a';
-      g=`<circle r=".75" fill="${col}" stroke="${C.bg}" stroke-width="${1.5*px}"/><path d="M.6 -.35 L1.15 0 L.6 .35Z" fill="${col}"/>`;
+      g=poseGlyph(it,col,C,px);
       L1.talent+=`<g ${ida} transform="${trS}" ${o.ghost?'opacity=".35"':''}>${g}${selStroke}</g>`;
       L1.labels+=`<text ${o.ghost?'':`data-lid="${it.id}" data-p="3" data-ax="${it.x}" data-ay="${it.y}" data-ar=".9"`} x="${it.x}" y="${it.y-1*SZ-3*px}" text-anchor="middle" font-family="${C.font}" font-weight="700" font-size="${fs}" fill="${col}" paint-order="stroke" stroke="${C.bg}" stroke-width="${3*px}" pointer-events="none" letter-spacing=".04em">${esc((it.label||'ACTOR').toUpperCase())}${it.actor&&o.labels==='full'?` <tspan font-weight="400" fill="${C.sub}">(${esc(it.actor)})</tspan>`:''}</text>`;
       return;
@@ -1291,7 +1291,7 @@ function renderQuick(){const q=$('#quick');if(!q||fromQuick)return;const ids=P?s
     else{h+=`<span class="qm">${fmtFt(len)}</span>`;if(it.kind==='actor'||it.kind==='cammove'){const ow=it.owner?(findItem(it.owner)||{}).it:null;h+=ow?`<span class="qm" style="color:var(--green)">follows ${esc(ow.t==='camera'?(ow.cam||'A')+' cam':(ow.label||'actor'))}</span>`:`<button class="btn sm" data-act="attach">Attach to ${it.kind==='actor'?'actor':'camera'}</button>`;}}}
   else if(L.kind==='set'){if(L.wallSnap)h+=num('W','w',it.w,'min="1" step=".25"');else if(L.shape!=='north')h+=num('W','w',it.w,'min=".25" step=".25"')+num('D','h',it.h,'min=".25" step=".25"');}
   else if(L.kind==='light')h+=`<label class="chk"><input type="checkbox" data-k="on" ${it.on!==false?'checked':''}>On</label><label class="qf">Level<input type="range" data-k="intensity" min="0" max="100" value="${it.intensity}"><span>${it.intensity}%</span></label>`;
-  else if(L.kind==='talent')h+=`<label class="qf">Name<input class="in" data-k="label" value="${esc(it.label)}" style="width:110px"></label><button class="btn sm" data-act="drawmove" title="Draw this character's path; it stays attached to them">Draw move</button>`;
+  else if(L.kind==='talent')h+=`<label class="qf">Name<input class="in" data-k="label" value="${esc(it.label)}" style="width:110px"></label>${poseSelect(it,true)}<button class="btn sm" data-act="drawmove" title="Draw this character's path; it stays attached to them">Draw move</button>`;
   else if(L.kind==='camera')h+=`<span class="qm">${esc(it.cam||'A')} · ${esc(lensLabel(it))}</span><button class="btn sm" data-act="drawmove" title="Draw this camera's move; it stays attached to the camera">Draw move</button>`;
   if(!isLine)h+=num('Angle','r',Math.round(it.r||0),'step="15" style="width:58px"');
   q.innerHTML=h+tail+`<button class="btn sm" data-act="more" title="Open every setting for this item">More…</button>`;}
@@ -4136,7 +4136,7 @@ function splitFocus(n){const a=Math.min(n.d1,n.d2),b=Math.max(n.d1,n.d2);const s
   o+=`<g filter="url(#dfb)">${dofScene(D.bg,W,H,(x,y)=>proj(x,y,Dbg),kbg,camH)}</g>`;
   const floorY=proj(0,0,Dbg).y;o+=`<rect x="0" y="${floorY}" width="${W}" height="${Math.max(0,H-floorY)}" fill="${bgFloor(D.bg)}" filter="url(#dfb)" opacity=".98"/>`;
   const labs=[];subs.slice().sort((a,b)=>b.d-a.d).forEach((s,i)=>{const k=n.f/s.d*ppm;const b=sd(n.blurAt(s.de));const P0=proj(s.x,0,s.d);const lab=s.lab+(Math.abs(s.de-n.s)<.3?' ◎':'');
-    o+=`<filter id="dfs${i}" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="${b.toFixed(2)}"/></filter><g filter="url(#dfs${i})">${dofPerson(s.x,s.d,P0,k,s.col,'')}</g>`;labs.push({P:proj(s.x,6.2,s.d),lab,col:s.col});});
+    o+=`<filter id="dfs${i}" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="${b.toFixed(2)}"/></filter><g filter="url(#dfs${i})">${(()=>{const a=activeItems().find(q=>q.id===s.id),c0=dofCam();return a&&c0?poseHook(a,(x,y,z)=>{const fr=camFrame(c0,{x,y});return proj(fr.lat,z,Math.max(.3,fr.dep));},s.col,activeItems()):'';})()||dofPerson(s.x,s.d,P0,k,s.col,'')}</g>`;labs.push({P:proj(s.x,(()=>{const a=activeItems().find(q=>q.id===s.id);return a?poseTop(a,activeItems()):6.2;})(),s.d),lab,col:s.col});});
   labs.forEach(l=>{const tx=Math.max(8,Math.min(W-8,l.P.x)),ty=Math.max(48,Math.min(H-24,l.P.y));const anc=tx<60?'start':tx>W-60?'end':'middle';o+=`<text x="${tx}" y="${ty}" text-anchor="${anc}" font-family="Lato,sans-serif" font-weight="700" font-size="14" fill="#fff" stroke="${l.col}" stroke-width="4" paint-order="stroke">${esc(l.lab)}</text>`;});
   const sz=shotSize(n.fh);o+=`</g><rect x="8" y="8" rx="5" width="${sz[0].length*11+sz[1].length*6.4+24}" height="24" fill="rgba(0,0,0,.6)"/><text x="18" y="25" font-family="Lato,sans-serif" font-size="14" font-weight="700" fill="#fff">${sz[0]}<tspan font-weight="400" font-size="12" fill="#ddd"> · ${sz[1]}</tspan></text>`;
   o+=`<text x="${W-10}" y="${H-10}" text-anchor="end" font-family="Lato,sans-serif" font-size="11" fill="#fff" paint-order="stroke" stroke="rgba(0,0,0,.6)" stroke-width="3">Placed as on the plot · ◎ = in focus · mock-up, not a render</text></svg>`;return o;};}
@@ -4611,7 +4611,7 @@ function mockFrameSVG(o){// o: {items, cam, sc, W, sensor, f, N, focus, bgFallba
     const dd=cP.reduce((s,q)=>s+q.t.d,0)/n;if(z1<camH+.01)add(cP.map(q=>q.t),shade(col,1.12),dd-.01,`stroke="${shade(col,.6)}" stroke-width=".5"`);}
   // actors
   const people=[];items.filter(i=>i.t==='actor').forEach(a=>{const c=toCam(K,a,0);if(c.d<1)return;if(Math.abs(Math.atan2(c.l,c.d))>half)return;people.push({a,c});});
-  people.forEach(p=>{const k=f/p.c.d*ppm;const P0=proj(p.c);polys.push({d:K.st?toCam(K,p.a,K.st<-.8?5.2:3).d:p.c.d,svg:K.st?personView(z=>{const q=proj(toCam(K,p.a,z));return {x:q[0],y:q[1]};},(z,u)=>{const q=proj(toCam(K,{x:p.a.x-K.uy*u,y:p.a.y+K.ux*u},z));return {x:q[0],y:q[1]};},p.a.color||'#e07a5f'):dofPerson(p.c.l,p.c.d,{x:P0[0],y:P0[1]},k,p.a.color||'#e07a5f',''),person:p});});
+  people.forEach(p=>{const k=f/p.c.d*ppm;const P0=proj(p.c);polys.push({d:K.st?toCam(K,p.a,K.st<-.8?5.2:3).d:p.c.d,svg:poseHook(p.a,(x,y,z)=>{const q=proj(toCam(K,{x,y},z));return {x:q[0],y:q[1]};},p.a.color||'#e07a5f',items)||(K.st?personView(z=>{const q=proj(toCam(K,p.a,z));return {x:q[0],y:q[1]};},(z,u)=>{const q=proj(toCam(K,{x:p.a.x-K.uy*u,y:p.a.y+K.ux*u},z));return {x:q[0],y:q[1]};},p.a.color||'#e07a5f'):dofPerson(p.c.l,p.c.d,{x:P0[0],y:P0[1]},k,p.a.color||'#e07a5f','')),person:p});});
   // draw: background, floor flats, then everything far to near, blurred by distance
   const horizon=H/2+camH*0;let svg=`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="background:#000;display:block;width:100%">`;const id=o.idp||'mf';const defs={};
   const filt=sd=>{if(sd<.12)return '';const k=id+'b'+String(sd).replace('.','_');if(!defs[k])defs[k]=`<filter id="${k}" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="${sd}"/></filter>`;return ` filter="url(#${k})"`;};
@@ -4625,7 +4625,7 @@ function mockFrameSVG(o){// o: {items, cam, sc, W, sensor, f, N, focus, bgFallba
   flats.sort((a,b)=>b.d-a.d).forEach(p=>{body+=`<g${filt(sdOf(p.d))}>${p.svg}</g>`;});
   polys.sort((a,b)=>b.d-a.d).forEach(p=>{body+=`<g${filt(sdOf(p.d))}${p.gear?' opacity=".9"':''}>${p.svg}</g>`;});
   // names above people, kept in frame
-  if(o.labels!==false)people.forEach(p=>{const P=proj(K.st?toCam(K,p.a,K.st<-.8?5.6:6.2):{l:p.c.l,d:p.c.d,z:6.2});const tx=Math.max(8,Math.min(W-8,P[0])),ty=Math.max(18,Math.min(H-8,P[1]));const inF=Math.abs(p.c.d-(o.focus||0))<.5;
+  if(o.labels!==false)people.forEach(p=>{const hz=poseTop(p.a,items);const P=proj(K.st?toCam(K,p.a,K.st<-.8?hz-.6:hz):{l:p.c.l,d:p.c.d,z:hz});const tx=Math.max(8,Math.min(W-8,P[0])),ty=Math.max(18,Math.min(H-8,P[1]));const inF=Math.abs(p.c.d-(o.focus||0))<.5;
     body+=`<text x="${tx}" y="${ty}" text-anchor="${tx<60?'start':tx>W-60?'end':'middle'}" font-family="Lato,sans-serif" font-weight="700" font-size="13" fill="#fff" stroke="${p.a.color||'#e07a5f'}" stroke-width="4" paint-order="stroke">${esc(p.a.label||'')}${inF?' ◎':''}</text>`;});
   if(o.view&&o.view.roll)body=`<g transform="rotate(${o.view.roll} ${W/2} ${H/2})">${body}</g>`;
   return {svg:svg+`<defs>${Object.values(defs).join('')}</defs>`+body,H,W,people,count:polys.length+flats.length};}
@@ -5042,7 +5042,7 @@ function viewProj(x,y,d,W,H,F,h,ct,st,pan){const zr=y-h;const d2=Math.max(.05,d*
   const acts=activeItems().filter(i=>i.t==='actor').map(a=>{const q=cam(a,0);const qd=q.d*ct+(0-v.h)*st;return {a,q,dd:Math.max(1,Math.hypot(a.x-c.x,a.y-c.y))};}).filter(o2=>{const head=cam(o2.a,0);const hd=head.d*ct+(5.5-v.h)*st;return hd>.5;}).sort((p,q)=>q.dd-p.dd);
   const labs=[];acts.forEach((o2,i)=>{const a=o2.a;const P=z=>pr(o2.q.l,z,o2.q.d);const S=(z,u)=>pr(o2.q.l+u,z,o2.q.d);const b=sd(n.blurAt(o2.dd));const inF=Math.abs(o2.dd-n.s)<.6;
     const col=D.subRef&&a.id===D.subRef.id?'#e07a5f':D.sub2Ref&&a.id===D.sub2Ref.id?'#6aa8d8':'#b9a3d6';
-    o+=`<filter id="dfs${i}" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="${b.toFixed(2)}"/></filter><g filter="url(#dfs${i})">${personView(P,S,col)}</g>`;const L=P(6.2),M=P(3);if(M.x>-.15*W&&M.x<1.15*W&&(Math.min(P(0).y,P(5.8).y)<H*1.05)&&(Math.max(P(0).y,P(5.8).y)>-.05*H))labs.push({P:L,lab:(a.label||'Actor')+(inF?' ◎':''),col});});
+    o+=`<filter id="dfs${i}" x="-40%" y="-40%" width="180%" height="180%"><feGaussianBlur stdDeviation="${b.toFixed(2)}"/></filter><g filter="url(#dfs${i})">${poseHook(a,(x,y,z)=>{const q=cam({x,y},z);return pr(q.l,z,q.d);},col,activeItems())||personView(P,S,col)}</g>`;const L=P(poseTop(a,activeItems())),M=P(3);if(M.x>-.15*W&&M.x<1.15*W&&(Math.min(P(0).y,P(5.8).y)<H*1.05)&&(Math.max(P(0).y,P(5.8).y)>-.05*H))labs.push({P:L,lab:(a.label||'Actor')+(inF?' ◎':''),col});});
   labs.forEach(l=>{const tx=Math.max(8,Math.min(W-8,l.P.x)),ty=Math.max(48,Math.min(H-24,l.P.y));o+=`<text x="${tx}" y="${ty}" text-anchor="${tx<60?'start':tx>W-60?'end':'middle'}" font-family="Lato,sans-serif" font-weight="700" font-size="14" fill="#fff" stroke="${l.col}" stroke-width="4" paint-order="stroke">${esc(l.lab)}</text>`;});
   const sz=shotSize(n.fh);o+=`</g></g><rect x="8" y="8" rx="5" width="${sz[0].length*11+sz[1].length*6.4+24}" height="24" fill="rgba(0,0,0,.6)"/><text x="18" y="25" font-family="Lato,sans-serif" font-size="14" font-weight="700" fill="#fff">${sz[0]}<tspan font-weight="400" font-size="12" fill="#ddd"> · ${sz[1]}</tspan></text>${viewTag(v,W)}`;
   o+=`<text x="${W-10}" y="${H-10}" text-anchor="end" font-family="Lato,sans-serif" font-size="11" fill="#fff" paint-order="stroke" stroke="rgba(0,0,0,.6)" stroke-width="3">Placed as on the plot · ◎ = in focus · mock-up, not a render</text></svg>`;return o;};}
@@ -5388,6 +5388,53 @@ function straightenSel(){if(!selItem()||!selItem().poly)return;snap();const it=s
     else if(Math.abs(m-45)<7&&pass===3){const L=Math.hypot(c[0]-b[0],c[1]-b[1])/Math.SQRT2;c[0]=b[0]+Math.sign(c[0]-b[0])*L;c[1]=b[1]+Math.sign(c[1]-b[1])*L;}});
   for(let i=0;i<P.length&&P.length>3;i++){const a=P[(i-1+P.length)%P.length],b=P[i],c=P[(i+1)%P.length];const a1=Math.atan2(b[1]-a[1],b[0]-a[0]),a2=Math.atan2(c[1]-b[1],c[0]-b[0]);let d=Math.abs(a2-a1);if(d>Math.PI)d=2*Math.PI-d;if(d<2*D2R){P.splice(i,1);i--;}}
   P=P.map(([x,y])=>[Math.round(x*100)/100,Math.round(y*100)/100]);it.poly=P.map(([x,y])=>[x/w,y/h]);refitPoly(it);changed();renderPanel();toast('Edges straightened. Undo to go back.');}
+/* ============================================================
+   How a character is placed: standing, sitting, lying down, kneeling,
+   crouching. Shown on the plot and built into the mock-ups, sitting on
+   (or lying on) whatever piece is under them.
+   ============================================================ */
+const POSES=[['stand','Standing'],['sit','Sitting'],['lie','Lying down'],['kneel','Kneeling'],['crouch','Crouching']];
+const poseOf=a=>a&&a.pose&&a.pose!=='stand'?a.pose:'stand';
+// what they sit or lie on: the seat height of the piece under them, or the floor
+const SEAT_H={chair:1.5,officechair:1.6,stool:2.5,barstool:2.5,couch:1.45,loveseat:1.45,sectional:1.45,armchair:1.45,futon:1.4,ottoman:1.4,booth:1.55,bench:1.5,bed:1.95,bedtwin:1.95,bedking:1.95,bunkbed:1.7,crib:1,toilet:1.35,toiletround:1.35,hospbed:2.6,gurney:3,stoop:1.2,deck:1.4,stage:2,tub:1.3,bathtub:1.3};
+function restUnder(a,items){let best=null;(items||[]).forEach(s=>{if(s===a||s.t==='line')return;const L=LIB[s.t];if(!L||L.kind!=='set'||FLAT.has(s.t)||isOpening(s))return;
+  const r=-(s.r||0)*D2R,dx=a.x-s.x,dy=a.y-s.y;const lx=dx*Math.cos(r)-dy*Math.sin(r),ly=dx*Math.sin(r)+dy*Math.cos(r);if(Math.abs(lx)>(+s.w||2)/2+.2||Math.abs(ly)>(+s.h||2)/2+.2)return;
+  let z=SEAT_H[s.t];if(z==null){const e=typeof effZ==='function'?effZ(s):[0,2.5];if(e[0]>.01||e[1]>3.2)return;z=e[1];}else if(typeof effZ==='function'){const e=effZ(s),b=MH[s.t]||[0,2.5];z=e[0]+z*(e[1]-e[0])/Math.max(.01,b[1]-b[0]);}
+  if(!best||z>best.z)best={s,z};});return best;}
+function poseInfo(a,items){const p=poseOf(a);const u=(p==='sit'||p==='lie')?restUnder(a,items):null;const seat=u?u.z:(p==='sit'?1.5:0);
+  return {p,seat,head:p==='stand'?5.35:p==='sit'?seat+2.55:p==='lie'?seat+.45:p==='kneel'?3.75:3.05};}
+function poseTop(a,items){return poseInfo(a,items).head+.85;}
+/* the figure: P(x,y,z) puts a point of the world on the frame. Limbs are drawn as rounded strokes at their real thickness. */
+function poseHook(a,P,col,items){if(!a||poseOf(a)==='stand')return '';try{return poseSVG(a,P,col,items);}catch(e){return '';}}
+function poseSVG(a,P,col,items){const I=poseInfo(a,items),r=(a.r||0)*D2R;const f=[Math.cos(r),Math.sin(r)],s=[-Math.sin(r),Math.cos(r)];
+  const W=(fw,sd,z)=>({x:a.x+f[0]*fw+s[0]*sd,y:a.y+f[1]*fw+s[1]*sd,z});const S=q=>P(q.x,q.y,q.z);const px=q=>{const A=S(q),B=P(q.x,q.y,q.z+.5);return Math.max(.5,Math.hypot(B.x-A.x,B.y-A.y)*2);};
+  const dark=shade(col.length===7?col:'#e07a5f',.72);const seg=(A,B,t,c)=>{const p1=S(A),p2=S(B);const w=t*(px(A)+px(B))/2;return `<path d="M${p1.x.toFixed(1)} ${p1.y.toFixed(1)} L${p2.x.toFixed(1)} ${p2.y.toFixed(1)}" stroke="${c||col}" stroke-width="${w.toFixed(1)}" stroke-linecap="round"/>`;};
+  const head=(q,rr)=>{const c=S(q);return `<circle cx="${c.x.toFixed(1)}" cy="${c.y.toFixed(1)}" r="${(rr*px(q)).toFixed(1)}" fill="${col}" stroke="rgba(0,0,0,.35)" stroke-width="1"/>`;};
+  let parts=[];const add=(depthPt,svg)=>parts.push({d:depthPt,svg});
+  const z=I.seat;
+  if(I.p==='sit'){const hip=W(0,0,z+.15),sh=W(-.12,0,z+2.05),hd=W(-.1,0,z+2.55);[-.3,.3].forEach(o=>{const k=W(1.45,o,z+.2),ft=W(1.6,o,.05);add(k,seg(W(.1,o,z+.15),k,.5,dark)+seg(k,ft,.4,dark));});
+    add(hip,seg(hip,sh,1.15));[-.72,.72].forEach(o=>add(W(.9,o,z+.6),seg(W(-.1,o,z+1.95),W(.55,o,z+.9),.3)+seg(W(.55,o,z+.9),W(1.1,o*.6,z+.55),.26)));add(hd,head(hd,.44));}
+  else if(I.p==='lie'){const zb=z+.45;const hd=W(2.55,0,zb+.05),sh=W(2.0,0,zb),hip=W(.2,0,zb);[-.28,.28].forEach(o=>add(W(-1.4,o,zb),seg(W(.2,o,zb),W(-2.6,o,zb-.05),.48,dark)));
+    add(hip,seg(hip,sh,1.05));[-.75,.75].forEach(o=>add(W(1.2,o,zb),seg(W(1.95,o,zb),W(.6,o,zb),.3)));add(hd,head(hd,.44));}
+  else if(I.p==='kneel'){const hip=W(-.2,0,1.75),sh=W(-.15,0,3.3),hd=W(-.1,0,3.75);[-.3,.3].forEach(o=>{const k=W(.25,o,.22);add(k,seg(W(-.2,o,1.65),k,.5,dark)+seg(k,W(-1.25,o,.1),.4,dark));});
+    add(hip,seg(hip,sh,1.15));[-.72,.72].forEach(o=>add(W(.2,o,2.3),seg(W(-.15,o,3.2),W(.15,o,2.2),.3)));add(hd,head(hd,.44));}
+  else{const hip=W(-.35,0,1.25),sh=W(.15,0,2.6),hd=W(.35,0,3.05);[-.35,.35].forEach(o=>{const k=W(.7,o,1.35);add(k,seg(W(-.3,o,1.2),k,.5,dark)+seg(k,W(.45,o,.08),.42,dark));});
+    add(hip,seg(hip,sh,1.15));[-.72,.72].forEach(o=>add(W(.8,o,1.6),seg(W(.15,o,2.5),W(.85,o,1.55),.3)));add(hd,head(hd,.44));}
+  // draw the parts farthest from the lens first
+  parts.forEach(p=>{const q=S(p.d);const up=P(p.d.x,p.d.y,p.d.z+1);p.k=-Math.hypot(up.x-q.x,up.y-q.y);});parts.sort((x,y)=>y.k-x.k);
+  return `<g stroke-linejoin="round">${parts.map(p=>p.svg).join('')}</g>`;}
+
+/* the plot: a mark for each pose */
+function poseGlyph(it,col,C,px){const p=poseOf(it);const arrow=`<path d="M.6 -.35 L1.15 0 L.6 .35Z" fill="${col}"/>`;const ring=`stroke="${C.bg}" stroke-width="${1.5*px}"`;
+  if(p==='lie')return `<rect x="-2.6" y="-.75" width="5.2" height="1.5" rx=".75" fill="${col}" fill-opacity=".55" ${ring}/><circle cx="2.05" r=".55" fill="${col}" ${ring}/><path d="M2.75 -.3 L3.2 0 L2.75 .3Z" fill="${col}"/>`;
+  if(p==='sit')return `<rect x=".25" y="-.62" width="1.25" height=".46" rx=".22" fill="${col}" fill-opacity=".8"/><rect x=".25" y=".16" width="1.25" height=".46" rx=".22" fill="${col}" fill-opacity=".8"/><circle r=".72" fill="${col}" ${ring}/>`;
+  if(p==='kneel')return `<rect x="-1.4" y="-.6" width="1.15" height=".42" rx=".2" fill="${col}" fill-opacity=".8"/><rect x="-1.4" y=".18" width="1.15" height=".42" rx=".2" fill="${col}" fill-opacity=".8"/><circle r=".7" fill="${col}" ${ring}/>${arrow}`;
+  if(p==='crouch')return `<circle r=".62" fill="${col}" ${ring}/><circle r=".95" fill="none" stroke="${col}" stroke-width="${1.2*px}" stroke-dasharray="${3*px} ${2*px}"/>${arrow}`;
+  return `<circle r=".75" fill="${col}" ${ring}/>${arrow}`;}
+const POSE_TAG={sit:'sitting',lie:'lying down',kneel:'kneeling',crouch:'crouching'};
+function poseSelect(it,qf){const s=`<select class="in" data-k="pose" ${qf?'style="width:auto"':''}>${POSES.map(([v,n])=>`<option value="${v}" ${poseOf(it)===v?'selected':''}>${n}</option>`).join('')}</select>`;return qf?`<label class="qf">Pose${s}</label>`:fld('Pose',s);}
+{const _pi=panelItem;panelItem=function(){let h=_pi();try{const it=selItem();if(it&&it.t==='actor'&&!/data-k="pose"/.test(h)){const key='data-k="label"';const i=h.indexOf(key);if(i>=0){const j=h.indexOf('</div>',i)+6;h=h.slice(0,j)+poseSelect(it)+`<div class="pSub" style="margin-top:-2px">Sitting and lying use the seat, couch or bed under them; otherwise the floor. Each shot keeps its own.</div>`+h.slice(j);}}}catch(e){}return h;};}
+document.addEventListener('change',e=>{if(e.target&&e.target.dataset&&e.target.dataset.k==='pose')setTimeout(()=>{renderCanvas();if(typeof CALC!=='undefined'&&CALC.open)renderCalc();},0);});
 const BRANDFF=(()=>{let o='';for(const sh of document.styleSheets){try{for(const r of sh.cssRules)if(r.type===5&&/EB Garamond|Lato/.test(r.cssText))o+=r.cssText;}catch(e){}}return o;})();
 /* ============================================================
    Export
