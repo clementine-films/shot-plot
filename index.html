@@ -1807,7 +1807,7 @@ document.addEventListener('mousedown',e=>{if(e.target.closest&&e.target.closest(
 
 function shotRowsCSV(){const q=s=>'"'+String(s??'').replace(/"/g,'""')+'"';
   return 'Scene,Heading,Setup,Build,Shot,Size,Angle,Movement,Lens,Support,Description,Blocking,Cast,Lights,Watts,Status,Script,Notes\n'+allShots().map(({sc,su,sh})=>{const items=activeItems(su,sh);const cams=sh.items.filter(i=>i.t==='camera');
-    return [sc.num,sceneHeading(sc),su.name,buildLabel(su),sh.num,sh.size,sh.angle,sh.move,cams.map(lensLabel).join(' / '),cams.map(c=>c.support).join(' / '),sh.desc,sh.blocking,[...new Set(items.filter(i=>i.t==='actor').map(a=>a.label))].join(', '),items.filter(i=>LIB[i.t]&&LIB[i.t].kind==='light').length,powerFor(items).total,shStatus(sh),coverText(sh),sh.notes].map(q).join(',');}).join('\n');}
+    return [sc.num,sceneHeading(sc),su.name,buildLabel(su),sh.num,sh.size,sh.angle,moveLabel(sh),cams.map(lensLabel).join(' / '),cams.map(c=>c.support).join(' / '),sh.desc,sh.blocking,[...new Set(items.filter(i=>i.t==='actor').map(a=>a.label))].join(', '),items.filter(i=>LIB[i.t]&&LIB[i.t].kind==='light').length,powerFor(items).total,shStatus(sh),coverText(sh),sh.notes].map(q).join(',');}).join('\n');}
 function openShotList(){
   const rows=allShots();const done=rows.filter(r=>shStatus(r.sh)!=='To plan').length;const cur=shot().id;
   const body=rows.map(({sc,su,sh})=>{const items=activeItems(su,sh);const cams=sh.items.filter(i=>i.t==='camera');const cast=[...new Set(items.filter(i=>i.t==='actor').map(a=>a.label))].join(', ');const st=shStatus(sh);
@@ -4640,11 +4640,11 @@ const mockHasSet=(items,cam)=>{const K=mockCam(cam);return items.some(i=>{if(i.t
 function shotFrames(scenes){const out=[];const keep=[CALC.dof.bg,CALC.dof.tod];scenes.forEach(sc=>{CALC.dof.bg=sceneBg(sc);CALC.dof.tod=sceneTod(sc);(sc.setups||[]).forEach(su=>su.shots.forEach(sh=>{const items=activeItems(su,sh);items.filter(i=>i.t==='camera').forEach(c=>{
   const lo=lensOf(c);const f=(lo&&lo.f)||+c.lens||35;const K=mockCam(c);const acts=items.filter(i=>i.t==='actor').map(a=>({a,c:toCam(K,a,0)})).filter(x=>x.c.d>1&&Math.abs(Math.atan2(x.c.l,x.c.d))<Math.atan((SENSORS[c.sensor]||24.9)/(2*f)));
   const foc=acts.length?Math.hypot(acts.sort((p,q)=>Math.abs(p.c.l)-Math.abs(q.c.l))[0].a.x-c.x,acts[0].a.y-c.y):8;
-  const tgt=acts.length?acts[0].a:null;const path=camPath(items,c);const phases=path||hasStart(sh.move)||actorMoves(items).length?['start','end']:[''];
+  const tgt=acts.length?acts[0].a:null;const path=camPath(items,c);const phases=phaseList(sh,path,actorMoves(items).length>0);
   phases.forEach(ph=>{const itemsP=ph==='end'?actorEnd(items):items;const tgtP=tgt?(itemsP.find(i=>i.id===tgt.id)||tgt):null;const view=shotView(sh,c,tgtP,ph||'end',sh.size,f,path);const fv=view.f||f;const r=mockFrameSVG({items:itemsP,cam:c,sc,W:560,sensor:c.sensor,f:fv,N:parseFloat(CALC.dof&&CALC.dof.stop)||2.8,focus:view.focus||(tgtP&&ph?Math.max(1,Math.hypot(tgtP.x-view.x,tgtP.y-view.y)):foc),idp:'x'+sh.id+c.id+ph,view,bg:CALC.dof&&CALC.dof.bg,bgDist:Math.max(foc+2,parseFt(CALC.dof&&CALC.dof.bgDist)||15)});
   out.push({sc,su,sh,c,f:fv,phase:ph,note:view.notes.join(' '),svg:r.svg+viewTag(view,r.W)+'</svg>'});});});}));});CALC.dof.bg=keep[0];CALC.dof.tod=keep[1];return out;}
 function openMockFrames(){const all=!!V.mfAll;const scs=all?P.scenes:[scene()];const fr=shotFrames(scs);
-  const card=x=>`<div class="mfCard"><div class="mfHead"><b>${esc(x.sh.num)}</b>${x.phase?` · ${x.phase==='start'?'Start':'End'} of ${esc(hasStart(x.sh.move)?x.sh.move.toLowerCase():'the move')}`:''} · ${esc(x.sh.size||'')}${x.c.cam?` · ${esc(x.c.cam)} cam`:''} · ${x.f}mm<span>${esc(x.su.name||'')}</span></div>${x.svg}<div class="mfDesc">${esc(x.sh.desc||'')}${x.note?`<div style="color:#ffcf7a;margin-top:3px">${esc(x.note)}</div>`:''}</div></div>`;
+  const card=x=>`<div class="mfCard"><div class="mfHead"><b>${esc(x.sh.num)}</b>${x.phase?` · ${esc(phaseName(moveList(x.sh),x.phase,0))}`:''} · ${esc(x.sh.size||'')}${x.c.cam?` · ${esc(x.c.cam)} cam`:''} · ${x.f}mm<span>${esc(x.su.name||'')}</span></div>${x.svg}<div class="mfDesc">${esc(x.sh.desc||'')}${x.note?`<div style="color:#ffcf7a;margin-top:3px">${esc(x.note)}</div>`:''}</div></div>`;
   const grid=fr.length?fr.map(card).join(''):'<div class="pSub">No shots have a camera yet. Add a camera to a shot to get its frame.</div>';
   openModal(`<h3>Mock-up frames</h3><div class="pSub" style="margin-bottom:8px">What each camera sees, built from the plot: furniture, gear in frame and the actors, in front of each scene's background, with depth of field at the stop in your depth of field plan. The plot's walls aren't drawn, so they never block the background. Planning mock-ups, not renders.</div>
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap"><label class="chk"><input type="checkbox" id="mfAll" ${all?'checked':''}> All scenes</label>${all?'':mockBgControls(scene(),'mf')}<span style="flex:1"></span><button class="btn sm pri" id="mfPrint">Print or save as PDF</button><button class="btn sm" onclick="closeModal()">Close</button></div>
@@ -4652,7 +4652,7 @@ function openMockFrames(){const all=!!V.mfAll;const scs=all?P.scenes:[scene()];c
   $('#mfAll').onchange=e=>{V.mfAll=e.target.checked;openMockFrames();};
   document.querySelectorAll('[data-mfbg]').forEach(s=>s.onchange=e=>{const sc=scene();snap();if(e.target.dataset.mfbg==='bg')sc.mockBg=e.target.value;else sc.mockTod=e.target.value;scheduleSave&&scheduleSave();openMockFrames();});
   $('#mfPrint').onclick=()=>{const w=window.open('','_blank');if(!w){toast('Allow pop-ups to print the mock-up frames');return;}
-    w.document.write(`<!doctype html><html><head><title>${esc(P.title||'Shot Plot')} · Mock-up frames</title><style>body{font-family:Lato,Helvetica,sans-serif;margin:24px;color:#111}h1{font-size:18px;margin:0 0 4px}.sub{font-size:11px;margin-bottom:14px}.g{display:grid;grid-template-columns:1fr 1fr;gap:14px}.c{break-inside:avoid;border:1px solid #bbb;border-radius:6px;overflow:hidden}.h{padding:5px 8px;font-size:12px;display:flex}.h span{margin-left:auto}.d{padding:5px 8px;font-size:11px;min-height:1em}@page{margin:12mm}</style></head><body><h1>${esc(P.title||'')} · Mock-up frames</h1><div class="sub">${esc(scs.map(s=>'Scene '+s.num+' '+(s.ie||'')+' '+(s.loc||'')+' – '+(s.tod||'')).join(' · '))} · built from the plot, planning mock-ups, not renders</div><div class="g">${fr.map(x=>`<div class="c"><div class="h"><b>${esc(x.sh.num)}</b>${x.phase?`&nbsp;· ${x.phase==='start'?'Start':'End'} of ${esc(hasStart(x.sh.move)?x.sh.move.toLowerCase():'the move')}`:''}&nbsp;· ${esc(x.sh.size||'')} · ${x.f}mm<span>${esc(x.su.name||'')}</span></div>${x.svg}<div class="d">${esc(x.sh.desc||'')}${x.note?`<div style="color:#8a5a00;margin-top:2px">${esc(x.note)}</div>`:''}</div></div>`).join('')}</div><script>setTimeout(()=>print(),300)<\/script></body></html>`);w.document.close();};}
+    w.document.write(`<!doctype html><html><head><title>${esc(P.title||'Shot Plot')} · Mock-up frames</title><style>body{font-family:Lato,Helvetica,sans-serif;margin:24px;color:#111}h1{font-size:18px;margin:0 0 4px}.sub{font-size:11px;margin-bottom:14px}.g{display:grid;grid-template-columns:1fr 1fr;gap:14px}.c{break-inside:avoid;border:1px solid #bbb;border-radius:6px;overflow:hidden}.h{padding:5px 8px;font-size:12px;display:flex}.h span{margin-left:auto}.d{padding:5px 8px;font-size:11px;min-height:1em}@page{margin:12mm}</style></head><body><h1>${esc(P.title||'')} · Mock-up frames</h1><div class="sub">${esc(scs.map(s=>'Scene '+s.num+' '+(s.ie||'')+' '+(s.loc||'')+' – '+(s.tod||'')).join(' · '))} · built from the plot, planning mock-ups, not renders</div><div class="g">${fr.map(x=>`<div class="c"><div class="h"><b>${esc(x.sh.num)}</b>${x.phase?`&nbsp;· ${esc(phaseName(moveList(x.sh),x.phase,0))}`:''}&nbsp;· ${esc(x.sh.size||'')} · ${x.f}mm<span>${esc(x.su.name||'')}</span></div>${x.svg}<div class="d">${esc(x.sh.desc||'')}${x.note?`<div style="color:#8a5a00;margin-top:2px">${esc(x.note)}</div>`:''}</div></div>`).join('')}</div><script>setTimeout(()=>print(),300)<\/script></body></html>`);w.document.close();};}
 {const m=$('#exportMenu');if(m&&!m.querySelector('[data-x="mockframes"]')){const ref=m.querySelector('[data-x="shotlist"]');ref.insertAdjacentHTML('afterend','<button data-x="mockframes">Mock-up frames…<small>What each camera sees, built from the plot; print or save as PDF</small></button>');}
   m.addEventListener('click',e=>{const b=e.target.closest('[data-x="mockframes"]');if(!b)return;e.stopPropagation();m.classList.remove('open');openMockFrames();},true);}
 
@@ -5002,24 +5002,27 @@ function shotView(sh,cam,target,phase,size,lens,path){sh=sh||{};const ang=sh.ang
   else if(ang==='Ground'){t=amt!==null?Math.abs(amt):aim;if(h>2)notes.push(`Ground angle, but the camera is at ${fmtFt(h)}. Set it to 1' or lower on the plot.`);}
   if(ang==='Dutch')roll=amt!==null?amt:numOr(sh.dutch,15);
   let r=cam.r||0,fl=null;const anchor={x,y,r,ux:Math.cos(r*D2R),uy:Math.sin(r*D2R)};
-  // the plot and the angle are where the shot starts; the move says where it goes
-  if(phase==='end'&&path){x=path.b.x;y=path.b.y;if(target&&sh.move==='Arc'){const be=(p)=>Math.atan2(target.y-p.y,target.x-p.x)/D2R;r+=be(path.b)-be(path.a);}}
-  if(phase==='end'&&hasStart(sh.move)){const f0=+lens||+cam.lens||35;const a=moveAmt(sh,f0);const ux=anchor.ux,uy=anchor.uy;
-    if(path&&['Push in','Pull out','Dolly / track','Arc'].includes(sh.move));else switch(sh.move){case 'Pan left':r-=a;break;case 'Pan right':case 'Whip pan':r+=a;break;case 'Tilt up':t+=a;break;case 'Tilt down':t-=a;break;
+  // the plot and the angle are where the shot starts; each move in turn says where it goes next
+  const L=moveList(sh);const k=phase==='end'?L.length:/^step\d+$/.test(phase||'')?+phase.slice(4):0;
+  if(phase==='end'&&path){x=path.b.x;y=path.b.y;if(target&&L.some(m=>m.m==='Arc')){const be=(p)=>Math.atan2(target.y-p.y,target.x-p.x)/D2R;r+=be(path.b)-be(path.a);}}
+  const f0=+lens||+cam.lens||35;
+  for(let s=0;s<k;s++){const mv=L[s];const a=moveAmt({move:mv.m,moveAmt:mv.amt,tiltAmt:mv.first?sh.tiltAmt:null},fl||f0);const ux=Math.cos(r*D2R),uy=Math.sin(r*D2R);
+    if(path&&['Push in','Pull out','Dolly / track','Arc'].includes(mv.m))continue;
+    switch(mv.m){case 'Pan left':r-=a;break;case 'Pan right':case 'Whip pan':r+=a;break;case 'Tilt up':t+=a;break;case 'Tilt down':t-=a;break;
       case 'Push in':x+=ux*a;y+=uy*a;break;case 'Pull out':x-=ux*a;y-=uy*a;break;case 'Dolly / track':x-=uy*a;y+=ux*a;break;case 'Crane / jib':h=Math.max(.5,h+a);break;
       case 'Arc':{const c0=target||{x:x+ux*8,y:y+uy*8};const vx=x-c0.x,vy=y-c0.y,q=-a*D2R;x=c0.x+vx*Math.cos(q)-vy*Math.sin(q);y=c0.y+vx*Math.sin(q)+vy*Math.cos(q);r-=a;break;}
       case 'Zoom in':case 'Zoom out':fl=Math.max(4,a);break;}}
   t=Math.max(-90,Math.min(90,t));if(t<=-89.5)t=-89.5;
-  return {t,roll,h,x,y,r,f:fl,anchor,notes,focus,phase,move:sh.move,path:!!path};}
+  return {t,roll,h,x,y,r,f:fl,anchor,notes,focus,phase,move:sh.move,moves:L,step:k,path:!!path};}
 function dofTarget(c){const D=CALC.dof;const acts=activeItems().filter(i=>i.t==='actor');let a=D.subRef&&acts.find(i=>i.id===D.subRef.id);
   if(!a){const r=(c.r||0)*D2R;a=acts.map(i=>({i,d:(i.x-c.x)*Math.cos(r)+(i.y-c.y)*Math.sin(r),l:Math.abs(-(i.x-c.x)*Math.sin(r)+(i.y-c.y)*Math.cos(r))})).filter(o=>o.d>1).sort((p,q)=>p.l-q.l)[0];a=a&&a.i;}return a||null;}
-function dofView(c,size){const sh=shot();if(!size){const n=dofNums();size=n&&!n.bad?shotSize(n.fh)[0]:null;}const path=camPath(activeItems(),c);return shotView(sh,c,dofTarget(c),(path||hasStart(sh&&sh.move))&&CALC.dof.phase==='start'?'start':'end',size,CALC.dof.f,path);}
+function dofView(c,size){const sh=shot();if(!size){const n=dofNums();size=n&&!n.bad?shotSize(n.fh)[0]:null;}const path=camPath(activeItems(),c);const ph=CALC.dof.phase;return shotView(sh,c,dofTarget(c),(path||moveList(sh).length)&&(ph==='start'||/^step/.test(ph||''))?ph:'end',size,CALC.dof.f,path);}
 // a camera move or track drawn on the plot from (or to) this camera: it runs from its first point to its last
 function camPath(items,c){const L=items.filter(i=>i.t==='line'&&(i.kind==='cammove'||i.kind==='track')&&i.pts&&i.pts.length>1).map(l=>({a:l.pts[0],b:l.pts[l.pts.length-1]})).map(p=>({p,d:Math.min(Math.hypot(p.a.x-c.x,p.a.y-c.y),Math.hypot(p.b.x-c.x,p.b.y-c.y))})).filter(o=>o.d<4).sort((p,q)=>p.d-q.d)[0];return L?L.p:null;}
-const isMoving=(v)=>v&&(v.path||hasStart(v.move));
-const viewActive=v=>v&&(Math.abs(v.t)>.5||v.roll||v.notes.length||(v.phase==='end'&&(v.path||hasStart(v.move))));
+const isMoving=(v)=>v&&(v.path||(v.moves&&v.moves.length));
+const viewActive=v=>v&&(Math.abs(v.t)>.5||v.roll||v.notes.length||(v.phase!=='start'&&isMoving(v)));
 function viewTag(v,W){if(!v)return '';const bits=[];if(Math.abs(v.t)>.5)bits.push(v.t<=-89?'looking straight down':`tilted ${Math.abs(Math.round(v.t))}° ${v.t>0?'up':'down'}`);if(v.roll)bits.push(`Dutch ${Math.round(v.roll)}°`);
-  if(v.phase==='end'&&(v.path||hasStart(v.move)))bits.push('end of the '+(hasStart(v.move)?v.move.toLowerCase():'move'));
+  if(v.phase!=='start'&&isMoving(v))bits.push(phaseName(v.moves||[],v.phase,v.path).toLowerCase());
   let o='';if(bits.length){const t=bits.join(' · ');o+=`<rect x="${W-18-t.length*6.6}" y="8" rx="5" width="${t.length*6.6+10}" height="22" fill="rgba(0,0,0,.6)"/><text x="${W-13}" y="23" text-anchor="end" font-family="Lato,sans-serif" font-size="12" font-weight="700" fill="#ffcf7a">${t}</text>`;}
   return o;}
 // a person seen from a tilted camera: P(z) is where a point on their centre line at height z lands, S(z,u) the same point u feet to the side
@@ -5051,15 +5054,17 @@ function viewProj(x,y,d,W,H,F,h,ct,st,pan){const zr=y-h;const d2=Math.max(.05,d*
 
 /* the depth of field tab: start / end of a tilt, and any note about the angle */
 {const _do=dofOut;dofOut=function(){CALC.dof.phase='end';let h=_do();try{const n0=dofNums();if(!n0.bad){const tag=`<text x="10" y="96%" font-family="Lato,sans-serif" font-size="12" font-weight="700" fill="#fff" paint-order="stroke" stroke="rgba(0,0,0,.65)" stroke-width="3">${n0.f}mm · f/${n0.N}</text>`;const i=h.indexOf('<div class="cGrid"><div>'),j=h.indexOf('</div><div>',i);if(i>=0&&j>i)h=h.slice(0,i)+h.slice(i,j).replace(/<\/svg>/g,tag+'</svg>')+h.slice(j);}}catch(e){}try{const c=dofCam();if(!c)return h;const sh=shot();const v=dofView(c);let x='';
-  const path=camPath(activeItems(),c);const amv=actorMoves(activeItems()).length>0;if(path||hasStart(sh.move)||amv){const n=dofNums();if(!n.bad){CALC.dof.phase='start';let s='';try{s=dofMock(n);}finally{CALC.dof.phase='end';}
-    s=s.replace(/id="([^"]+)"/g,'id="$1_st"').replace(/url\(#([^)]+)\)/g,'url(#$1_st)');const nm=hasStart(sh.move)?sh.move.toLowerCase():path?'camera move':'action';const lab=t=>`<div style="font-size:12px;font-weight:700;margin:2px 0 4px">${t}</div>`;
-    h=h.replace('<div class="cGrid"><div>','<div class="cGrid"><div>'+lab(`Start of the ${esc(nm)}`+(path?' (from the move drawn on the plot)':''))+s+lab(`End of the ${esc(nm)}`));}}
+  const path=camPath(activeItems(),c);const amv=actorMoves(activeItems()).length>0;const PH=phaseList(sh,path,amv);if(PH.length>1){const n=dofNums();if(!n.bad){const L=moveList(sh);
+    const lab=t=>`<div style="font-size:12px;font-weight:700;margin:2px 0 4px">${t}</div>`;let pre='';
+    PH.slice(0,-1).forEach((ph,idx)=>{CALC.dof.phase=ph;let s='';try{s=dofMock(n);}finally{CALC.dof.phase='end';}s=s.replace(/id="([^"]+)"/g,`id="$1_p${idx}"`).replace(/url\(#([^)]+)\)/g,`url(#$1_p${idx})`);
+      pre+=lab(esc(ph==='start'?'Start'+(L.length?'':path?' of the camera move':' of the action')+(path&&ph==='start'?' (from the move drawn on the plot)':''):phaseName(L,ph,path)))+s;});
+    h=h.replace('<div class="cGrid"><div>','<div class="cGrid"><div>'+pre+lab(esc(phaseName(L,'end',path))));}}
   if(v.notes.length)x+=`<div style="margin:6px 0;padding:6px 8px;border:1px solid #c98a1a;border-radius:6px;color:#ffcf7a;font-size:12px">${v.notes.map(esc).join('<br>')}</div>`;
   if(x)h=h.replace('</svg></div>','</svg>'+x+'</div>');}catch(e){}return h;};}
 document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-dofphase]');if(!b)return;CALC.dof.phase=b.dataset.dofphase;renderCalc();});
 
 /* shot tab: one box for how far the move goes, worded for the move you picked */
-function shotTiltFields(sh){const cam=(sh.items||[]).find(i=>i.t==='camera')||activeItems().find(i=>i.t==='camera');return angleField(sh,cam)+moveField(sh,cam);}
+function shotTiltFields(sh){const cam=(sh.items||[]).find(i=>i.t==='camera')||activeItems().find(i=>i.t==='camera');return angleField(sh,cam)+moveField(sh,cam)+moreMovesField(sh,cam);}
 // one box for the angle, worded for the angle picked; blank means the app works it out
 const ANG_AMT={High:'How far it looks down (°)',Low:'How far it looks up (°)',Ground:'How far it looks up (°)',Overhead:'How far it looks down (°, 90 = straight down)',Dutch:'How far the frame rolls (°, − rolls the other way)'};
 function angleField(sh,cam){const lab=ANG_AMT[sh.angle];if(!lab)return '';let ph='';try{if(sh.angle==='Dutch')ph='15';else if(sh.angle==='Overhead')ph='90';else if(cam){const v=shotView(Object.assign({},sh,{angAmt:'',move:'Static'}),cam,dofTarget(cam),'end');ph=Math.abs(v.t)<.5?'auto: level with the subject':`auto: ${Math.abs(Math.round(v.t))}° ${v.t<0?'down':'up'}, aimed at the subject`;}}catch(e){}
@@ -5081,7 +5086,23 @@ function actorEnd(items){const mv=actorMoves(items);if(!mv.length)return items;c
 let ACT_PHASE=null;
 {const _ai=activeItems;activeItems=function(){const r=_ai.apply(this,arguments);return ACT_PHASE==='end'?actorEnd(r):r;};}
 // the depth of field mock: the end frame shows the characters where their moves finish
-{const _dm=dofMock;dofMock=function(n){if(CALC.dof.phase==='start'||ACT_PHASE)return _dm(n);ACT_PHASE='end';try{return _dm(n);}finally{ACT_PHASE=null;}};}
+{const _dm=dofMock;dofMock=function(n){if((CALC.dof.phase&&CALC.dof.phase!=='end')||ACT_PHASE)return _dm(n);ACT_PHASE='end';try{return _dm(n);}finally{ACT_PHASE=null;}};}
+
+/* several moves in one shot: the first is the Movement menu, the rest are added below it, in order */
+function moveList(sh){const L=[];if(!sh)return L;if(MOVE_AMT[sh.move])L.push({m:sh.move,amt:sh.moveAmt,first:1});(sh.moreMoves||[]).forEach(x=>{if(x&&MOVE_AMT[x.m])L.push({m:x.m,amt:x.amt});});return L;}
+function moveLabel(sh){if(!sh)return '';const a=[sh.move||'Static'].concat((sh.moreMoves||[]).map(x=>x.m)).filter(Boolean);const b=a.length>1?a.filter(m=>m!=='Static'):a;return b.join(' + ');}
+function phaseList(sh,path,actors){const L=moveList(sh);if(!L.length&&!path&&!actors)return [''];const out=['start'];for(let i=1;i<L.length;i++)out.push('step'+i);out.push('end');return out;}
+function phaseName(L,ph,path){if(ph==='start')return 'Start';if(/^step/.test(ph||'')){const i=+ph.slice(4);return 'After the '+(L[i-1]?L[i-1].m.toLowerCase():'move');}
+  return L.length>1?'End of the moves':L.length?'End of the '+L[0].m.toLowerCase():path?'End of the camera move':'End of the action';}
+
+function moreMovesField(sh,cam){if(!MOVE_AMT[sh.move])return '';const f=cam?(+cam.lens||35):35;let o='';
+  (sh.moreMoves||[]).forEach((x,i)=>{const s=MOVE_AMT[x.m]||['How far',''];o+=`<div class="f2" style="grid-template-columns:1fr 1fr auto;align-items:end;margin-top:4px">${fld(`Then ${i+2}`,`<select class="in" data-mm="${i}" data-mk="m">${MOVES.filter(m=>m!=='Static'&&m!=='Handheld'&&m!=='Steadicam / gimbal').map(m=>`<option ${m===x.m?'selected':''}>${m}</option>`).join('')}</select>`)}${fld(s[0].replace(/^How far it /,'').replace(/^Focal length it ends at/,'Ends at'),`<input class="in" data-mm="${i}" data-mk="amt" value="${esc(x.amt==null?'':String(x.amt))}" placeholder="${moveAmt({move:x.m},f)}" inputmode="decimal">`)}<button class="btn sm" data-mmdel="${i}" title="Remove this move" style="margin-bottom:6px">✕</button></div>`;});
+  return o+`<button class="btn sm" data-addmove="1" style="margin-top:6px">+ Add another move</button>${(sh.moreMoves||[]).length?`<div class="pSub" style="margin-top:3px">The moves run in order. The mock-ups show the start, after each move, and the end.</div>`:''}`;}
+function mmRefresh(full){changed();if(full&&UI.R)renderPanel();if(CALC.open)renderCalc();}
+document.addEventListener('click',e=>{const t=e.target.closest&&e.target.closest('[data-addmove],[data-mmdel]');if(!t||!t.closest('#panel'))return;const sh=shot();snap();
+  if(t.dataset.addmove){(sh.moreMoves||(sh.moreMoves=[])).push({m:isTiltMove(sh.move)?'Push in':'Tilt down',amt:''});}else{sh.moreMoves.splice(+t.dataset.mmdel,1);if(!sh.moreMoves.length)delete sh.moreMoves;}mmRefresh(true);});
+document.addEventListener('change',e=>{const t=e.target;if(!t||!t.dataset||t.dataset.mm==null)return;const sh=shot();const x=sh.moreMoves&&sh.moreMoves[+t.dataset.mm];if(!x)return;if(t.dataset.mk!=='m'){x.amt=t.value;scheduleSave();return;}snap();x.m=t.value;x.amt='';mmRefresh(true);});
+document.addEventListener('input',e=>{const t=e.target;if(!t||!t.dataset||t.dataset.mm==null||t.dataset.mk!=='amt')return;const sh=shot();const x=sh.moreMoves&&sh.moreMoves[+t.dataset.mm];if(!x)return;x.amt=t.value;clearTimeout(window.__mmt);window.__mmt=setTimeout(()=>{scheduleSave();if(CALC.open)renderCalc();},250);});
 /* ============================================================
    Each scene keeps its own mock-up background, picked once and used by
    the depth of field mock and the mock-up frames. Until you pick one it
@@ -5610,7 +5631,7 @@ function buildSheet0(sc,su,sh,X){
       if(su.notes)para('Lighting intent',su.notes,4);y+=6;}
     if(!sh._setup&&hasShot&&sec('Shot '+sh.num)){
       const cams=sh.items.filter(i=>i.t==='camera');const rows=[];
-      if(X.f_size)rows.push(['Size / angle',`${sh.size} · ${sh.angle}`]);if(X.f_move)rows.push(['Movement',sh.move]);
+      if(X.f_size)rows.push(['Size / angle',`${sh.size} · ${sh.angle}`]);if(X.f_move)rows.push(['Movement',moveLabel(sh)]);
       if(X.f_cam)rows.push(['Camera',cams.map(c=>`${c.cam}: ${lensLabel(c)} ${c.sensor.replace(/ \(.*\)/,'')} · ${c.support} · ${c.height}′`).join(' / ')||'—']);
       if(X.f_cast)rows.push(['Cast',[...new Set(activeItems(su,sh).filter(i=>i.t==='actor').map(a=>a.label))].join(', ')||'—']);
       rows.forEach(([k,v])=>{const ls=wrapText(v,58);t+=txt(RX+10,y,k,{size:12,c:T.sub});ls.slice(0,3).forEach(l=>{t+=txt(RX+130,y,l,{size:12.5,w:600});y+=18;});y+=2;});
