@@ -3114,7 +3114,7 @@ cv.addEventListener('pointermove',e=>{const m=V.meas;if(V.tool!=='measure'||!m||
 cv.addEventListener('pointerup',e=>{const m=V.meas;if(V.tool!=='measure'||!m||!m.drag)return;e.stopImmediatePropagation();m.drag=false;V.snapMark=null;if(Math.hypot(m.b.x-m.a.x,m.b.y-m.a.y)<.1){V.meas=null;renderCanvas();return;}m.done=true;renderCanvas();measBox(true);},true);
 window.addEventListener('keydown',e=>{const tag=(e.target&&e.target.tagName)||'';if(/INPUT|TEXTAREA|SELECT/.test(tag)||e.target.isContentEditable)return;
   if(V.tool==='measure'&&e.key==='Escape'){if(V.meas){V.meas=null;measBox(false);renderCanvas();e.stopImmediatePropagation();}return;}
-  if(!e.metaKey&&!e.ctrlKey&&!e.altKey&&e.key.toLowerCase()==='l'&&!$('#modal.open')){e.stopImmediatePropagation();e.preventDefault();V.placing=null;setTool(V.tool==='measure'?'select':'measure');}},true);
+  if(!e.metaKey&&!e.ctrlKey&&!e.altKey&&!e.shiftKey&&e.key.toLowerCase()==='l'&&!$('#modal.open')){e.stopImmediatePropagation();e.preventDefault();V.placing=null;setTool(V.tool==='measure'?'select':'measure');}},true);
 {const _rc=renderCanvas;renderCanvas=function(){_rc();if(V.meas&&V.meas.done&&$('#measBox'))measBox(true);};}
 /* ============================================================
    Breakdown drag and drop: reorder scenes, move setups between scenes, move or reorder shots anywhere.
@@ -5872,7 +5872,7 @@ function markPanel(it){const acts=activeItems().filter(i=>i.t==='actor');const c
   <div class="pSub">${c?`${ft1(Math.hypot(it.x-c.x,it.y-c.y))} from ${esc(c.cam||'A')} camera. The tape takes the actor’s color.`:'Place a camera to see the distance.'}</div></div>`;}
 {const _pi=panelItem;panelItem=function(){let h=_pi();const it=selItem();if(!it||it.t==='line')return h;
   if(it.t==='actor')h+=eyePanel(it);if(it.t==='mark')h+=markPanel(it);
-  if(!/data-k="note"/.test(h))h+=`<div class="grp"><h4>Note</h4><textarea class="in" data-k="note" rows="2" placeholder="Prints with the plan: under the item, or as a lettered list (choose in Export)">${esc(it.note||'')}</textarea></div>`;return h;};}
+  if(!/data-k="notes?"/.test(h))h+=`<div class="grp"><h4>Note</h4><textarea class="in" data-k="note" rows="2" placeholder="Prints with the plan: under the item, or as a lettered list (choose in Export)">${esc(it.note||'')}</textarea></div>`;return h;};}
 {const _af=applyField;applyField=function(el,live){const r=_af(el,live);try{const k=el&&el.dataset&&el.dataset.k;const it=selItem();if(!it)return r;
   if(k==='who'&&it.t==='mark'){const a=activeItems().find(i=>i.t==='actor'&&i.label===it.who);if(a)it.color=a.color;const same=activeItems().filter(i=>i.t==='mark'&&i.who===it.who&&it.who);if(it.who&&(!it.label||/^\d+$/.test(it.label)))it.label=`${it.who} ${same.indexOf(it)+1}`;renderCanvas();if(!live)renderPanel();}
   if(k==='eye'||k==='eyeAt'){renderCanvas();if(!live)renderPanel();}}catch(e){}return r;};}
@@ -5921,6 +5921,39 @@ const MULTI_SKIP=new Set(['x','y','label','text','num','scope','cam','id','eye',
 {const _rl=renderLib;renderLib=function(){if(V.libCat==='Mine'){const keep=V.libQ;_rl();const cats=$('#libCats');const mine=LIBALL.filter(e=>e.group==='My library');
     $('#lib').innerHTML=mine.length?`<div class="libGroup">My library</div>`+mine.map(e=>`<button class="libItem ${V.placing===e.key?'on':''}" data-k="${e.key}" draggable="true" title="${esc(e.name)}">${libIcon(e.key)}<span class="nm">${esc(e.name)}</span><span class="mydel" data-mydel="${e.key}" title="Remove from my library" style="margin-left:auto;padding:0 6px;opacity:.8">✕</span></button>`).join(''):`<div class="empty" style="padding:10px;line-height:1.5">Nothing saved yet. Select a piece (or several) on the plan and choose <b>Save to my library</b>. It keeps every setting and works in any project in this browser.</div>`;}
   else _rl();const cats=$('#libCats');if(cats&&!cats.querySelector('[data-cat="Mine"]')){const n=LIBALL.filter(e=>e.group==='My library').length;const all=cats.querySelector('[data-cat="All"]');(all||cats.firstChild).insertAdjacentHTML('afterend',`<button class="cat ${V.libCat==='Mine'?'on':''}" data-cat="Mine" title="Pieces and groups you saved">Mine${n?' ('+n+')':''}</button>`);}};}
+/* ============================================================
+   Lock any item: it can still be clicked and edited in the panel,
+   but it can't be dragged, turned, resized, nudged or deleted on the plan.
+   ============================================================ */
+const isLocked=it=>!!(it&&it.locked);
+function lockedIds(ids){return ids.filter(id=>{const f=findItem(id);return f&&isLocked(f.it);});}
+function toggleLock(){const ids=selIds();if(!ids.length)return;const its=ids.map(id=>findItem(id)).filter(Boolean).map(f=>f.it);const on=!its.every(isLocked);
+  snap._off=1;snap();snap._off=0;its.forEach(it=>{if(on)it.locked=true;else delete it.locked;});changed();toast(on?`Locked ${its.length>1?its.length+' items':'it'}. Click to edit settings; it won’t move.`:`Unlocked ${its.length>1?its.length+' items':''}`.trim());}
+{const _sm=startMoveDrag;startMoveDrag=function(id,w){const f=findItem(id);if(f&&isLocked(f.it)){V.sel=id;if(!V.multi.includes(id))V.multi=[];renderPanel();return;}
+  const keep=V.multi.slice();const lk=lockedIds(keep);if(lk.length)V.multi=keep.filter(i=>!lk.includes(i));try{return _sm(id,w);}finally{V.multi=keep;}};}
+{const _hd=startHandleDrag;startHandleDrag=function(h,it,w){if(isLocked(it)){toast('Locked. Unlock it to reshape or turn it.');return;}return _hd(h,it,w);};}
+{const _ns=nudgeSel;nudgeSel=function(dx,dy){const ids=selIds();const lk=lockedIds(ids);if(!lk.length)return _ns(dx,dy);const keepS=V.sel,keepM=V.multi.slice();const free=ids.filter(i=>!lk.includes(i));if(!free.length){toast('Locked');return;}V.multi=free.length>1?free:[];V.sel=free[free.length-1];try{return _ns(dx,dy);}finally{V.sel=keepS;V.multi=keepM;}};}
+{const _da=delAllSel;delAllSel=function(){const ids=selIds();const lk=lockedIds(ids);if(!lk.length)return _da();const free=ids.filter(i=>!lk.includes(i));if(!free.length){toast('Locked items can’t be deleted. Unlock first.');return;}V.multi=free.length>1?free:[];V.sel=free[free.length-1];_da();toast(`Deleted ${free.length}. ${lk.length} locked item${lk.length>1?'s':''} kept.`);};}
+{const _ds=delSel;delSel=function(){const ids=selIds();const lk=lockedIds(ids);if(!lk.length)return _ds();const free=ids.filter(i=>!lk.includes(i));if(!free.length){toast('Locked items can’t be deleted. Unlock first.');return;}V.multi=free.length>1?free:[];V.sel=free[free.length-1];_ds();toast(`Deleted ${free.length}. ${lk.length} locked item${lk.length>1?'s':''} kept.`);};}
+if(typeof turnSel==='function'){const _t=turnSel;turnSel=function(d){if(lockedIds(selIds()).length){toast('Some of these are locked. Unlock them to turn the group.');return;}return _t(d);};}
+if(typeof sizeSel==='function'){const _z=sizeSel;sizeSel=function(p){if(lockedIds(selIds()).length){toast('Some of these are locked. Unlock them to resize the group.');return;}return _z(p);};}
+if(typeof alignSel==='function'){const _a=alignSel;alignSel=function(m){if(lockedIds(selIds()).length){toast('Some of these are locked. Unlock them to line them up.');return;}return _a(m);};}
+/* R turns, Delete removes: stop both on a locked item */
+window.addEventListener('keydown',e=>{const t=e.target;if(t&&(t.tagName==='INPUT'||t.tagName==='TEXTAREA'||t.tagName==='SELECT'||t.isContentEditable))return;if(!P)return;
+  if(e.shiftKey&&!e.metaKey&&!e.ctrlKey&&(e.key==='L'||e.key==='l')&&selIds().length){e.preventDefault();e.stopImmediatePropagation();toggleLock();return;}
+  const it=selItem();if(!it||!isLocked(it)||selIds().length>1)return;const k=e.key.toLowerCase();
+  if(k==='r'&&!e.metaKey&&!e.ctrlKey){e.preventDefault();e.stopImmediatePropagation();toast('Locked');}},true);
+/* a small padlock on the plan (not on printed sheets) */
+function padlockSVG(x,y,s){return `<g transform="translate(${x} ${y}) scale(${s})" pointer-events="none"><rect x="-6" y="-1" width="12" height="10" rx="2" fill="#bd5103" stroke="#fff" stroke-width="1.2"/><path d="M-3.5 -1 V-4 a3.5 3.5 0 0 1 7 0 V-1" fill="none" stroke="#bd5103" stroke-width="2"/><circle cx="0" cy="4" r="1.3" fill="#fff"/></g>`;}
+{const _ri=renderItems;renderItems=function(items,o){const L=_ri(items,o);try{if(o&&o.dimSel&&!o.ghost&&o.tag!=='sheet'){let add='';items.filter(isLocked).forEach(it=>{const e=typeof itemExtent==='function'?itemExtent(it):{cx:it.x,cy:it.y,rx:1,ry:1};add+=padlockSVG(e.cx+e.rx*.8,e.cy-e.ry*.8,Math.max(.03,o.px*1.1));});if(add)L.labels=(L.labels||'')+add;}}catch(e){}return L;};}
+/* lock / unlock button in the bar above the plan and in the panel */
+{const _rq=renderQuick;renderQuick=function(){_rq();const q=$('#quick');if(!q||!P)return;const ids=selIds();if(!ids.length||V.placing||V.draft||q.querySelector('[data-lockq]'))return;
+  const its=ids.map(id=>findItem(id)).filter(Boolean).map(f=>f.it);const all=its.every(isLocked);
+  const del=q.querySelector('[data-act="dup"]');const html=`<button class="btn sm${all?' pri':''}" data-lockq="1" title="Lock so it can't be moved, turned, resized or deleted (Shift+L)">${all?'Unlock':'Lock'}</button>`;if(del)del.insertAdjacentHTML('beforebegin',html);else q.insertAdjacentHTML('beforeend',html);};}
+document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-lockq]');if(!b)return;e.stopPropagation();toggleLock();},true);
+{const _pi=panelItem;panelItem=function(){const h=_pi();const ids=P?selIds():[];if(!ids.length)return h;const its=ids.map(id=>findItem(id)).filter(Boolean).map(f=>f.it);const all=its.every(isLocked),some=its.some(isLocked);
+  const row=`<div class="note" style="margin:0 0 10px;display:flex;align-items:center;gap:8px;${all?'border-color:#bd5103':''}"><span style="flex:1">${all?`<b>Locked.</b> It can’t be moved, turned, resized or deleted on the plan. Settings below still change.`:some?`<b>${its.filter(isLocked).length} of these are locked.</b>`:'Lock it so it stays put while you work around it.'}</span><button class="btn sm${all?' pri':''}" data-lockq="1" title="Shift+L">${all?'Unlock':'Lock'}</button></div>`;
+  return row+h;};}
 const BRANDFF=(()=>{let o='';for(const sh of document.styleSheets){try{for(const r of sh.cssRules)if(r.type===5&&/EB Garamond|Lato/.test(r.cssText))o+=r.cssText;}catch(e){}}return o;})();
 /* ============================================================
    Export
@@ -6167,6 +6200,7 @@ $('#fileIn').addEventListener('change',async e=>{const f=e.target.files[0];if(!f
 Object.assign(XDEF,{camKey:true,resetList:true,revInfo:true,revClouds:true,scaleBar:true,compass:true,focusDim:true,markDist:true,eyelines:true,itemNotes:'plot',lkCols:null});
 const LK_COLS=[['color','Color'],['dim','Dimmer'],['mod','Modifiers & diffusion'],['height','Height'],['stand','Stand / rig'],['dist','Distance to subject'],['ctrl','Flags & control'],['power','Watts & circuit'],['note','Notes']];
 const lkOn=(X,k)=>!(X.lkCols&&X.lkCols[k]===false);
+const noteOf=it=>String((it&&(it.notes||it.note))||'').trim();
 const ft1=v=>fmtFt(+v||0);
 const isLightIt=i=>LIB[i.t]&&LIB[i.t].kind==='light';
 const actorName=a=>a?(a.label||a.actor||'subject'):'';
@@ -6191,7 +6225,7 @@ function lightKeyRows(items,nums,X,su,sh,C,T){const all=activeItems(su,sh);
     if(lkOn(X,'dist')){const d=l.kDist||a.dist;if(d)l3.push(d);}
     if(l3.length)lines.push(l3.join(' · '));
     if(lkOn(X,'ctrl')){const c=l.kCtrl||a.ctrl;if(c)lines.push('Control: '+c);}
-    if(lkOn(X,'note')&&l.note)lines.push('Note: '+l.note);
+    if(lkOn(X,'note')&&noteOf(l))lines.push('Note: '+noteOf(l));
     return {badge:nums[l.id],fill:on?C.badge:T.off,head,lines,off:!on,swatch:typeof hex==='function'&&typeof lightRGB==='function'?hex(lightRGB(l)):null};});}
 function shotMarks(items){return items.filter(i=>i.t==='mark');}
 function camFor(it,items){const cams=items.filter(i=>i.t==='camera');if(!cams.length)return null;return cams.slice().sort((a,b)=>Math.hypot(a.x-it.x,a.y-it.y)-Math.hypot(b.x-it.x,b.y-it.y))[0];}
@@ -6202,7 +6236,7 @@ function camKeyRows(su,sh,X){const items=activeItems(su,sh);const cams=items.fil
     lines.push([c.support,c.height!=null?ft1(c.height)+' lens height':'',tilt].filter(Boolean).join(' · '));
     const s=aimSubject(c,items);const f=c.kFocus||(s?`${ft1(Math.hypot(s.x-c.x,s.y-c.y))} to ${actorName(s)}`:'');if(f)lines.push('Focus: '+f);
     const mk=shotMarks(items).filter(m=>camFor(m,items)===c);if(mk.length)lines.push('Marks: '+mk.map(m=>`${m.label||'•'} at ${ft1(Math.hypot(m.x-c.x,m.y-c.y))}`).join(', '));
-    if(c.note)lines.push('Note: '+c.note);
+    if(noteOf(c))lines.push('Note: '+noteOf(c));
     return {badge:c.cam||'A',fill:'#2b6cb0',badgeInk:'#fff',head:`${c.cam||'A'} camera${body?' — '+body:''}`,lines:lines.filter(Boolean)};});}
 /* ---- reset list: what the crew changes from the shot before ---- */
 function crewItem(it){if(it.t==='line')return it.kind==='cable'||it.kind==='track'||it.kind==='wall';const L=LIB[it.t];return !!L&&!['talent','mark','text'].includes(L.kind);}
@@ -6236,14 +6270,14 @@ function cloudPath(cx,cy,rx,ry,px){const per=2*Math.PI*Math.sqrt((rx*rx+ry*ry)/2
 function itemExtent(it){if(it.t==='line'){const xs=it.pts.map(q=>q.x),ys=it.pts.map(q=>q.y);return {cx:(Math.min(...xs)+Math.max(...xs))/2,cy:(Math.min(...ys)+Math.max(...ys))/2,rx:(Math.max(...xs)-Math.min(...xs))/2+.6,ry:(Math.max(...ys)-Math.min(...ys))/2+.6};}
   const L=LIB[it.t]||{};let r=1.1*(typeof szOf==='function'?szOf(it):1);if(L.kind==='set'||it.w){const w=(+it.w||2)/2,h=(+it.h||2)/2,a=(it.r||0)*D2R,c=Math.abs(Math.cos(a)),s=Math.abs(Math.sin(a));return {cx:it.x,cy:it.y,rx:w*c+h*s+.5,ry:w*s+h*c+.5};}if(it.t==='frame'&&typeof FRAME_SIZES!=='undefined')r=(FRAME_SIZES[it.size]||6)/2;return {cx:it.x,cy:it.y,rx:r+.5,ry:r+.5};}
 /* ---- extras drawn on the plan (feet) ---- */
-function noteItems(items){return items.filter(it=>it.t!=='line'&&it.note&&String(it.note).trim()&&it.t!=='camera'&&!isLightIt(it));}
-function noteRows(items){return noteItems(items).map((it,i)=>({badge:String.fromCharCode(97+i%26),fill:'#7b3fa0',badgeInk:'#fff',head:itName(it),lines:[it.note]}));}
+function noteItems(items){return items.filter(it=>it.t!=='line'&&noteOf(it)&&it.t!=='camera'&&!isLightIt(it));}
+function noteRows(items){return noteItems(items).map((it,i)=>({badge:String.fromCharCode(97+i%26),fill:'#7b3fa0',badgeInk:'#fff',head:itName(it),lines:[noteOf(it)]}));}
 function sheetPlotExtras(su,sh,items,X,o){const {C,px}=o;let g='';const all=activeItems(su,sh);
   try{if(X.focusDim&&!sh._setup&&typeof dimSVG==='function')items.filter(i=>i.t==='camera').forEach(c=>{const s=c.kFocus?null:aimSubject(c,all);if(s)g+=dimSVG({x:c.x,y:c.y},{x:s.x,y:s.y},{px,C});});}catch(e){}
   try{if(X.markDist&&!sh._setup)shotMarks(items).forEach(m=>{const c=camFor(m,all);if(!c)return;const fs=Math.max(.3,9*px);g+=`<text x="${m.x}" y="${m.y+.75+fs}" text-anchor="middle" font-family="Lato,Helvetica,Arial,sans-serif" font-weight="700" font-size="${fs}" fill="#1d2024" paint-order="stroke" stroke="#fff" stroke-width="${3*px}">${esc(ft1(Math.hypot(m.x-c.x,m.y-c.y)))} from ${esc(c.cam||'A')}</text>`;});}catch(e){}
   try{const ni=noteItems(items);if(X.itemNotes==='plot'||X.itemNotes==='list')ni.forEach((it,i)=>{const e=itemExtent(it);const fs=Math.max(.3,9*px);
     if(X.itemNotes==='list'){const x=e.cx+e.rx*.75,y=e.cy-e.ry*.75;g+=`<circle cx="${x}" cy="${y}" r="${fs*.8}" fill="#7b3fa0"/><text x="${x}" y="${y+fs*.33}" text-anchor="middle" font-family="Lato,Helvetica,Arial,sans-serif" font-weight="700" font-size="${fs}" fill="#fff">${String.fromCharCode(97+i%26)}</text>`;}
-    else{const lines=wrapText(it.note,28).slice(0,3);lines.forEach((l,k)=>{g+=`<text x="${e.cx}" y="${e.cy+e.ry+fs*(1.1+k*1.15)}" text-anchor="middle" font-family="Lato,Helvetica,Arial,sans-serif" font-style="italic" font-size="${fs}" fill="#5b2a7a" paint-order="stroke" stroke="#fff" stroke-width="${3*px}">${esc(l)}</text>`;});}});}catch(e){}
+    else{const lines=wrapText(noteOf(it),28).slice(0,3);lines.forEach((l,k)=>{g+=`<text x="${e.cx}" y="${e.cy+e.ry+fs*(1.1+k*1.15)}" text-anchor="middle" font-family="Lato,Helvetica,Arial,sans-serif" font-style="italic" font-size="${fs}" fill="#5b2a7a" paint-order="stroke" stroke="#fff" stroke-width="${3*px}">${esc(l)}</text>`;});}});}catch(e){}
   try{if(X.revClouds&&!sh._setup){const ch=revChanges(su,sh);if(ch)ch.changed.filter(it=>items.includes(it)).forEach(it=>{const e=itemExtent(it);g+=`<path d="${cloudPath(e.cx,e.cy,e.rx,e.ry,px)}" fill="none" stroke="#d1342f" stroke-width="${2.2*px}"/>`;
       const tx=e.cx+e.rx*.72,ty=e.cy-e.ry*.72-.2,s2=Math.max(.45,13*px);g+=`<path d="M${tx} ${ty-s2*.8} L${tx+s2*.75} ${ty+s2*.5} L${tx-s2*.75} ${ty+s2*.5} Z" fill="#fff" stroke="#d1342f" stroke-width="${1.6*px}"/><text x="${tx}" y="${ty+s2*.38}" text-anchor="middle" font-family="Lato,Helvetica,Arial,sans-serif" font-weight="700" font-size="${s2*.62}" fill="#d1342f">${esc(revCur().l)}</text>`;});}}catch(e){}
   return g;}
@@ -6288,11 +6322,11 @@ function hubFillHTML(){const su=setup(),sh=shot(),sc=scene();const items=activeI
   h+=`<div class="hHead">Lights</div>`+(lights.length?lights.map(l=>{const L=LIB[l.t];const a=lightAuto(l,items);return `<div class="hCard"><div class="hT"><span class="hB">${nums[l.id]}</span>${esc(L.name.replace(/ \(.*\)/,''))}</div><div class="hRow">
     ${hubIn(l.id,'label',l.label,{lab:'Label'})}${hubSel(l.id,'role',ROLES,l.role,'Role')}${hubIn(l.id,'kelvin',l.kelvin,{lab:'Kelvin',num:1})}${hubSel(l.id,'gel',Object.keys(GELS),l.gel,'Gel')}${hubIn(l.id,'intensity',l.intensity,{lab:'Dimmer %',num:1})}
     ${hubSel(l.id,'modifier',MODS,l.modifier,'Modifier')}${typeof DIFFS!=='undefined'?hubSel(l.id,'diff',DIFFS,l.diff||'None','Diffusion'):''}${hubIn(l.id,'height',l.height,{lab:'Height (ft)',num:1})}${hubSel(l.id,'mount',MOUNTS,l.mount,'Stand / rig')}
-    ${hubIn(l.id,'kDist',l.kDist,{lab:'Distance to subject',ph:a.dist||'—'})}${hubIn(l.id,'kCtrl',l.kCtrl,{lab:'Flags & control',ph:a.ctrl||'none nearby'})}${hubIn(l.id,'watts',l.watts,{lab:'Watts',num:1})}${hubIn(l.id,'circuit',l.circuit,{lab:'Circuit'})}${hubIn(l.id,'note',l.note,{lab:'Note',wide:1})}</div></div>`;}).join(''):'<div class="pSub">No lights in this shot.</div>');
+    ${hubIn(l.id,'kDist',l.kDist,{lab:'Distance to subject',ph:a.dist||'—'})}${hubIn(l.id,'kCtrl',l.kCtrl,{lab:'Flags & control',ph:a.ctrl||'none nearby'})}${hubIn(l.id,'watts',l.watts,{lab:'Watts',num:1})}${hubIn(l.id,'circuit',l.circuit,{lab:'Circuit'})}${hubIn(l.id,'notes',noteOf(l),{lab:'Note',wide:1})}</div></div>`;}).join(''):'<div class="pSub">No lights in this shot.</div>');
   h+=`<div class="hHead">Cameras</div>`+(cams.length?cams.map(c=>{const s=aimSubject(c,items);const auto=s?`${ft1(Math.hypot(s.x-c.x,s.y-c.y))} to ${actorName(s)}`:'';return `<div class="hCard"><div class="hT"><span class="hB" style="background:#2b6cb0">${esc(c.cam||'A')}</span>${esc(c.cam||'A')} camera</div><div class="hRow">
     ${hubIn(c.id,'lens',c.lens,{lab:'Lens (mm)',num:1})}${hubIn(c.id,'kStop',c.kStop,{lab:'T-stop',ph:sh.dofSet&&sh.dofSet.stop?'T'+sh.dofSet.stop:'T2.8'})}${hubIn(c.id,'kFilter',c.kFilter,{lab:'Filters / ND',ph:'ND .6, 1/8 Black Pro-Mist'})}${hubIn(c.id,'kFps',c.kFps,{lab:'Frame rate',ph:'24'})}${hubIn(c.id,'kShutter',c.kShutter,{lab:'Shutter',ph:'180°'})}
     ${hubIn(c.id,'kIso',c.kIso,{lab:'ISO / EI',ph:'800'})}${hubIn(c.id,'kWB',c.kWB,{lab:'White balance',ph:'5600K'})}${hubSel(c.id,'support',SUPPORTS,c.support,'Support')}${hubIn(c.id,'height',c.height,{lab:'Lens height (ft)',num:1})}
-    ${hubIn(c.id,'kTilt',c.kTilt,{lab:'Angle / tilt',ph:(sh.angle||'Eye level')+(sh.angAmt?' '+sh.angAmt+'°':'')})}${hubIn(c.id,'kFocus',c.kFocus,{lab:'Focus',ph:auto||'—'})}${hubIn(c.id,'note',c.note,{lab:'Note',wide:1})}</div></div>`;}).join(''):'<div class="pSub">No camera in this shot.</div>');
+    ${hubIn(c.id,'kTilt',c.kTilt,{lab:'Angle / tilt',ph:(sh.angle||'Eye level')+(sh.angAmt?' '+sh.angAmt+'°':'')})}${hubIn(c.id,'kFocus',c.kFocus,{lab:'Focus',ph:auto||'—'})}${hubIn(c.id,'notes',noteOf(c),{lab:'Note',wide:1})}</div></div>`;}).join(''):'<div class="pSub">No camera in this shot.</div>');
   return h;}
 function hubRevHTML(){const r=revCur();return `${r?`<div class="hRow">${`<label class="hf">Revision<input class="in" data-rev="l" value="${esc(r.l)}"></label><label class="hf">Date<input class="in" data-rev="date" value="${esc(r.date||'')}"></label>`}<label class="hf wide">What changed (prints on the sheet)<input class="in" data-rev="note" value="${esc(r.note||'')}" placeholder="Key moved to camera left; added 4×4 floppy"></label></div>`:'<div class="pSub">No revisions yet. Starting Rev A puts the letter and date on every page.</div>'}
   <div style="margin-top:6px"><button class="btn sm" data-revnew="1">${r?`Start Rev ${revNextLetter()}`:'Start Rev A'}</button>${r?` <button class="btn sm" data-revclear="1">Remove revisions</button>`:''}</div><div class="pSub" style="margin-top:4px">${r?`Clouds mark anything you change after starting a new revision, until you start the next one.`:''}</div>`;}
