@@ -5599,6 +5599,58 @@ $('#calc').addEventListener('change',e=>{if(e.target&&e.target.dataset&&e.target
 
 // a setup's light count includes lights placed in only one of its shots (each light counted once)
 function setupLightCount(su){const ids=new Set();const add=i=>{if(LIB[i.t]&&LIB[i.t].kind==='light')ids.add(i.id);};(su.items||[]).forEach(add);(su.shots||[]).forEach(sh=>(sh.items||[]).forEach(add));return ids.size;}
+/* ============================================================
+   Bar and restaurant booths that work as booths: a wood frame, upholstered
+   seats and backs, and a table, in four layouts. Wood, upholstery, back
+   height, table and cushions are all settings, and characters can sit in them.
+   Back of the piece is the top edge (local −y), so it goes against a wall.
+   ============================================================ */
+const BOOTH_WOOD={walnut:['Dark walnut','#4a3122'],oak:['Medium oak','#8a6440'],ash:['Light ash','#b99b74'],black:['Black lacquer','#1f1d1c'],white:['Painted white','#e9e4da']};
+const BOOTH_UPH={oxblood:['Oxblood leather','#6e2420'],black:['Black leather','#1e1e20'],green:['Bottle-green leather','#2f4f3a'],tan:['Tan leather','#a8784a'],navy:['Navy fabric','#27344f'],cream:['Cream vinyl','#e6dcc6'],wood:['No cushions (all wood)',null]};
+def('booth_pair',{cat:'Set',group:'Bar & restaurant',name:'Booth, two benches facing with table',kind:'set',shape:'booth2',defaults:{w:4.5,h:6.2,label:''}});
+def('booth_u',{cat:'Set',group:'Bar & restaurant',name:'Booth, horseshoe (U) with table',kind:'set',shape:'booth2',backToWall:true,defaults:{w:7,h:6,label:''}});
+def('booth_corner',{cat:'Set',group:'Bar & restaurant',name:'Booth, corner (L) with table',kind:'set',shape:'booth2',defaults:{w:6.5,h:6.5,label:''}});
+def('booth_wall',{cat:'Set',group:'Bar & restaurant',name:'Booth, single bench with table',kind:'set',shape:'booth2',backToWall:true,defaults:{w:5,h:4.4,label:''}});
+const BOOTHS=['booth_pair','booth_u','booth_corner','booth_wall'];
+BOOTHS.forEach(k=>{MH[k]=[0,3.6];SEAT_H[k]=1.55;});
+{let after='booth';BOOTHS.forEach(k=>{const i=LIBALL.findIndex(e=>e.key===after&&!e.kit);const e={key:k,cat:'Set',group:LIB[k].group,name:LIB[k].name};if(i>=0)LIBALL.splice(i+1,0,e);else LIBALL.push(e);after=k;});}
+if(typeof LIB_TIPS==='object')Object.assign(LIB_TIPS,{booth_pair:'Two high-backed benches facing each other across a table, like a diner or bar booth.',booth_u:'A horseshoe booth that wraps a table on three sides, open at the front.',booth_corner:'An L-shaped corner booth with its table in the corner.',booth_wall:'One bench along a wall with a table in front of it.'});
+// settings, shown in Shape & parts
+Object.assign(PARTS,{bwood:{lab:'Wood',opts:Object.entries(BOOTH_WOOD).map(([k,v])=>[k,v[0]]),types:BOOTHS},buph:{lab:'Seats & backs',opts:Object.entries(BOOTH_UPH).map(([k,v])=>[k,v[0]]),types:BOOTHS},
+  bback:{lab:'Back height',opts:[['standard','Standard (3½ ft)'],['high','High (4½ ft)'],['low','Low (2¾ ft)']],types:BOOTHS},btable:{lab:'Table',opts:[['yes','With table'],['no','No table']],types:BOOTHS}});
+PARTS.seats.types.push(...BOOTHS);
+function boothSpec(it){const w=+it.w||5,h=+it.h||6,a=-w/2,b=w/2,T=-h/2,B=h/2;const back=.45,seat=1.45,bd=back+seat;
+  const wood=BOOTH_WOOD[partOf(it,'bwood')][1],u=BOOTH_UPH[partOf(it,'buph')][1]||shade(wood,1.12);const bh={standard:3.6,high:4.5,low:2.75}[partOf(it,'bback')];
+  // runs of bench: [x0,y0,x1,y1, which way the sitter faces] in local feet; back strip sits on the outer side
+  const runs=[];let table=null;
+  if(it.t==='booth_pair'){runs.push({x0:a,x1:b,y0:T,y1:T+bd,dir:'s'},{x0:a,x1:b,y0:B-bd,y1:B,dir:'n'});table={x0:a+.2,x1:b-.2,y0:T+bd-.3,y1:B-bd+.3};}
+  else if(it.t==='booth_u'){runs.push({x0:a,x1:b,y0:T,y1:T+bd,dir:'s'},{x0:a,x1:a+bd,y0:T+bd,y1:B,dir:'e'},{x0:b-bd,x1:b,y0:T+bd,y1:B,dir:'w'});table={x0:a+bd-.3,x1:b-bd+.3,y0:T+bd-.3,y1:B-.7};}
+  else if(it.t==='booth_corner'){runs.push({x0:a,x1:b,y0:T,y1:T+bd,dir:'s'},{x0:a,x1:a+bd,y0:T+bd,y1:B,dir:'e'});table={x0:a+bd-.3,x1:b-.6,y0:T+bd-.3,y1:B-.6};}
+  else{runs.push({x0:a,x1:b,y0:T,y1:T+bd,dir:'s'});table={x0:a+.2,x1:b-.2,y0:T+bd-.3,y1:B};}
+  if(partOf(it,'btable')!=='yes')table=null;
+  return {w,h,a,b,T,B,back,seat,bd,wood,u,bh,runs,table,n:partOf(it,'seats')};}
+// split a run into its back strip and its seat
+function runParts(r,s){const k=s.back;if(r.dir==='s')return {back:[r.x0,r.y0,r.x1,r.y0+k],seat:[r.x0,r.y0+k,r.x1,r.y1]};if(r.dir==='n')return {back:[r.x0,r.y1-k,r.x1,r.y1],seat:[r.x0,r.y0,r.x1,r.y1-k]};
+  if(r.dir==='e')return {back:[r.x0,r.y0,r.x0+k,r.y1],seat:[r.x0+k,r.y0,r.x1,r.y1]};return {back:[r.x1-k,r.y0,r.x1,r.y1],seat:[r.x0,r.y0,r.x1-k,r.y1]};}
+/* the plan */
+function boothGlyph(it,C,px){const s=boothSpec(it);const st=`stroke="${C.setStroke}" stroke-width="${1.2*px}"`,th=`stroke="${C.setStroke}" stroke-opacity=".55" stroke-width="${px}"`;
+  const R=([x0,y0,x1,y1],f,op,ex)=>`<rect x="${Math.min(x0,x1)}" y="${Math.min(y0,y1)}" width="${Math.abs(x1-x0)}" height="${Math.abs(y1-y0)}" rx=".12" fill="${f}" fill-opacity="${op}" ${ex||st}/>`;let o='';
+  s.runs.forEach(r=>{const p=runParts(r,s);o+=R(p.back,s.wood,.95)+R(p.seat,s.u,.8);const along=r.dir==='s'||r.dir==='n';const L=along?p.seat[2]-p.seat[0]:p.seat[3]-p.seat[1];const n=Math.max(1,Math.round(s.n*L/Math.max(1,s.w)));
+    for(let i=1;i<n;i++){if(along){const x=p.seat[0]+i*L/n;o+=`<path d="M${x} ${p.seat[1]} V${p.seat[3]}" ${th}/>`;}else{const y=p.seat[1]+i*L/n;o+=`<path d="M${p.seat[0]} ${y} H${p.seat[2]}" ${th}/>`;}}});
+  if(s.table){const t=s.table;o+=R([t.x0,t.y0,t.x1,t.y1],s.wood,.9)+`<circle cx="${(t.x0+t.x1)/2}" cy="${(t.y0+t.y1)/2}" r=".28" fill="none" ${th}/>`;}
+  return o;}
+{const _sg=setGlyph;setGlyph=function(it,L,C,px){if(BOOTHS.includes(it.t))return boothGlyph(it,C,px);return _sg(it,L,C,px);};}
+/* the mock-ups */
+{const _md=mockDetail;mockDetail=function(it,L,ctx,w,h){if(!BOOTHS.includes(it.t))return _md(it,L,ctx,w,h);const s=boothSpec(it);const box=(x0,x1,y0,y1,z0,z1,c)=>boxL(ctx,it,Math.min(x0,x1),Math.max(x0,x1),Math.min(y0,y1),Math.max(y0,y1),z0,z1,c);
+  const allWood=partOf(it,'buph')==='wood';
+  s.runs.forEach(r=>{const p=runParts(r,s);const [bx0,by0,bx1,by1]=p.back,[sx0,sy0,sx1,sy1]=p.seat;
+    box(sx0,sx1,sy0,sy1,0,1.2,s.wood);box(sx0+.04,sx1-.04,sy0,sy1-.04,1.2,1.55,s.u);   // base and seat cushion
+    box(bx0,bx1,by0,by1,0,s.bh,s.wood);box(bx0,bx1,by0,by1,s.bh,s.bh+.08,shade(s.wood,.8));   // wood back and cap
+    if(!allWood){const k=.16;let c=r.dir==='s'?[bx0+.06,bx1-.06,by1,by1+k]:r.dir==='n'?[bx0+.06,bx1-.06,by0-k,by0]:r.dir==='e'?[bx1,bx1+k,by0+.06,by1-.06]:[bx0-k,bx0,by0+.06,by1-.06];box(c[0],c[1],c[2],c[3],1.6,s.bh-.15,shade(s.u,.92));}
+    const along=r.dir==='s'||r.dir==='n';const L=along?sx1-sx0:sy1-sy0;const n=Math.max(1,Math.round(s.n*L/Math.max(1,s.w)));
+    for(let i=1;i<n;i++){if(along){const x=sx0+i*L/n;quadL(ctx,it,[[x-.02,sy0,1.556],[x+.02,sy0,1.556],[x+.02,sy1,1.556],[x-.02,sy1,1.556]],shade(s.u,.6));}else{const y=sy0+i*L/n;quadL(ctx,it,[[sx0,y-.02,1.556],[sx1,y-.02,1.556],[sx1,y+.02,1.556],[sx0,y+.02,1.556]],shade(s.u,.6));}}});
+  if(s.table){const t=s.table,cx=(t.x0+t.x1)/2,cy=(t.y0+t.y1)/2;box(t.x0,t.x1,t.y0,t.y1,2.38,2.5,s.wood);box(cx-.14,cx+.14,cy-.14,cy+.14,.08,2.38,shade(s.wood,.75));box(cx-.7,cx+.7,cy-.45,cy+.45,0,.08,shade(s.wood,.75));}
+  return 1;};}
 const BRANDFF=(()=>{let o='';for(const sh of document.styleSheets){try{for(const r of sh.cssRules)if(r.type===5&&/EB Garamond|Lato/.test(r.cssText))o+=r.cssText;}catch(e){}}return o;})();
 /* ============================================================
    Export
