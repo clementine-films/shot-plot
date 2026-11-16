@@ -2762,7 +2762,7 @@ function turnSrc(su){if(!isTurn(su))return null;const id=String(su.build).split(
 function buildLabel(su){if(!isTurn(su))return 'New lighting';const s=turnSrc(su);return s?'Turnaround of '+s.name:'Turnaround';}
 const turnTag=su=>isTurn(su)?' · '+buildLabel(su):'';
 function buildField(sc,su){const others=sc.setups.filter(x=>x.id!==su.id);let v=su.build||'';if(isTurn(su)&&v.includes(':')&&!turnSrc(su))v='turn';
-  const opts=[['','New lighting'],['turn','Turnaround']].concat(others.map(o=>['turn:'+o.id,'Turnaround of '+o.name]));
+  const opts=[['','New lighting'],['carry','Carried over from the previous setup'],['turn','Turnaround']].concat(others.map(o=>['turn:'+o.id,'Turnaround of '+o.name]));
   return `<div class="f"><label>Build</label><select class="in" data-o="setup" data-k="build">${opts.map(([k,l])=>`<option value="${esc(k)}" ${k===v?'selected':''}>${esc(l)}</option>`).join('')}</select></div>`;}
 // new setup facing the other way: same room, actors, lights and grip as a starting point; no cameras
 function makeTurnaround(){snap();const sc=scene(),src=setup();const su=newSetupFrom(sc,null);
@@ -4651,26 +4651,41 @@ function gripMinsFor(it){const L=LIB[it.t];if(!L)return [0,''];switch(L.shape){c
   case 'vflat':return [4,'V-flat'];case 'menace':return [10,'Menace arm'];case 'cstand':case 'combo':case 'rolling':return [1,L.name];}return [0,''];}
 function supportMins(it,items){const sp=it.support||'';if(/Dolly/.test(sp)){const tr=items.filter(i=>i.t==='line'&&i.kind==='track').reduce((s,l)=>s+lineLen(l.pts),0);return [15+5*Math.ceil(tr/8),`dolly${tr?` + ${Math.ceil(tr/8)} track sections`:''}`];}
   return ({'Slider':[10,'slider'],'Jib / crane':[30,'jib'],'Steadicam':[10,'Steadicam'],'Gimbal':[8,'gimbal'],'Car mount':[30,'car mount'],'Ladder + hi-hat':[5,'ladder + hi-hat']})[sp]||[0,''];}
-function setupEstimate(su,sc){sc=sc||scene();const idx=(sc.setups||[]).indexOf(su);const prev=idx>0?sc.setups[idx-1]:null;const lines=[];
+const locKey=sc=>String((sc&&sc.loc)||'').trim().toUpperCase().replace(/\s+/g,' ');
+function scOfSetup(su){return P.scenes.find(sc=>sc.setups.includes(su));}
+// the setup shot just before this one: a turnaround's source, else the one before it on its shooting day, else the one before it in the project
+function prevSetup(su){const t=isTurn(su)?turnSrc(su):null;if(t)return {su:t,why:'turnaround of'};
+  const days=daysList();const dayOf=x=>{const sh=x.shots.find(s=>s.day);return sh?sh.day:null;};const d=dayOf(su);
+  let order=[];P.scenes.forEach(sc=>sc.setups.forEach(x=>order.push(x)));
+  if(d&&days.length){order=order.filter(x=>dayOf(x)===d);}
+  const i=order.indexOf(su);if(i<=0)return d&&days.length?{su:null,why:'first setup of the day'}:{su:null,why:'first setup'};return {su:order[i-1],why:'after'};}
+function setupEstimate(su,sc){sc=sc||scOfSetup(su)||scene();const pv=prevSetup(su);let prev=pv.su;const lines=[];
+  const psc=prev?scOfSetup(prev):null;const sameLoc=prev&&locKey(psc)===locKey(sc);let ctx='';
+  if(prev&&!sameLoc&&pv.why!=='turnaround of'){ctx=`new location (after ${psc?'Scene '+psc.num+' · ':''}${prev.name||'setup'})`;prev=null;}
+  else if(prev)ctx=`${pv.why==='turnaround of'?'turnaround of':'follows'} ${psc&&psc!==sc?'Scene '+psc.num+' · ':''}${prev.name||'setup'}${psc&&psc!==sc?' (same location)':''}`;
+  else ctx=pv.why;
+  const carry=su.build==='carry'&&prev;
   const all=[...su.items,...su.shots.flatMap(s=>s.items)];const near=(a,arr)=>arr.some(b=>b.t===a.t&&b.t!=='line'&&Math.hypot((a.x||0)-(b.x||0),(a.y||0)-(b.y||0))<1.5);
   const prevAll=prev?[...prev.items,...prev.shots.flatMap(s=>s.items)]:[];let gear=0;
-  const addItem=(min,what,it)=>{if(!min)return;const kept=prev&&near(it,prevAll);const m=kept?0:prev?min*.6:min;if(m){gear+=m;lines.push([what,m]);}};
+  const addItem=(min,what,it)=>{if(!min||carry)return;const kept=prev&&near(it,prevAll);const m=kept?0:prev?min*.6:min;if(m){gear+=m;lines.push([what,m]);}};
   all.forEach(it=>{if(it.t==='line'){if(it.kind==='cable'){const len=lineLen(it.pts);addItem(3+2*Math.floor(len/25),`cable run (${Math.round(len)} ft)`,it);}return;}
     const L=LIB[it.t];if(!L)return;if(L.kind==='light'){const [m,w]=lightMinsFor(it);addItem(m,w,it);}else if(L.kind==='grip'){const [m,w]=gripMinsFor(it);addItem(m,w,it);}else if(L.kind==='power'&&/gen|distro/.test(L.shape)){addItem(10,L.name,it);}});
   // camera support: the biggest build in the setup
-  let sup=[0,''];su.shots.forEach(sh=>sh.items.filter(i=>i.t==='camera').forEach(c=>{const s=supportMins(c,[...su.items,...sh.items]);if(s[0]>sup[0])sup=s;}));if(sup[0])lines.push([sup[1],sup[0]]);
-  let base=prev?0:20;let turn=0;if(prev){const dirOf=s=>{for(const sh of s.shots){const c=sh.items.find(i=>i.t==='camera');if(c)return c.r||0;}return null;};const a=dirOf(prev),b=dirOf(su);if(a!=null&&b!=null&&Math.abs(((b-a)%360+540)%360-180)>90){turn=15;lines.push(['turnaround',15]);}base=10;}
-  lines.unshift([prev?'reset from the last setup':'new setup: walk, block for light, first look',base]);
-  const raw=base+gear+turn+sup[0];const pace=paceOf();return {mins:Math.round(raw*pace[1]/5)*5,raw,lines,pace,over:+su.lightMins>0?+su.lightMins:null};}
+  let sup=[0,''],supKind='';su.shots.forEach(sh=>sh.items.filter(i=>i.t==='camera').forEach(c=>{const x=supportMins(c,[...su.items,...sh.items]);if(x[0]>sup[0]){sup=x;supKind=c.support||'';}}));
+  if(sup[0]&&prev&&prev.shots.some(sh=>sh.items.some(c=>c.t==='camera'&&(c.support||'')===supKind)))sup=[Math.round(sup[0]*.3),sup[1]+' (already built, adjust)'];
+  if(carry)sup=[0,''];if(sup[0])lines.push([sup[1],sup[0]]);
+  let base=prev?0:20;let turn=0;if(prev&&!carry){const dirOf=s=>{for(const sh of s.shots){const c=sh.items.find(i=>i.t==='camera');if(c)return c.r||0;}return null;};const a=dirOf(prev),b=dirOf(su);if(a!=null&&b!=null&&Math.abs(((b-a)%360+540)%360-180)>90){turn=15;lines.push(['turnaround',15]);}base=10;}
+  if(carry)base=5;lines.unshift([carry?'lighting carried over: touch-ups':prev?'reset from the last setup':'new setup: walk, block for light, first look',base]);
+  const raw=base+gear+turn+sup[0];const pace=paceOf();return {mins:Math.round(raw*pace[1]/5)*5,raw,lines,pace,over:+su.lightMins>0?+su.lightMins:null,ctx};}
 const fmtMins=m=>m>=60?`${Math.floor(m/60)} h ${String(Math.round(m%60)).padStart(2,'0')} min`:`${Math.round(m)} min`;
 function setupTimeText(su){const e=setupEstimate(su);return e.over?`${fmtMins(e.over)} (set by you)`:`about ${fmtMins(e.mins)} (estimate, ${e.pace[0].toLowerCase()})`;}
 /* Shot tab */
 {const _ps=panelShot;panelShot=function(){let h=_ps();try{const su=setup();const e=setupEstimate(su);
   const rows=e.lines.filter(l=>l[1]).map(([w,m])=>`<div class="kv"><span>${esc(w)}</span><b>${Math.round(m)} min</b></div>`).join('');
   const g=`<div class="grp"><h4>Estimated lighting time</h4><div class="kv"><span>${esc(su.name||'This setup')}</span><b>${e.over?fmtMins(e.over)+' (yours)':'≈ '+fmtMins(e.mins)}</b></div>
-    <details style="margin:4px 0"><summary style="cursor:pointer;font-size:12px">How it adds up</summary>${rows}<div class="kv"><span>× ${esc(e.pace[0].toLowerCase())}</span><b>×${e.pace[1]}</b></div></details>
+    <div class="pSub" style="margin:-2px 0 4px">Compared with: ${esc(e.ctx||'')}</div><details style="margin:4px 0"><summary style="cursor:pointer;font-size:12px">How it adds up</summary>${rows}<div class="kv"><span>× ${esc(e.pace[0].toLowerCase())}</span><b>×${e.pace[1]}</b></div></details>
     <div class="f2">${fld('Your time (min)',`<input class="in" type="number" min="0" step="5" data-lt="over" value="${e.over||''}" placeholder="${e.mins}">`)}${fld('Crew pace',`<select class="in" data-lt="pace">${PACES.map(p=>`<option ${p[0]===e.pace[0]?'selected':''}>${p[0]}</option>`).join('')}</select>`)}</div>
-    <div class="pSub">A planning estimate from what's on the plot. Pieces already in place from the setup before count as kept. It only appears on exported shot sheets if you tick it there.</div></div>`;
+    <div class="pSub">A planning estimate from what's on the plot. Lights and grip already standing from the setup shot just before (same location, in shooting-day order if you've set days) count as kept. Set Build to “Carried over from the previous setup” when nothing moves. It only appears on exported shot sheets if you tick it there.</div></div>`;
   const i=h.indexOf('<div class="grp"><h4>180° line');h=i>=0?h.slice(0,i)+g+h.slice(i):h+g;}catch(e){}return h;};}
 document.addEventListener('change',e=>{const k=e.target&&e.target.dataset&&e.target.dataset.lt;if(!k)return;e.stopPropagation();snap();if(k==='over'){const v=+e.target.value;if(v>0)setup().lightMins=v;else delete setup().lightMins;}if(k==='pace'){P.settings.pace=e.target.value;}changed(true);},true);
 const BRANDFF=(()=>{let o='';for(const sh of document.styleSheets){try{for(const r of sh.cssRules)if(r.type===5&&/EB Garamond|Lato/.test(r.cssText))o+=r.cssText;}catch(e){}}return o;})();
