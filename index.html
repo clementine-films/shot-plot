@@ -6267,6 +6267,66 @@ const X_PRESETS={full:X=>{X.layout='sheet';LAY.forEach(([k])=>X[k]=true);INFO.fo
   plan:X=>{X.layout='diagram';}};
 document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-xpre]');if(!b)return;e.stopPropagation();const X=xo();X_PRESETS[b.dataset.xpre](X);P.exportOpts=X;scheduleSave();openExport();toast({full:'Full sheet: everything on',keys:'Plan + keys: plan, light key and camera key',plan:'Plan only: just the diagram'}[b.dataset.xpre]);},true);
 /* ============================================================
+   Small table practicals and candles: cordless bistro lamps, candle lamps,
+   tea lights, pillars, tapers, candelabras, hurricane candles, LED candles.
+   They sit on whatever table or counter is under them. Real flames draw no power.
+   ============================================================ */
+const CANDLES=[
+  ['pr_bistro','Cordless Table Lamp (bistro / mushroom)',{w:3,k:2700,beam:360,thr:2.5,s:.5,shape:'bistro',extra:{power:'Battery'}}],
+  ['pr_candlelamp','Table Candle Lamp (glass shade)',{w:2,k:2200,beam:360,thr:2,s:.4,shape:'candlelamp',extra:{power:'Battery'}}],
+  ['pr_netcandle','Restaurant Candle (red net glass)',{w:1,k:1850,beam:360,thr:1.5,s:.4,shape:'netcandle',flame:1}],
+  ['pr_votive','Tea Light / Votive',{w:1,k:1850,beam:360,thr:1.2,s:.25,shape:'votive',flame:1}],
+  ['pr_pillar','Pillar Candle',{w:1,k:1850,beam:360,thr:1.5,s:.35,shape:'pillar',flame:1}],
+  ['pr_taper','Taper Candle (candlestick)',{w:1,k:1850,beam:360,thr:1.5,s:.3,shape:'taper',flame:1}],
+  ['pr_candelabra','Candelabra (3 tapers)',{w:3,k:1850,beam:360,thr:2.5,s:.9,shape:'candelabra',flame:1}],
+  ['pr_hurricane','Hurricane Candle (glass chimney)',{w:1,k:1850,beam:360,thr:1.5,s:.5,shape:'hurricane',flame:1}],
+  ['pr_ledcandle','LED Flameless Candle',{w:1,k:2200,beam:360,thr:1.2,s:.35,shape:'pillar',extra:{power:'Battery'},led:1}]];
+CANDLES.forEach(([k,n,o])=>{practical(k,n,Object.assign({h:2.6},o));LIB[k].flame=!!o.flame;LIB[k].smallPrac=true;if(o.led)LIB[k].led=true;});
+/* the candle count: tea lights and pillars come in clusters */
+Object.assign(PARTS,{ccount:{lab:'How many',num:true,max:12,types:['pr_votive','pr_pillar','pr_taper','pr_ledcandle']}});PART_DEF.ccount=()=>1;
+/* flames draw no power */
+{const _dp=drawsPower;drawsPower=function(i){const L=LIB[i&&i.t];if(L&&L.flame)return 0;return _dp(i);};}
+/* library: put them with the other practicals */
+{const keys=CANDLES.map(c=>c[0]);for(let j=LIBALL.length-1;j>=0;j--)if(keys.includes(LIBALL[j].key))LIBALL.splice(j,1);let at=-1;LIBALL.forEach((e,i)=>{if(e.key==='pr_desk')at=i;});
+  const add=keys.map(k=>({key:k,cat:'Electric',group:'Practicals',name:LIB[k].name}));if(at>=0)LIBALL.splice(at+1,0,...add);else LIBALL.push(...add);}
+if(typeof LIB_TIPS==='object')Object.assign(LIB_TIPS,{pr_bistro:'The little cordless lamp on cocktail and bar tables: a mushroom shade on a short stem, rechargeable.',pr_netcandle:'The classic red glass candle holder wrapped in netting, on restaurant tables.',pr_votive:'Small tea lights or votives. Set How many for a cluster.',pr_candelabra:'Three tapers on a branched holder.'});
+/* cluster positions for N candles (local feet) */
+function candleSpots(n,s){const out=[];if(n<=1)return [[0,0]];const r=Math.max(.12,s*.45);for(let i=0;i<n;i++){const a=i/n*Math.PI*2+.4,rr=i===0&&n>4?0:r*(n>6&&i%2?.55:1);out.push([Math.cos(a)*rr,Math.sin(a)*rr]);}return out;}
+/* ---------- plan glyphs, drawn first: what you'd see from above ---------- */
+function flameGlow(x,y,r,on,col){return on?`<circle cx="${x}" cy="${y}" r="${r*3.2}" fill="${col}" opacity=".18"/><circle cx="${x}" cy="${y}" r="${r*1.8}" fill="${col}" opacity=".28"/>`:'';}
+function flameDot(x,y,r,on){return on?`<ellipse cx="${x}" cy="${y}" rx="${r*.5}" ry="${r*.8}" fill="#ffb347"/><circle cx="${x}" cy="${y}" r="${r*.28}" fill="#fff4cc"/>`:`<circle cx="${x}" cy="${y}" r="${r*.15}" fill="#333"/>`;}
+function candlePlan(it,L,C,px,col,on){const sh=L.shape;const glow=on?'#ffb24a':'#000';let g='';const n=Math.max(1,Math.min(12,typeof partOf==='function'&&PARTS.ccount.types.includes(it.t)?partOf(it,'ccount'):1));
+  const wax='#f3ead6',waxE='#c9bb98',brass='#b58a3a',glass='rgba(200,225,240,.35)';
+  switch(sh){
+    case 'bistro':g+=flameGlow(0,0,.16,on,glow)+`<circle r=".27" fill="${on?'#fff6e0':'#d9d4c8'}" stroke="#8c7a55" stroke-width="${1*px}"/><circle r=".18" fill="none" stroke="#b9a77d" stroke-width="${.8*px}"/><circle r=".05" fill="#8c7a55"/>`;break;
+    case 'candlelamp':g+=flameGlow(0,0,.12,on,glow)+`<circle r=".2" fill="${on?'#fff0d4':'#e7e2d6'}" stroke="#9b8a66" stroke-width="${1*px}"/><circle r=".08" fill="${wax}"/>`+flameDot(0,0,.08,on);break;
+    case 'netcandle':g+=flameGlow(0,0,.12,on,'#ff6a3d')+`<circle r=".2" fill="${on?'#c8322a':'#7a2a24'}" stroke="#4a1a16" stroke-width="${1*px}"/>`;for(let a=0;a<6;a++)g+=`<path d="M${.2*Math.cos(a*1.05)} ${.2*Math.sin(a*1.05)} L${-.2*Math.cos(a*1.05)} ${-.2*Math.sin(a*1.05)}" stroke="rgba(255,255,255,.35)" stroke-width="${.5*px}"/>`;g+=flameDot(0,0,.08,on);break;
+    case 'votive':case 'pillar':case 'taper':{const r=sh==='votive'?.08:sh==='pillar'?.13:.05;const spots=candleSpots(n,sh==='votive'?.32:.45);if(on)spots.forEach(([x,y])=>g+=flameGlow(x,y,.08,on,glow));
+      spots.forEach(([x,y])=>{if(sh==='votive')g+=`<circle cx="${x}" cy="${y}" r="${r+.03}" fill="${glass}" stroke="#9fb6c4" stroke-width="${.6*px}"/>`;if(sh==='taper')g+=`<circle cx="${x}" cy="${y}" r=".14" fill="${brass}" stroke="#7a5a22" stroke-width="${.6*px}"/>`;
+        g+=`<circle cx="${x}" cy="${y}" r="${r}" fill="${L.led?'#f6f1e6':wax}" stroke="${waxE}" stroke-width="${.6*px}"/>`+flameDot(x,y,.07,on&&!L.led)+(L.led&&on?`<circle cx="${x}" cy="${y}" r=".04" fill="#ffcf73"/>`:'');});break;}
+    case 'candelabra':g+=flameGlow(0,0,.25,on,glow)+`<path d="M-.38 0 H.38" stroke="${brass}" stroke-width="${3*px}" stroke-linecap="round"/><circle r=".12" fill="${brass}"/>`;[-.38,0,.38].forEach(x=>g+=`<circle cx="${x}" cy="0" r=".06" fill="${wax}" stroke="${waxE}" stroke-width="${.5*px}"/>`+flameDot(x,0,.07,on));break;
+    case 'hurricane':g+=flameGlow(0,0,.12,on,glow)+`<circle r=".24" fill="${glass}" stroke="#9fb6c4" stroke-width="${1*px}"/><circle r=".16" fill="none" stroke="rgba(255,255,255,.5)" stroke-width="${.6*px}"/><circle r=".1" fill="${wax}" stroke="${waxE}" stroke-width="${.5*px}"/>`+flameDot(0,0,.08,on);break;}
+  return g;}
+{const _lg=lightGlyph;lightGlyph=function(it,L,C,px,col,on){if(L&&L.smallPrac)return candlePlan(it,L,C,px,col,on);return _lg(it,L,C,px,col,on);};}
+/* ---------- the mock: real small shapes on the table top ---------- */
+function mockCandle(it,L,ctx,on){const p0=W3(it,0,0);const b=(typeof surfaceTop==='function'?surfaceTop(ctx,p0):0)||0;const sh=L.shape;
+  const cyl=(p,z0,z1,d,col)=>line3(ctx,Object.assign({},p,{z:z0}),Object.assign({},p,{z:z1}),d,col);
+  const flame=(p,z)=>{if(!on||L.led)return;bill(ctx,p,z+.07,(k,X,Y)=>`<ellipse cx="${X.toFixed(1)}" cy="${Y.toFixed(1)}" rx="${Math.max(.8,.025*k).toFixed(1)}" ry="${Math.max(1.4,.06*k).toFixed(1)}" fill="#ffb347"/><ellipse cx="${X.toFixed(1)}" cy="${(Y+.01*k).toFixed(1)}" rx="${Math.max(.5,.012*k).toFixed(1)}" ry="${Math.max(.8,.03*k).toFixed(1)}" fill="#fff4cc"/>`);
+    bill(ctx,p,z+.06,(k,X,Y)=>`<defs><filter id="fg${it.id}${Math.round(X)}" x="-100%" y="-100%" width="300%" height="300%"><feGaussianBlur stdDeviation="${Math.max(1,.05*k).toFixed(1)}"/></filter></defs><circle cx="${X.toFixed(1)}" cy="${Y.toFixed(1)}" r="${Math.max(2,.14*k).toFixed(1)}" fill="#ffb24a" opacity=".45" filter="url(#fg${it.id}${Math.round(X)})"/>`);};
+  const ledTop=(p,z)=>{if(on&&L.led)bill(ctx,p,z+.01,(k,X,Y)=>`<ellipse cx="${X.toFixed(1)}" cy="${Y.toFixed(1)}" rx="${Math.max(1,.05*k).toFixed(1)}" ry="${Math.max(.6,.02*k).toFixed(1)}" fill="#ffd27a"/>`);};
+  const wax=L.led?'#f6f1e6':'#f3ead6';const n=Math.max(1,Math.min(12,PARTS.ccount.types.includes(it.t)?partOf(it,'ccount'):1));
+  switch(sh){
+    case 'bistro':{cyl(p0,b,b+.04,.38,'#8c7a55');cyl(p0,b+.04,b+.75,.06,'#8c7a55');bill(ctx,p0,b+.8,(k,X,Y)=>`<path d="M${(X-.27*k).toFixed(1)} ${(Y+.09*k).toFixed(1)} L${(X+.27*k).toFixed(1)} ${(Y+.09*k).toFixed(1)} L${(X+.18*k).toFixed(1)} ${(Y-.06*k).toFixed(1)} L${(X+.06*k).toFixed(1)} ${(Y-.11*k).toFixed(1)} L${(X-.06*k).toFixed(1)} ${(Y-.11*k).toFixed(1)} L${(X-.18*k).toFixed(1)} ${(Y-.06*k).toFixed(1)}Z" fill="${on?'#fff3d8':'#ddd6c6'}"/>`);
+      if(on)bill(ctx,p0,b+.7,(k,X,Y)=>`<ellipse cx="${X.toFixed(1)}" cy="${Y.toFixed(1)}" rx="${(.2*k).toFixed(1)}" ry="${Math.max(1,.04*k).toFixed(1)}" fill="#ffe2a6"/>`);break;}
+    case 'candlelamp':cyl(p0,b,b+.03,.3,'#9b8a66');cyl(p0,b+.03,b+.2,.12,wax);flame(p0,b+.2);bill(ctx,p0,b+.3,(k,X,Y)=>`<path d="M${(X-.11*k).toFixed(1)} ${(Y+.18*k).toFixed(1)} L${(X+.11*k).toFixed(1)} ${(Y+.18*k).toFixed(1)} L${(X+.07*k).toFixed(1)} ${(Y-.15*k).toFixed(1)} L${(X-.07*k).toFixed(1)} ${(Y-.15*k).toFixed(1)}Z" fill="${on?'#fff0d4':'#e7e2d6'}" opacity=".85"/>`);break;
+    case 'netcandle':bill(ctx,p0,b+.17,(k,X,Y)=>`<ellipse cx="${X.toFixed(1)}" cy="${Y.toFixed(1)}" rx="${(.17*k).toFixed(1)}" ry="${(.15*k).toFixed(1)}" fill="${on?'#d4372c':'#7a2a24'}"/><path d="M${(X-.17*k).toFixed(1)} ${Y.toFixed(1)} L${(X+.17*k).toFixed(1)} ${Y.toFixed(1)} L${(X+.17*k).toFixed(1)} ${(Y+.01*k).toFixed(1)} L${(X-.17*k).toFixed(1)} ${(Y+.01*k).toFixed(1)}Z" fill="#f2d7b0" opacity=".6"/>`);flame(p0,b+.3);break;
+    case 'votive':case 'pillar':case 'taper':{const spots=candleSpots(n,sh==='votive'?.32:.45);spots.forEach(([x,y],i)=>{const p=W3(it,x,y);if(sh==='votive'){cyl(p,b,b+.2,.2,'#cfe3ef');cyl(p,b+.02,b+.07,.15,wax);flame(p,b+.07);}
+      else if(sh==='pillar'){const h=[.5,.33,.66,.42][i%4];cyl(p,b,b+h,.26,wax);flame(p,b+h);ledTop(p,b+h);}else{cyl(p,b,b+.05,.28,'#b58a3a');cyl(p,b+.05,b+.4,.06,'#b58a3a');cyl(p,b+.4,b+1.25,.07,wax);flame(p,b+1.25);}});break;}
+    case 'candelabra':{cyl(p0,b,b+.06,.4,'#b58a3a');cyl(p0,b+.06,b+1.1,.07,'#b58a3a');line3(ctx,Object.assign(W3(it,0,-.38),{z:b+1.1}),Object.assign(W3(it,0,.38),{z:b+1.1}),.05,'#b58a3a');
+      [-.38,0,.38].forEach(y=>{const p=W3(it,0,y);cyl(p,b+1.1,b+1.85,.07,wax);flame(p,b+1.85);});break;}
+    case 'hurricane':cyl(p0,b,b+.4,.16,wax);flame(p0,b+.4);bill(ctx,p0,b+.42,(k,X,Y)=>`<path d="M${(X-.13*k).toFixed(1)} ${(Y+.42*k).toFixed(1)} L${(X+.13*k).toFixed(1)} ${(Y+.42*k).toFixed(1)} L${(X+.2*k).toFixed(1)} ${(Y+.05*k).toFixed(1)} L${(X+.13*k).toFixed(1)} ${(Y-.42*k).toFixed(1)} L${(X-.13*k).toFixed(1)} ${(Y-.42*k).toFixed(1)} L${(X-.2*k).toFixed(1)} ${(Y+.05*k).toFixed(1)}Z" fill="#d9ecf5" opacity=".35"/>`);break;}}
+{const _ml=mockLight;mockLight=function(it,L,ctx){if(L&&L.smallPrac){mockCandle(it,L,ctx,it.on!==false);return;}return _ml(it,L,ctx);};}
+/* ============================================================
    Room finish (interiors) and Exterior look, per scene, for the 3D mock.
    One menu of presets; a small Customize fold for the parts. No furniture is ever painted in:
    only walls, floor, ceiling and trim (or, outside, the ground and what's beyond).
