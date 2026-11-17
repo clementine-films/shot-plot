@@ -6473,12 +6473,19 @@ function bucketsToMeshes(B,root){const T=THREE;Object.values(B.f).forEach(bk=>{i
     root.add(new T.Mesh(g,new T.MeshBasicMaterial({color:gl3Col(bk.fill),side:T.DoubleSide,transparent:bk.op<.99,opacity:bk.op,depthWrite:bk.op>.6,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1})));});
   Object.entries(B.l).forEach(([c,pos])=>{const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(pos,3));root.add(new T.LineSegments(g,new T.LineBasicMaterial({color:gl3Col(c),transparent:true,opacity:.7})));});}
 /* simple billboard shapes (discs, ellipses, rectangles) become real 3D cards facing the lens, so nearer things cover them */
-function billTo3D(T,root,svg,c,k,X,Y,camH){if(/<path|<text|<polygon|<line|filter=|<defs/.test(svg))return false;const els=[...svg.matchAll(/<(circle|ellipse|rect)\b([^>]*)\/?>/g)];if(!els.length)return false;
+function billTo3D(T,root,svg,c,k,X,Y,camH){if(/filter=|<defs|<text/.test(svg))return false;
+  const els=[...svg.matchAll(/<(circle|ellipse|rect|path|polygon)\b([^>]*)\/?>/g)];if(!els.length)return false;
   const num=(s2,a)=>{const m=s2.match(new RegExp('\\b'+a+'="([-0-9.]+)"'));return m?parseFloat(m[1]):null;};let z=0;
-  els.forEach(([_,tag,at])=>{const fill=(at.match(/fill="([^"]+)"/)||[])[1]||'#888';if(fill==='none')return;const op=parseFloat((at.match(/(?:fill-)?opacity="([0-9.]+)"/)||[])[1]||'1');let geo,cx,cy;
-    if(tag==='rect'){const x=num(at,'x'),y=num(at,'y'),w=num(at,'width'),h=num(at,'height');if(w==null||h==null)return;geo=new T.PlaneGeometry(w/k,h/k);cx=x+w/2;cy=y+h/2;}
-    else{const rx=tag==='circle'?num(at,'r'):num(at,'rx'),ry=tag==='circle'?num(at,'r'):num(at,'ry');cx=num(at,'cx');cy=num(at,'cy');if(rx==null||cx==null)return;geo=new T.CircleGeometry(1,24);geo.scale(rx/k,ry/k,1);}
-    const m=new T.Mesh(geo,new T.MeshBasicMaterial({color:gl3Col(fill),transparent:op<.99,opacity:op,side:T.DoubleSide,depthWrite:op>.6}));const sc=c.d/(c.d);m.position.set(c.l+(cx-X)/k,(c.z-camH)-(cy-Y)/k,-c.d+(z+=.002));root.add(m);});return true;}
+  const card=(geo,fill,op)=>{const m=new T.Mesh(geo,new T.MeshBasicMaterial({color:gl3Col(fill),transparent:op<.99,opacity:op,side:T.DoubleSide,depthWrite:op>.6}));m.position.set(c.l,c.z-camH,-c.d+(z+=.003));root.add(m);};
+  els.forEach(([_,tag,at])=>{const fill=(at.match(/fill="([^"]+)"/)||[])[1]||'#888';if(fill==='none')return;const op=parseFloat((at.match(/(?:fill-)?opacity="([0-9.]+)"/)||[])[1]||'1');
+    if(tag==='rect'){const x=num(at,'x'),y=num(at,'y'),w=num(at,'width'),h=num(at,'height');if(w==null||h==null)return;const g=new T.PlaneGeometry(w/k,h/k);g.translate((x+w/2-X)/k,-(y+h/2-Y)/k,0);card(g,fill,op);return;}
+    if(tag==='circle'||tag==='ellipse'){const rx=tag==='circle'?num(at,'r'):num(at,'rx'),ry=tag==='circle'?num(at,'r'):num(at,'ry');const cx=num(at,'cx'),cy=num(at,'cy');if(rx==null||cx==null)return;const g=new T.CircleGeometry(1,24);g.scale(rx/k,ry/k,1);g.translate((cx-X)/k,-(cy-Y)/k,0);card(g,fill,op);return;}
+    /* straight-edged shapes (lamp shades, signs): M / L / H / V / Z, or polygon points */
+    let pts=[];if(tag==='polygon'){const m=at.match(/points="([^"]+)"/);if(!m)return;const n=m[1].trim().split(/[\s,]+/).map(Number);for(let i=0;i+1<n.length;i+=2)pts.push([n[i],n[i+1]]);}
+    else{const d=(at.match(/\bd="([^"]+)"/)||[])[1]||'';if(/[AaCcQqSsTt]/.test(d))return;let cur=[0,0];const toks=d.match(/[MLHVZmlhvz]|-?[0-9.]+/g)||[];let cmd='M';for(let i=0;i<toks.length;){const t=toks[i];if(/[A-Za-z]/.test(t)){cmd=t;i++;if(/[Zz]/.test(cmd))continue;}
+      const rel=cmd===cmd.toLowerCase();const C=cmd.toUpperCase();if(C==='H'){const v=+toks[i++];cur=[rel?cur[0]+v:v,cur[1]];}else if(C==='V'){const v=+toks[i++];cur=[cur[0],rel?cur[1]+v:v];}else{const x=+toks[i++],y=+toks[i++];cur=rel?[cur[0]+x,cur[1]+y]:[x,y];}pts.push(cur.slice());if(C==='M')cmd=rel?'l':'L';}}
+    if(pts.length<3)return;const sh=new T.Shape(pts.map(([x,y])=>new T.Vector2((x-X)/k,-(y-Y)/k)));card(new T.ShapeGeometry(sh),fill,op);});
+  return true;}
 /* the mannequin: joints in plot space for each pose, built from capsules, */
 function manJoints(a,items){const I=poseInfo(a,items),r=(a.r||0)*D2R;const f=[Math.cos(r),Math.sin(r)],s=[-Math.sin(r),Math.cos(r)];const W=(fw,sd,z)=>({x:a.x+f[0]*fw+s[0]*sd,y:a.y+f[1]*fw+s[1]*sd,z});
   const L=[],z=I.seat;let head,torso;const leg=(A,B,t)=>L.push({A,B,t,k:'leg'}),arm=(A,B,t)=>L.push({A,B,t,k:'arm'});
