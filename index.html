@@ -331,6 +331,34 @@ body.narrow #left{left:0} body.narrow #right{right:0}
 .hf.wide{width:100%}
 .hf .in{width:100%;box-sizing:border-box;font-size:12px;padding:4px 6px}
 .hf .in::placeholder{color:#f0b98a;opacity:1}
+/* tidy panel header */
+.pHead{position:relative;display:flex;align-items:flex-start;gap:8px;margin:0 0 10px;padding-bottom:8px;border-bottom:1px solid var(--line)}
+.pHT{flex:1;min-width:0}
+.pHT .pTitle{margin:0}
+.pHB{display:flex;gap:4px;flex-shrink:0}
+.ib{width:30px;height:28px;display:inline-flex;align-items:center;justify-content:center;border:1px solid var(--line2);border-radius:7px;background:var(--panel2);color:var(--text);cursor:pointer}
+.ib:hover{border-color:var(--amber)}
+.ib.on{background:var(--amber);border-color:var(--amber);color:#fff}
+.pLock{font-size:11.5px;color:var(--amber);margin-top:3px;font-weight:700}
+.pMenu{display:none;position:absolute;right:0;top:34px;z-index:20;min-width:190px;background:var(--panel);border:1px solid var(--line2);border-radius:9px;padding:5px;box-shadow:0 8px 22px rgba(0,0,0,.35)}
+.pHead.mOpen .pMenu{display:block}
+.mItem{display:block;width:100%;text-align:left;margin:2px 0;padding:6px 9px;border-radius:6px;background:transparent;border:0;color:var(--text);font-size:12.5px;cursor:pointer}
+.mItem:hover{background:var(--panel2)}
+.mItem.danger{color:#e5534b}
+.pMulti{font-size:12px;font-weight:700;color:var(--amber);margin:-4px 0 10px}
+/* folding groups */
+#panel .grp>h4.fH{cursor:pointer;user-select:none;display:flex;align-items:center;gap:6px}
+#panel .grp>h4.fH::before{content:'▾';font-size:10px}
+#panel .grp.folded>h4.fH::before{content:'▸'}
+#panel .grp.folded>.fBody{display:none}
+#panel .grp.folded{padding-bottom:2px}
+/* short bar above the plan */
+.btn.ico{padding:3px 6px;display:inline-flex;align-items:center}
+.qMore{position:relative;display:inline-flex}
+.qMenu{display:none;position:absolute;right:0;top:32px;z-index:30;min-width:190px;background:var(--panel);border:1px solid var(--line2);border-radius:9px;padding:5px;box-shadow:0 8px 22px rgba(0,0,0,.4)}
+.qMore.open .qMenu{display:block}
+.qMenu .mRow{display:flex;align-items:center;gap:4px;padding:4px 6px}
+.xPre{display:flex;gap:6px;flex-wrap:wrap;margin:0 0 6px}
 </style>
 </head>
 <body>
@@ -5917,7 +5945,7 @@ const MULTI_SKIP=new Set(['x','y','label','text','num','scope','cam','id','eye',
 {const _af=applyField;applyField=function(el,live){const r=_af(el,live);try{const k=el&&el.dataset&&el.dataset.k;if(!k||el.dataset.o||MULTI_SKIP.has(k))return r;const ids=selIds();if(ids.length<2)return r;const it=selItem();if(!it)return r;
   let n=0;ids.forEach(id=>{if(id===it.id)return;const f=findItem(id);if(!f)return;const o=f.it;const L=LIB[o.t]||{};if(o.t===it.t||(k in o)||(L.defaults&&k in L.defaults)){o[k]=clone(it[k]);n++;}});if(n){renderCanvas();scheduleSave();}}catch(e){}return r;};}
 {const _pi=panelItem;panelItem=function(){const h=_pi();const ids=P?selIds():[];if(ids.length<2)return h;const its=selItemsFresh();const it=selItem();const same=its.filter(i=>i.t===(it&&it.t)).length;
-  return `<div class="note" style="margin:0 0 10px"><b>Editing ${ids.length} items.</b> A change here goes to every selected item that has the same setting${same<ids.length?` (${same} of them are this type)`:''}. Turn and resize them together from the bar above the plan.</div>`+h;};}
+  return `<div class="pMulti">${ids.length} selected · changes apply to all${same<ids.length?` (${same} are this type)`:''}</div>`+h;};}
 /* ---- My library (saving lives in shapes.js): a Mine chip in the library shows only your saved pieces ---- */
 {const _rl=renderLib;renderLib=function(){if(V.libCat==='Mine'){const keep=V.libQ;_rl();const cats=$('#libCats');const mine=LIBALL.filter(e=>e.group==='My library');
     $('#lib').innerHTML=mine.length?`<div class="libGroup">My library</div>`+mine.map(e=>`<button class="libItem ${V.placing===e.key?'on':''}" data-k="${e.key}" draggable="true" title="${esc(e.name)}">${libIcon(e.key)}<span class="nm">${esc(e.name)}</span><span class="mydel" data-mydel="${e.key}" title="Remove from my library" style="margin-left:auto;padding:0 6px;opacity:.8">✕</span></button>`).join(''):`<div class="empty" style="padding:10px;line-height:1.5">Nothing saved yet. Select a piece (or several) on the plan and choose <b>Save to my library</b>. It keeps every setting and works in any project in this browser.</div>`;}
@@ -5952,9 +5980,6 @@ function padlockSVG(x,y,s){return `<g transform="translate(${x} ${y}) scale(${s}
   const its=ids.map(id=>findItem(id)).filter(Boolean).map(f=>f.it);const all=its.every(isLocked);
   const del=q.querySelector('[data-act="dup"]');const html=`<button class="btn sm${all?' pri':''}" data-lockq="1" title="Lock so it can't be moved, turned, resized or deleted (Shift+L)">${all?'Unlock':'Lock'}</button>`;if(del)del.insertAdjacentHTML('beforebegin',html);else q.insertAdjacentHTML('beforeend',html);};}
 document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-lockq]');if(!b)return;e.stopPropagation();toggleLock();},true);
-{const _pi=panelItem;panelItem=function(){const h=_pi();const ids=P?selIds():[];if(!ids.length)return h;const its=ids.map(id=>findItem(id)).filter(Boolean).map(f=>f.it);const all=its.every(isLocked),some=its.some(isLocked);
-  const row=`<div class="note" style="margin:0 0 10px;display:flex;align-items:center;gap:8px;${all?'border-color:#bd5103':''}"><span style="flex:1">${all?`<b>Locked.</b> It can’t be moved, turned, resized or deleted on the plan. Settings below still change.`:some?`<b>${its.filter(isLocked).length} of these are locked.</b>`:'Lock it so it stays put while you work around it.'}</span><button class="btn sm${all?' pri':''}" data-lockq="1" title="Shift+L">${all?'Unlock':'Lock'}</button></div>`;
-  return row+h;};}
 /* ============================================================
    Realistic jukebox and neon signs: plan glyph first, then the mock frames.
    Neon: sign text or a shape, lettering style, width and height. Glows in its own color.
@@ -6178,6 +6203,62 @@ function shiftWall(w,delta){const n=w.pts.length;if(n<2||!delta)return;const clo
     if(closed){const w2={...w,pts:p.map(v=>({...v}))};const real=w.pts;w.pts=w2.pts;try{shiftWall(w2,-extra/2);}finally{w.pts=real;}q=w2.pts;}
     else{q=p.map(v=>({...v}));const walls=activeItems().filter(x=>x!==w&&x.t==='line'&&x.kind==='wall');[[0,1],[n-1,n-2]].forEach(([e,o])=>{if(!walls.some(x=>x.pts.some(v=>Math.hypot(v.x-p[e].x,v.y-p[e].y)<.03)))return;const L=Math.hypot(p[o].x-p[e].x,p[o].y-p[e].y)||1;q[e].x+=(p[o].x-p[e].x)/L*extra/2;q[e].y+=(p[o].y-p[e].y)/L*extra/2;});}
     return _dl(q,C,px,strong);}}catch(e){}return _dl(p,C,px,strong);};}
+/* ============================================================
+   Tidy panels: one header per item (name, lock, duplicate, ⋯ menu),
+   folding groups that remember what you keep open, a short bar above the plan,
+   and folded sections + presets in Export.
+   ============================================================ */
+const FOLD=Object.assign({},(()=>{try{return JSON.parse(localStorage.getItem('lplot.fold'))||{};}catch(e){return {};}})());
+const FOLD_DEF=new Set(['shape & parts','layers','mount','eyeline','light it works','power','quality','note','mark']);
+const isFolded=t=>{t=t.toLowerCase();return t in FOLD?FOLD[t]:FOLD_DEF.has(t);};
+const saveFold=()=>{try{localStorage.setItem('lplot.fold',JSON.stringify(FOLD));}catch(e){}};
+const ICO={lock:'<svg viewBox="0 0 16 16" width="15" height="15"><rect x="3" y="7" width="10" height="7.5" rx="1.5" fill="currentColor"/><path d="M5 7V5a3 3 0 0 1 6 0v2" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>',
+  unlock:'<svg viewBox="0 0 16 16" width="15" height="15"><rect x="3" y="7" width="10" height="7.5" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.4"/><path d="M5 7V5a3 3 0 0 1 5.8-1" fill="none" stroke="currentColor" stroke-width="1.6"/></svg>',
+  dup:'<svg viewBox="0 0 16 16" width="15" height="15"><rect x="5" y="5" width="9" height="9" rx="1.5" fill="none" stroke="currentColor" stroke-width="1.5"/><path d="M3 11V3.5A1.5 1.5 0 0 1 4.5 2H11" fill="none" stroke="currentColor" stroke-width="1.5"/></svg>',
+  more:'<svg viewBox="0 0 16 16" width="15" height="15"><circle cx="3" cy="8" r="1.6" fill="currentColor"/><circle cx="8" cy="8" r="1.6" fill="currentColor"/><circle cx="13" cy="8" r="1.6" fill="currentColor"/></svg>'};
+function selLocked(){const ids=P?selIds():[];return ids.length&&ids.every(id=>{const f=findItem(id);return f&&f.it.locked;});}
+/* ---- side panel ---- */
+function tidyPanel(){const pn=$('#panel');if(!pn||V.rightTab!=='item'||!P||!selIds().length)return;if(pn.querySelector('.pHead'))return;
+  const title=pn.querySelector('.pTitle');
+  /* the loose action row becomes the header's ⋯ menu */
+  const dup=[...pn.querySelectorAll('button[data-act="dup"]')];const row=dup.map(b=>b.parentElement).find(r=>r&&r!==pn&&r.querySelectorAll('button').length>=2);
+  const menu=[];if(row){[...row.querySelectorAll('button')].forEach(b=>{if(b.dataset.act==='dup')return;b.classList.add('mItem');b.classList.remove('sm');const k=b.querySelector('kbd');if(k)k.remove();menu.push(b);});row.remove();}
+  pn.querySelectorAll('button[data-act="mylib"]').forEach(b=>{if(!menu.includes(b)){const g=b.closest('.grp');b.classList.add('mItem');menu.push(b);if(g&&!g.querySelector('input,select,textarea'))g.remove();}});
+  const lk=selLocked();const head=document.createElement('div');head.className='pHead';
+  head.innerHTML=`<div class="pHT"></div><div class="pHB"><button class="ib${lk?' on':''}" data-lockq="1" title="${lk?'Unlock':'Lock'} (Shift+L)">${lk?ICO.lock:ICO.unlock}</button><button class="ib" data-act="dup" title="Duplicate (⌘/Ctrl D)">${ICO.dup}</button>${menu.length?`<button class="ib" data-pmore="1" title="More actions">${ICO.more}</button>`:''}</div>${menu.length?'<div class="pMenu"></div>':''}`;
+  const ht=head.querySelector('.pHT');if(title){const sub=title.nextElementSibling&&title.nextElementSibling.classList.contains('pSub')?title.nextElementSibling:null;ht.appendChild(title);if(sub)ht.appendChild(sub);}
+  if(lk)ht.insertAdjacentHTML('beforeend','<div class="pLock">Locked: settings still change, it won’t move.</div>');
+  const m=head.querySelector('.pMenu');menu.forEach(b=>m&&m.appendChild(b));
+  const multi=pn.querySelector('.pMulti');pn.insertBefore(head,pn.firstChild);if(multi)head.after(multi);
+  /* folding groups */
+  pn.querySelectorAll('.grp').forEach(g=>{const h=g.querySelector(':scope>h4');if(!h||g.dataset.fold)return;const t=h.textContent.trim();g.dataset.fold=t;const body=document.createElement('div');body.className='fBody';while(h.nextSibling)body.appendChild(h.nextSibling);g.appendChild(body);h.classList.add('fH');if(isFolded(t))g.classList.add('folded');});}
+{const _rp=renderPanel;renderPanel=function(){const r=_rp.apply(this,arguments);try{tidyPanel();}catch(e){console.warn(e);}return r;};}
+document.addEventListener('click',e=>{const h=e.target.closest&&e.target.closest('#panel .grp>h4.fH');if(h){const g=h.parentElement;g.classList.toggle('folded');FOLD[g.dataset.fold.toLowerCase()]=g.classList.contains('folded');saveFold();return;}
+  const mb=e.target.closest&&e.target.closest('[data-pmore]');if(mb){e.stopPropagation();mb.closest('.pHead').classList.toggle('mOpen');return;}
+  if(!(e.target.closest&&e.target.closest('.pMenu')))document.querySelectorAll('.pHead.mOpen').forEach(x=>x.classList.remove('mOpen'));},true);
+/* ---- the bar above the plan ---- */
+function tidyQuick(){const q=$('#quick');if(!q||!q.children.length||q.querySelector('.qMore'))return;const moved=[];
+  const take=el=>{if(el){moved.push(el);}};
+  take(q.querySelector('.zGrp'));take(q.querySelector('[data-xact="copy"]'));take(q.querySelector('[data-act="delall"]'));take(q.querySelector('[data-act="mylib"]'));take(q.querySelector('[data-act="more"]'));
+  const lk=q.querySelector('[data-lockq]');if(lk){const on=selLocked();lk.className='btn sm ico'+(on?' pri':'');lk.innerHTML=on?ICO.lock:ICO.unlock;lk.title=(on?'Unlock':'Lock')+' (Shift+L)';}
+  const dup=q.querySelector('[data-act="dup"]');if(dup){dup.classList.add('ico');dup.innerHTML=ICO.dup;dup.title='Duplicate (⌘/Ctrl D)';}
+  q.querySelectorAll('.qsep').forEach((s,i,a)=>{if(i>0&&s.previousElementSibling&&s.previousElementSibling.classList.contains('qsep'))s.remove();});
+  if(!moved.length)return;const wrap=document.createElement('span');wrap.className='qMore';wrap.innerHTML=`<button class="btn sm ico" data-qmore="1" title="More">${ICO.more}</button><div class="qMenu"></div>`;const m=wrap.querySelector('.qMenu');
+  moved.forEach(el=>{if(el.classList.contains('zGrp')){el.classList.add('mRow');}else{el.classList.add('mItem');el.classList.remove('sm');}m.appendChild(el);});q.appendChild(wrap);
+  q.querySelectorAll('.qsep').forEach(s=>{if(!s.nextElementSibling||s.nextElementSibling.classList.contains('qMore')&&s.previousElementSibling&&s.previousElementSibling.classList.contains('qsep'))s.remove();});}
+{const _rq=renderQuick;renderQuick=function(){const r=_rq.apply(this,arguments);try{tidyQuick();}catch(e){console.warn(e);}return r;};}
+document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-qmore]');if(b){e.stopPropagation();const w=b.parentElement;w.classList.toggle('open');return;}
+  if(!(e.target.closest&&e.target.closest('.qMenu')))document.querySelectorAll('.qMore.open').forEach(x=>x.classList.remove('open'));},true);
+/* ---- Export: folded sections + presets ---- */
+const XFOLD=Object.assign({cred:false,diag:false,info:false},(()=>{try{return JSON.parse(localStorage.getItem('lplot.xfold'))||{};}catch(e){return {};}})());
+function xFoldA(k,t){return `<details class="hDet" data-xfold="${k}" ${XFOLD[k]?'open':''}><summary>${t}</summary><div class="hBody">`;}
+function xFoldB(){return '</div></details>';}
+function xFold(k,t,body){return xFoldA(k,t)+body+xFoldB();}
+document.addEventListener('toggle',e=>{const k=e.target&&e.target.dataset&&e.target.dataset.xfold;if(!k)return;XFOLD[k]=e.target.open;try{localStorage.setItem('lplot.xfold',JSON.stringify(XFOLD));}catch(_){} },true);
+const X_PRESETS={full:X=>{X.layout='sheet';LAY.forEach(([k])=>X[k]=true);INFO.forEach(([k])=>X[k]=true);Object.assign(X,{camKey:true,resetList:true,revInfo:true,lightKey:true});},
+  keys:X=>{X.layout='sheet';INFO.forEach(([k])=>X[k]=false);Object.assign(X,{lightKey:true,camKey:true,resetList:false,revInfo:true});},
+  plan:X=>{X.layout='diagram';}};
+document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-xpre]');if(!b)return;e.stopPropagation();const X=xo();X_PRESETS[b.dataset.xpre](X);P.exportOpts=X;scheduleSave();openExport();toast({full:'Full sheet: everything on',keys:'Plan + keys: plan, light key and camera key',plan:'Plan only: just the diagram'}[b.dataset.xpre]);},true);
 const BRANDFF=(()=>{let o='';for(const sh of document.styleSheets){try{for(const r of sh.cssRules)if(r.type===5&&/EB Garamond|Lato/.test(r.cssText))o+=r.cssText;}catch(e){}}return o;})();
 /* ============================================================
    Export
@@ -6380,7 +6461,7 @@ function openExport(){
   const INFO=[['header','Title bar (production, scene, shot #)'],['f_scene','Scene description'],['f_size','Shot size & angle'],['f_move','Movement'],['f_cam','Camera, lens & support'],['f_cast','Cast'],['f_desc','Shot description'],['f_blocking','Blocking notes'],['f_intent','Lighting intent'],['f_ltime','Estimated lighting time for the setup'],['f_notes','Shot notes'],['f_script','Script lines linked to the shot'],['lightKey','Light key (numbered fixture table)'],['camKey','Camera key (lens, stop, filters, focus, marks)'],['resetList','Reset list (what the crew changes from the shot before)'],['revInfo','Revision note'],['powerBlock','Power summary'],['legend','Legend']];
   const LAY=[['grid','Grid'],['beams','Light beams'],['dims','Wall sizes'],['ghost','Other shots’ cameras (faded)'],['blocking','Actors, marks & actor moves'],['grip','Grip'],['power','Power & cable runs'],['scaleBar','Scale bar'],['compass','North arrow & sun direction'],['focusDim','Camera-to-subject distance'],['markDist','Distances on tape marks'],['eyelines','Eyelines'],['revClouds','Revision clouds around changes']];
   const draw=()=>{const X=xo();const chk=([k,l],cls)=>`<label class="chk ${cls||''}"><input type="checkbox" data-xk="${k}" ${X[k]?'checked':''}> ${l}</label>`;const seg=(k,opts)=>`<div class="seg">${opts.map(([v,l])=>`<button data-xs="${k}" data-v="${v}" class="${String(X[k])===String(v)?'on':''}">${l}</button>`).join('')}</div>`;
-    openModal(`<h3>Export shot sheets</h3><div class="xGrid"><div class="xOpts ${X.layout==='diagram'?'dis':''}"><div class="xSec">Before you print</div>${hubTopHTML()}
+    openModal(`<h3>Export shot sheets</h3><div class="xGrid"><div class="xOpts ${X.layout==='diagram'?'dis':''}"><div class="xSec">Quick setup</div><div class="xPre"><button class="btn sm" data-xpre="full">Full sheet</button><button class="btn sm" data-xpre="keys">Plan + keys</button><button class="btn sm" data-xpre="plan">Plan only</button></div><div class="xSec">Before you print</div>${hubTopHTML()}
       <div class="xSec">What to export</div>${seg('scope',[['shot','This shot'],['setup','This setup'],['scene','This scene'],...((P.days||[]).length?[['day','Shooting day']]:[]),['project','Whole project'],['pick','Choose…']])}
       ${X.scope==='day'?`<select class="in" data-xsel="dayId" style="margin-top:6px"><option value="">Pick a day…</option>${(P.days||[]).map(d=>`<option value="${d.id}" ${X.dayId===d.id?'selected':''}>${esc(dayLabel(d))} — ${shotsOnDay(d.id).length} shots</option>`).join('')}</select>`:''}${(P.days||[]).length?'':'<div class="pSub" style="margin-top:4px">Add shooting days (Breakdown ▸ Days) to export by day.</div>'}
       ${X.scope==='pick'?pickList(X):''}
@@ -6390,9 +6471,9 @@ function openExport(){
       ${X.format!=='pdf'&&X.scope!=='shot'?`<div class="pSub" style="margin-top:6px">Saves one ${X.format.toUpperCase()} per shot. Choose PDF for a single file with a contents page.</div>`:''}
       
       
-      <div class="xSec">Credits on every page</div><div class="xCred">${CREDIT_ROLES.map(([k,l])=>`<label class="pSub" style="margin:0">${l}<input class="in" data-xcred="${k}" value="${esc((P.credits||{})[k]||'')}" placeholder="Name"></label>`).join('')}</div><div class="xSec">Sheet layout</div>${seg('layout',[['sheet','Diagram + info'],['diagram','Diagram only']])}${seg('theme',[['paper','White (print)'],['dark','Dark']])}<div class="pSub" style="margin:6px 0 2px">Text size beside the diagram</div>${seg('sideText',[['std','Standard'],['lg','Large'],['xl','Extra large']])}
-      <div class="xSec">On the diagram</div>${LAY.map(x=>chk(x)).join('')}<div style="height:6px"></div>${seg('labels',[['auto','Auto'],['full','Full'],['min','Numbers only']])+`<div class="pSub" style="margin-top:4px">Auto keeps every label it can place clearly and shows just the number for the few it can’t. Their details are in the light key.</div>`}<div class="pSub" style="margin:8px 0 2px">Notes on items</div>${seg('itemNotes',[['off','Off'],['plot','Under the item'],['list','Lettered list beside the plan']])}
-      <div class="xSec">Info fields <button class="addMini" data-xall="1" style="margin-left:6px">all</button> <button class="addMini" data-xall="0">none</button></div>${chk(INFO[0])}${INFO.slice(1).map(x=>chk(x,'infoF')).join('')}
+      ${xFold('cred','Credits on every page',`<div class="xCred">${CREDIT_ROLES.map(([k,l])=>`<label class="pSub" style="margin:0">${l}<input class="in" data-xcred="${k}" value="${esc((P.credits||{})[k]||'')}" placeholder="Name"></label>`).join('')}</div>`)}<div class="xSec">Sheet layout</div>${seg('layout',[['sheet','Diagram + info'],['diagram','Diagram only']])}${seg('theme',[['paper','White (print)'],['dark','Dark']])}<div class="pSub" style="margin:6px 0 2px">Text size beside the diagram</div>${seg('sideText',[['std','Standard'],['lg','Large'],['xl','Extra large']])}
+      ${xFoldA('diag','On the diagram')}${LAY.map(x=>chk(x)).join('')}<div style="height:6px"></div>${seg('labels',[['auto','Auto'],['full','Full'],['min','Numbers only']])+`<div class="pSub" style="margin-top:4px">Auto keeps every label it can place clearly and shows just the number for the few it can’t. Their details are in the light key.</div>`}<div class="pSub" style="margin:8px 0 2px">Notes on items</div>${seg('itemNotes',[['off','Off'],['plot','Under the item'],['list','Lettered list beside the plan']])}${xFoldB()}
+      ${xFoldA('info','Info beside the plan')}<div class="pSub" style="margin:0 0 4px">Pick <button class="addMini" data-xall="1" style="margin-left:6px">all</button> <button class="addMini" data-xall="0">none</button></div>${chk(INFO[0])}${INFO.slice(1).map(x=>chk(x,'infoF')).join('')}${xFoldB()}
       </div><div class="xPrev"><img id="xImg" alt="Preview of the exported sheet"><div class="pSub" style="margin-top:6px">${X.format==='pdf'?(()=>{const pl=exportPlan(X);return `This PDF: <b>${pl.pages.length} page${pl.pages.length===1?'':'s'}</b> · ${pl.rows.length} shot${pl.rows.length===1?'':'s'}${pl.pages.some(p=>p.kind==='setup')?` · ${pl.pages.filter(p=>p.kind==='setup').length} setup page${pl.pages.filter(p=>p.kind==='setup').length===1?'':'s'}`:''}. `;})():''}Preview of shot ${esc(shot().num)}. Your choices are remembered for this project.</div></div></div>
       <div class="mFoot"><button class="btn" data-close>Cancel</button><button class="btn pri" id="xGo">${X.format==='pdf'?'Export PDF':X.scope==='shot'?'Export '+X.format.toUpperCase():'Export '+exportRows(X).length+' '+X.format.toUpperCase()+'s'}</button></div>`,'wide');
     $('#xImg').src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(buildSheet(scene(),setup(),shot(),X));
@@ -6537,7 +6618,7 @@ function spillOf(p,X){const sp=[];try{if(p.kind==='setup')buildSheet(p.sc,p.su,s
   if(X.format==='svg')return saveFile(name+'.svg',svg);try{return await saveOut(name+'.png',await svgToPng(svg,X.scale));}catch(e){return r;}};}
 
 /* ---- the hub: fill-in cards and settings inside the Export window ---- */
-const HUB={open:{fill:true,rev:false,cols:false}};
+const HUB={open:{fill:false,rev:false,cols:false}};
 function hubIn(id,k,val,o){o=o||{};return `<label class="hf${o.wide?' wide':''}">${o.lab}<input class="in" data-hk="${id}|${k}" value="${esc(val==null?'':val)}" ${o.ph?`placeholder="${esc(o.ph)}"`:''} ${o.num?'inputmode="decimal"':''}></label>`;}
 function hubSel(id,k,opts,val,lab){return `<label class="hf">${lab}<select class="in" data-hk="${id}|${k}">${opts.map(v=>`<option ${String(v)===String(val)?'selected':''}>${esc(v)}</option>`).join('')}</select></label>`;}
 function hubFillHTML(){const su=setup(),sh=shot(),sc=scene();const items=activeItems(su,sh);const nums=lightNumbers(items);const lights=items.filter(isLightIt),cams=items.filter(i=>i.t==='camera');
