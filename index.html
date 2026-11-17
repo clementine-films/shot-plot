@@ -4693,7 +4693,7 @@ function shotFrames(scenes){const out=[];const keep=[CALC.dof.bg,CALC.dof.tod];s
 function openMockFrames(){const all=!!V.mfAll;const scs=all?P.scenes:[scene()];const fr=shotFrames(scs);
   const card=x=>`<div class="mfCard"><div class="mfHead"><b>${esc(x.sh.num)}</b>${x.phase?` · ${esc(phaseName(moveList(x.sh),x.phase,0))}`:''} · ${esc(x.sh.size||'')}${x.c.cam?` · ${esc(x.c.cam)} cam`:''} · ${x.f}mm<span>${esc(x.su.name||'')}</span></div>${x.svg}<div class="mfDesc">${esc(x.sh.desc||'')}${x.note?`<div style="color:#ffcf7a;margin-top:3px">${esc(x.note)}</div>`:''}</div></div>`;
   const grid=fr.length?fr.map(card).join(''):'<div class="pSub">No shots have a camera yet. Add a camera to a shot to get its frame.</div>';
-  openModal(`<h3>Mock-up frames</h3><div class="pSub" style="margin-bottom:8px">What each camera sees, built from the plot: furniture, gear in frame and the actors, in front of each scene's background, with depth of field at the stop in your depth of field plan. The plot's walls aren't drawn, so they never block the background. Planning mock-ups, not renders.</div>
+  openModal(`<h3>Mock-up frames</h3><div class="pSub" style="margin-bottom:8px">What each camera sees, built in 3D from the plot: your walls, windows and doors, furniture, gear in frame and the actors, with depth of field at the stop in your depth of field plan. Lights don't light anything here; it's a framing reference.</div>
     <div style="display:flex;gap:8px;align-items:center;margin-bottom:10px;flex-wrap:wrap"><label class="chk"><input type="checkbox" id="mfAll" ${all?'checked':''}> All scenes</label>${all?'':mockBgControls(scene(),'mf')}<span style="flex:1"></span><button class="btn sm pri" id="mfPrint">Print or save as PDF</button><button class="btn sm" onclick="closeModal()">Close</button></div>
     <div class="mfGrid">${grid}</div><style>.mfGrid{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:12px;max-height:68vh;overflow:auto}.mfCard{border:1px solid #444;border-radius:8px;overflow:hidden;background:#111}.mfHead{padding:6px 8px;font-size:12px;color:#eee;display:flex;gap:4px}.mfHead span{margin-left:auto;opacity:.8}.mfDesc{padding:6px 8px;font-size:12px;color:#ddd;min-height:1em}</style>`,'wide');
   $('#mfAll').onchange=e=>{V.mfAll=e.target.checked;openMockFrames();};
@@ -6052,7 +6052,7 @@ function mockNeon(it,ctx,on){const w=neonW(it),h=neonH(it);const zc=+it.height||
   const P=[[.06,w/2,z1],[.06,-w/2,z1],[.06,w/2,z0]].map(([lx,ly,z])=>{const p=W3(it,lx,ly);return toCam(ctx.K,p,z);});if(P.some(q=>q.d<ctx.near))return;
   const Q=P.map(q=>ctx.proj(q));const Wu=w*100,Hu=h*100;const a=(Q[1][0]-Q[0][0])/Wu,b=(Q[1][1]-Q[0][1])/Wu,c=(Q[2][0]-Q[0][0])/Hu,d=(Q[2][1]-Q[0][1])/Hu;
   const scale=Math.max(.2,Math.hypot(a,b));const dd=P.reduce((s,q)=>s+q.d,0)/3;
-  ctx.polys.push({d:dd-.05,svg:`<g transform="matrix(${a.toFixed(5)} ${b.toFixed(5)} ${c.toFixed(5)} ${d.toFixed(5)} ${Q[0][0].toFixed(1)} ${Q[0][1].toFixed(1)})">${neonArt(it,Wu,Hu,on,1)}</g>`});}
+  ctx.polys.push({at:{l:(P[1].l+P[2].l)/2,d:(P[1].d+P[2].d)/2,z:(P[0].z+P[2].z)/2},d:dd-.05,svg:`<g transform="matrix(${a.toFixed(5)} ${b.toFixed(5)} ${c.toFixed(5)} ${d.toFixed(5)} ${Q[0][0].toFixed(1)} ${Q[0][1].toFixed(1)})">${neonArt(it,Wu,Hu,on,1)}</g>`});}
 {const _ml=mockLight;mockLight=function(it,L,ctx){const on=it.on!==false;if(it.t==='jukebox'){const st=jbStyle(it);if(/Digital/.test(st))mockJukeboxModern(it,ctx,on);else if(/Classic/.test(st))mockJukebox(it,ctx,on);else mockJukebox45(it,ctx,on);return;}if(it.t==='neon'){mockNeon(it,ctx,on);return;}return _ml(it,L,ctx);};}
 /* ---------- panel ---------- */
 {const _pi=panelItem;panelItem=function(){let h=_pi();const it=selItem();if(!it)return h;
@@ -6099,7 +6099,7 @@ function mockJukeboxModern(it,ctx,on){const col=neonCol(it);const D=1.4,Wd=1.15,
   /* screen as a flat picture on the front face */
   const s0=2.35,s1=Hh-.75,sw=Wd-.18;const P=[[.03,sw,s1],[.03,-sw,s1],[.03,sw,s0]].map(([lx,ly,z])=>toCam(ctx.K,W3(it,lx,ly),z));
   if(!P.some(q=>q.d<ctx.near)){const Q=P.map(q=>ctx.proj(q));const Wu=200,Hu=Wu*(s1-s0)/(2*sw);const a=(Q[1][0]-Q[0][0])/Wu,b=(Q[1][1]-Q[0][1])/Wu,c=(Q[2][0]-Q[0][0])/Hu,d=(Q[2][1]-Q[0][1])/Hu;
-    ctx.polys.push({d:P.reduce((t,q)=>t+q.d,0)/3-.06,svg:`<g transform="matrix(${a.toFixed(5)} ${b.toFixed(5)} ${c.toFixed(5)} ${d.toFixed(5)} ${Q[0][0].toFixed(1)} ${Q[0][1].toFixed(1)})">${jbScreen(it,Wu,Hu,on)}</g>`});}
+    ctx.polys.push({at:{l:(P[1].l+P[2].l)/2,d:(P[1].d+P[2].d)/2,z:(P[0].z+P[2].z)/2},d:P.reduce((t,q)=>t+q.d,0)/3-.06,svg:`<g transform="matrix(${a.toFixed(5)} ${b.toFixed(5)} ${c.toFixed(5)} ${d.toFixed(5)} ${Q[0][0].toFixed(1)} ${Q[0][1].toFixed(1)})">${jbScreen(it,Wu,Hu,on)}</g>`});}
   qb([[.02,-sw-.04,s0-.04],[.02,sw+.04,s0-.04],[.02,sw+.04,s1+.04],[.02,-sw-.04,s1+.04]],'#08090b',.03);
   /* bill and card slot panel */
   qb([[.03,-sw,1.75],[.03,sw,1.75],[.03,sw,2.2],[.03,-sw,2.2]],'#2c3038',.04,'stroke="#596170" stroke-width=".6"');
@@ -6151,7 +6151,7 @@ function mockJukebox45(it,ctx,on){const col=neonCol(it);const {W,D,H}=JB45;const
   boxL(ctx,it,-D,-.04,-Wd,Wd,0,.2,'#0b0b0c');boxL(ctx,it,-D,-.02,-Wd,Wd,.2,H-.1,'#16171a');boxL(ctx,it,-D+.08,-.06,-Wd+.06,Wd-.06,H-.1,H,'#1d1e22');
   const P=[[.012,Wd,H],[.012,-Wd,H],[.012,Wd,.2]].map(([lx,ly,z])=>toCam(ctx.K,W3(it,lx,ly),z));if(P.some(q=>q.d<ctx.near))return;
   const Q=P.map(q=>ctx.proj(q));const Wu=W*100,Hu=(H-.2)*100;const a=(Q[1][0]-Q[0][0])/Wu,b=(Q[1][1]-Q[0][1])/Wu,c=(Q[2][0]-Q[0][0])/Hu,d=(Q[2][1]-Q[0][1])/Hu;
-  ctx.polys.push({d:P.reduce((t,q)=>t+q.d,0)/3-.04,svg:`<g transform="matrix(${a.toFixed(5)} ${b.toFixed(5)} ${c.toFixed(5)} ${d.toFixed(5)} ${Q[0][0].toFixed(1)} ${Q[0][1].toFixed(1)})">${jb45Front(it,Wu,Hu,on)}</g>`});
+  ctx.polys.push({at:{l:(P[1].l+P[2].l)/2,d:(P[1].d+P[2].d)/2,z:(P[0].z+P[2].z)/2},d:P.reduce((t,q)=>t+q.d,0)/3-.04,svg:`<g transform="matrix(${a.toFixed(5)} ${b.toFixed(5)} ${c.toFixed(5)} ${d.toFixed(5)} ${Q[0][0].toFixed(1)} ${Q[0][1].toFixed(1)})">${jb45Front(it,Wu,Hu,on)}</g>`});
   if(on){const p=W3(it,.5,0);bill(ctx,p,3.6,(k,X,Y)=>`<defs><filter id="jb45${it.id}" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="${(1*k).toFixed(1)}"/></filter></defs><ellipse cx="${X.toFixed(1)}" cy="${Y.toFixed(1)}" rx="${(1.9*k).toFixed(1)}" ry="${(1.3*k).toFixed(1)}" fill="${col}" opacity=".16" filter="url(#jb45${it.id})"/>`);}}
 /* ============================================================
    Typed sizes grow the sensible way, with no extra control:
@@ -6259,6 +6259,141 @@ const X_PRESETS={full:X=>{X.layout='sheet';LAY.forEach(([k])=>X[k]=true);INFO.fo
   keys:X=>{X.layout='sheet';INFO.forEach(([k])=>X[k]=false);Object.assign(X,{lightKey:true,camKey:true,resetList:false,revInfo:true});},
   plan:X=>{X.layout='diagram';}};
 document.addEventListener('click',e=>{const b=e.target.closest&&e.target.closest('[data-xpre]');if(!b)return;e.stopPropagation();const X=xo();X_PRESETS[b.dataset.xpre](X);P.exportOpts=X;scheduleSave();openExport();toast({full:'Full sheet: everything on',keys:'Plan + keys: plan, light key and camera key',plan:'Plan only: just the diagram'}[b.dataset.xpre]);},true);
+/* ============================================================
+   The mock frame as a real 3D render (three.js, shipped with the app, loaded on first use).
+   - every piece is built from the plot at its real size, and the depth buffer decides what's in front: no popping
+   - only your set: real walls with their windows and doors, a floor and a ceiling; no painted backdrop furniture
+   - actors are simple mannequins with a face, turned the way they face on the plot, in their pose
+   - true lens, sensor, camera height and tilt; focus falls off with distance from the focus point
+   - lights do NOT light the set: one even, neutral light for reading shapes. It's a framing reference.
+   If 3D can't start (no WebGL), the old drawn mock is used.
+   ============================================================ */
+let GL3={state:'none',r:null,rt:null,post:null};
+function ensureThree(){if(GL3.state==='ready')return true;if(GL3.state==='loading'||GL3.state==='failed')return false;
+  const ok=()=>{try{const c=document.createElement('canvas');return !!(c.getContext('webgl2')||c.getContext('webgl'));}catch(e){return false;}};
+  if(!ok()){GL3.state='failed';return false;}
+  if(window.THREE){GL3.state='ready';return true;}
+  GL3.state='loading';const sc=document.createElement('script');sc.src='three.min.js';
+  sc.onload=()=>{GL3.state=window.THREE?'ready':'failed';if(GL3.state==='ready'){try{if(CALC&&CALC.open)renderCalc();}catch(e){}try{if(document.querySelector('.mfGrid'))openMockFrames();}catch(e){}}};
+  sc.onerror=()=>{GL3.state='failed';};document.head.appendChild(sc);return false;}
+function gl3Renderer(w,h){const T=THREE;if(!GL3.r){const cv=document.createElement('canvas');GL3.r=new T.WebGLRenderer({canvas:cv,antialias:true,preserveDrawingBuffer:true,alpha:false});GL3.r.outputEncoding=T.sRGBEncoding;}
+  GL3.r.setPixelRatio(1);GL3.r.setSize(w,h,false);
+  if(!GL3.rt||GL3.rt.width!==w||GL3.rt.height!==h){if(GL3.rt){GL3.rt.dispose();}GL3.rt=new T.WebGLRenderTarget(w,h);GL3.rt.texture.encoding=T.sRGBEncoding;GL3.rt.depthTexture=new T.DepthTexture(w,h);GL3.rt.depthTexture.type=T.UnsignedIntType;}
+  if(!GL3.post){const mat=new T.ShaderMaterial({uniforms:{tC:{value:null},tD:{value:null},near:{value:.3},far:{value:600},res:{value:new T.Vector2(w,h)},fmm:{value:35},Nst:{value:2.8},smm:{value:2400},ppx:{value:10},maxR:{value:24}},
+      vertexShader:'varying vec2 vUv;void main(){vUv=uv;gl_Position=vec4(position.xy,0.,1.);}',
+      fragmentShader:`precision highp float;varying vec2 vUv;uniform sampler2D tC;uniform sampler2D tD;uniform float near,far,fmm,Nst,smm,ppx,maxR;uniform vec2 res;
+        float vz(float d){return (near*far)/((far-near)*d-far);}
+        float rad(vec2 uv){float z=-vz(texture2D(tD,uv).x);float dm=max(.3,z)*304.8;float c=fmm*fmm/Nst*abs(dm-smm)/(dm*max(1.,smm-fmm));return min(maxR,c*ppx*.5);}
+        void main(){float r0=rad(vUv);vec4 acc=texture2D(tC,vUv);float wsum=1.;if(r0>.6){for(int i=1;i<64;i++){float fi=float(i);float rr=sqrt(fi/64.)*r0;float a=fi*2.39996;vec2 o=vec2(cos(a),sin(a))*rr/res;vec2 uv=vUv+o;float rs=rad(uv);float w=rs>=rr*.8?1.:.08;acc+=texture2D(tC,uv)*w;wsum+=w;}}
+          gl_FragColor=acc/wsum;}`,depthTest:false,depthWrite:false});
+    const sc=new T.Scene();const cam=new T.OrthographicCamera(-1,1,1,-1,0,1);sc.add(new T.Mesh(new T.PlaneGeometry(2,2),mat));GL3.post={mat,sc,cam};}
+  return GL3.r;}
+const gl3Col=c=>{try{return new THREE.Color(String(c||'#888').trim());}catch(e){return new THREE.Color('#888');}};
+function attr(extra,k){const m=String(extra||'').match(new RegExp(k+'="([^"]+)"'));return m?m[1]:null;}
+/* a flat polygon (camera-space points) as a mesh: triangulated on its own plane */
+function polyTris(P,fill,extra,off,B){const T=THREE;if(P.length<3)return;const V=P.map(q=>new T.Vector3(q.l,q.z-off,-q.d));
+  const n=new T.Vector3();for(let i=0;i<V.length;i++){const a=V[i],b=V[(i+1)%V.length];n.x+=(a.y-b.y)*(a.z+b.z);n.y+=(a.z-b.z)*(a.x+b.x);n.z+=(a.x-b.x)*(a.y+b.y);}if(n.lengthSq()<1e-12)return;n.normalize();
+  const fl=String(fill||'');const op=parseFloat(attr(extra,'fill-opacity')||attr(extra,'opacity')||'1');
+  if(fl!=='none'&&op>.02){let tris;if(V.length===3)tris=[[0,1,2]];else if(V.length===4)tris=[[0,1,2],[0,2,3]];else{const u=new T.Vector3(1,0,0);if(Math.abs(n.dot(u))>.9)u.set(0,1,0);u.sub(n.clone().multiplyScalar(n.dot(u))).normalize();const v=new T.Vector3().crossVectors(n,u);
+      try{tris=T.ShapeUtils.triangulateShape(V.map(p=>new T.Vector2(p.dot(u),p.dot(v))),[]);}catch(e){tris=[];}}
+    const key=fl+'|'+(op<.99?op.toFixed(2):'1');const bk=B.f[key]||(B.f[key]={fill:fl,op,pos:[]});tris.forEach(t=>t.forEach(i=>bk.pos.push(V[i].x,V[i].y,V[i].z)));}
+  const st=attr(extra,'stroke');if(st&&st!=='none'){const bk=B.l[st]||(B.l[st]=[]);for(let i=0;i<V.length;i++){const a=V[i],b=V[(i+1)%V.length];bk.push(a.x,a.y,a.z,b.x,b.y,b.z);}}}
+function bucketsToMeshes(B,root){const T=THREE;Object.values(B.f).forEach(bk=>{if(!bk.pos.length)return;const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(bk.pos,3));
+    root.add(new T.Mesh(g,new T.MeshBasicMaterial({color:gl3Col(bk.fill),side:T.DoubleSide,transparent:bk.op<.99,opacity:bk.op,depthWrite:bk.op>.6,polygonOffset:true,polygonOffsetFactor:1,polygonOffsetUnits:1})));});
+  Object.entries(B.l).forEach(([c,pos])=>{const g=new T.BufferGeometry();g.setAttribute('position',new T.Float32BufferAttribute(pos,3));root.add(new T.LineSegments(g,new T.LineBasicMaterial({color:gl3Col(c),transparent:true,opacity:.7})));});}
+/* simple billboard shapes (discs, ellipses, rectangles) become real 3D cards facing the lens, so nearer things cover them */
+function billTo3D(T,root,svg,c,k,X,Y,camH){if(/<path|<text|<polygon|<line|filter=|<defs/.test(svg))return false;const els=[...svg.matchAll(/<(circle|ellipse|rect)\b([^>]*)\/?>/g)];if(!els.length)return false;
+  const num=(s2,a)=>{const m=s2.match(new RegExp('\\b'+a+'="([-0-9.]+)"'));return m?parseFloat(m[1]):null;};let z=0;
+  els.forEach(([_,tag,at])=>{const fill=(at.match(/fill="([^"]+)"/)||[])[1]||'#888';if(fill==='none')return;const op=parseFloat((at.match(/(?:fill-)?opacity="([0-9.]+)"/)||[])[1]||'1');let geo,cx,cy;
+    if(tag==='rect'){const x=num(at,'x'),y=num(at,'y'),w=num(at,'width'),h=num(at,'height');if(w==null||h==null)return;geo=new T.PlaneGeometry(w/k,h/k);cx=x+w/2;cy=y+h/2;}
+    else{const rx=tag==='circle'?num(at,'r'):num(at,'rx'),ry=tag==='circle'?num(at,'r'):num(at,'ry');cx=num(at,'cx');cy=num(at,'cy');if(rx==null||cx==null)return;geo=new T.CircleGeometry(1,24);geo.scale(rx/k,ry/k,1);}
+    const m=new T.Mesh(geo,new T.MeshBasicMaterial({color:gl3Col(fill),transparent:op<.99,opacity:op,side:T.DoubleSide,depthWrite:op>.6}));const sc=c.d/(c.d);m.position.set(c.l+(cx-X)/k,(c.z-camH)-(cy-Y)/k,-c.d+(z+=.002));root.add(m);});return true;}
+/* the mannequin: joints in plot space for each pose, built from capsules, with a face */
+function manJoints(a,items){const I=poseInfo(a,items),r=(a.r||0)*D2R;const f=[Math.cos(r),Math.sin(r)],s=[-Math.sin(r),Math.cos(r)];const W=(fw,sd,z)=>({x:a.x+f[0]*fw+s[0]*sd,y:a.y+f[1]*fw+s[1]*sd,z});
+  const L=[],z=I.seat;let head,torso;const leg=(A,B,t)=>L.push({A,B,t,k:'leg'}),arm=(A,B,t)=>L.push({A,B,t,k:'arm'});
+  if(I.p==='sit'){[-.3,.3].forEach(o=>{const k=W(1.45,o,z+.2);leg(W(.1,o,z+.15),k,.5);leg(k,W(1.6,o,.05),.4);});torso=[W(0,0,z+.15),W(-.12,0,z+2.05)];[-.72,.72].forEach(o=>{arm(W(-.1,o,z+1.95),W(.55,o,z+.9),.3);arm(W(.55,o,z+.9),W(1.1,o*.6,z+.55),.26);});head=W(-.1,0,z+2.55);}
+  else if(I.p==='lie'){const zb=z+.45;[-.28,.28].forEach(o=>leg(W(.2,o,zb),W(-2.6,o,zb-.05),.48));torso=[W(.2,0,zb),W(2.0,0,zb)];[-.75,.75].forEach(o=>arm(W(1.95,o,zb),W(.6,o,zb),.3));head=W(2.55,0,zb+.05);}
+  else if(I.p==='kneel'){[-.3,.3].forEach(o=>{const k=W(.25,o,.22);leg(W(-.2,o,1.65),k,.5);leg(k,W(-1.25,o,.1),.4);});torso=[W(-.2,0,1.75),W(-.15,0,3.3)];[-.72,.72].forEach(o=>arm(W(-.15,o,3.2),W(.15,o,2.2),.3));head=W(-.1,0,3.75);}
+  else if(I.p==='crouch'){[-.35,.35].forEach(o=>{const k=W(.7,o,1.35);leg(W(-.3,o,1.2),k,.5);leg(k,W(.45,o,.08),.42);});torso=[W(-.35,0,1.25),W(.15,0,2.6)];[-.72,.72].forEach(o=>arm(W(.15,o,2.5),W(.85,o,1.55),.3));head=W(.35,0,3.05);}
+  else{[-.27,.27].forEach(o=>{const k=W(.04,o,1.55);leg(W(0,o,2.95),k,.52);leg(k,W(0,o,.12),.42);L.push({A:W(-.05,o,.1),B:W(.4,o,.1),t:.32,k:'leg'});});torso=[W(0,0,2.95),W(0,0,4.55)];[-.66,.66].forEach(o=>{const e=W(.05,o*1.08,3.55);arm(W(0,o,4.45),e,.3);arm(e,W(.12,o*1.08,2.7),.26);});head=W(.02,0,5.3);}
+  return {L,head,torso,fwd:f,side:s};}
+function buildMannequin(T,a,items,toV,col){const g=new T.Group();const J=manJoints(a,items);const skin=new T.MeshLambertMaterial({color:gl3Col(col)});const dark=new T.MeshLambertMaterial({color:gl3Col(shade(col.length===7?col:'#e07a5f',.62))});
+  const cap=(A,B,rad,m,sx)=>{const p=toV(A),q=toV(B);const d=new T.Vector3().subVectors(q,p);const len=d.length();if(len<.01)return;const geo=new T.CapsuleGeometry(rad,Math.max(.01,len),4,10);const mesh=new T.Mesh(geo,m);
+    mesh.position.copy(p).add(q).multiplyScalar(.5);mesh.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),d.normalize());if(sx){mesh.scale.set(sx[0],1,sx[1]);}g.add(mesh);};
+  J.L.forEach(s=>cap(s.A,s.B,s.t/2,s.k==='leg'?dark:skin));
+  /* torso: flattened front to back, turned with the body */
+  {const p=toV(J.torso[0]),q=toV(J.torso[1]);const up=new T.Vector3().subVectors(q,p);const len=up.length();up.normalize();const sideW=toV({x:J.torso[0].x+J.side[0],y:J.torso[0].y+J.side[1],z:J.torso[0].z}).sub(p).normalize();
+    const fw=new T.Vector3().crossVectors(sideW,up).normalize();const sd=new T.Vector3().crossVectors(up,fw).normalize();const geo=new T.CapsuleGeometry(.5,Math.max(.05,len-.6),4,12);const mesh=new T.Mesh(geo,skin);
+    const m=new T.Matrix4().makeBasis(sd.multiplyScalar(1.12),up,fw.clone().multiplyScalar(.62));mesh.applyMatrix4(m);mesh.position.copy(p).add(q).multiplyScalar(.5);g.add(mesh);
+    /* neck */cap(J.torso[1],{x:J.head.x,y:J.head.y,z:J.head.z-.25},.19,skin);}
+  /* head with a face: eyes and a nose pointing the way they face */
+  const hp=toV(J.head);const head=new T.Mesh(new T.SphereGeometry(.34,20,14),skin);head.scale.set(1,1.12,1);head.position.copy(hp);g.add(head);
+  const fwdV=toV({x:J.head.x+J.fwd[0],y:J.head.y+J.fwd[1],z:J.head.z}).sub(hp).normalize();const sideV=toV({x:J.head.x+J.side[0],y:J.head.y+J.side[1],z:J.head.z}).sub(hp).normalize();const upV=new T.Vector3().crossVectors(fwdV,sideV).normalize().multiplyScalar(-1);
+  const ups=upV.y<0?upV.multiplyScalar(-1):upV;const eyeM=new T.MeshBasicMaterial({color:0x1d1f22});
+  [-1,1].forEach(k=>{const e=new T.Mesh(new T.SphereGeometry(.05,10,8),eyeM);e.position.copy(hp).add(fwdV.clone().multiplyScalar(.3)).add(sideV.clone().multiplyScalar(.12*k)).add(ups.clone().multiplyScalar(.07));g.add(e);});
+  const nose=new T.Mesh(new T.ConeGeometry(.055,.16,10),dark);nose.position.copy(hp).add(fwdV.clone().multiplyScalar(.36)).add(ups.clone().multiplyScalar(-.05));nose.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),fwdV);g.add(nose);
+  const hair=new T.Mesh(new T.SphereGeometry(.355,20,10,0,Math.PI*2,0,Math.PI*.42),new T.MeshLambertMaterial({color:0x2f2622}));hair.position.copy(hp).add(ups.clone().multiplyScalar(.04)).add(fwdV.clone().multiplyScalar(-.03));hair.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),ups);g.add(hair);
+  return g;}
+function mockFrame3D(o){const T=THREE;
+  const S=sensDims(o.sensor||'Super 35 (24.9mm)');const W=o.W||640,H=Math.round(W*Math.max(.42,Math.min(.75,S.h/S.w)));const ppm=W/S.w;const f=o.f||35,N=o.N||2.8;const K=mockCam(o.cam,o.view);const camH=K.h;
+  const s=Math.max(.5,o.focus||8)*304.8;const blurAt=dF=>{const d=Math.max(.3,dF)*304.8;return f*f/N*Math.abs(d-s)/(d*(s-f));};const sdOf=dF=>Math.round(Math.min(18,blurAt(dF)*ppm/2.4)*10)/10;
+  const proj=q=>[W/2+q.l*f/q.d*ppm,H/2-(q.z-camH)*f/q.d*ppm];const near=.4;
+  const sc=o.sc||scene();const ext=/EXT/i.test(sc.ie||'')&&!/^INT/i.test(sc.ie||'');const night=/NIGHT|EVENING|DUSK/i.test(sc.tod||'');const wtod=typeof sceneTod==='function'?sceneTod(sc):(night?'night':'day');
+  const scene3=new T.Scene();const root=new T.Group();scene3.add(root);const over=[];
+  const BK={f:{},l:{}};const add=(P,fill,dist,extra)=>{polyTris(P,fill,extra,camH,BK);};
+  const capAPI={line:(a,b,w,col)=>{const A=toCam(K,a,a.z),B=toCam(K,b,b.z);const p=new T.Vector3(A.l,A.z-camH,-A.d),q=new T.Vector3(B.l,B.z-camH,-B.d);const d=new T.Vector3().subVectors(q,p);const len=d.length();if(len<.005)return;
+      const m=new T.Mesh(new T.CylinderGeometry(Math.max(.015,w/2),Math.max(.015,w/2),len,8),new T.MeshBasicMaterial({color:gl3Col(col)}));m.position.copy(p).add(q).multiplyScalar(.5);m.quaternion.setFromUnitVectors(new T.Vector3(0,1,0),d.normalize());root.add(m);},
+    bill:(p,z,draw)=>{const c=toCam(K,p,z);if(c.d<near)return;const k=f/c.d*ppm;const [X,Y]=proj(c);const svg=draw(k,X,Y);if(!billTo3D(T,root,svg,c,k,X,Y,camH))over.push({d:c.d-.02,svg,at:c});}};
+  const items=o.items;const ops=items.filter(i=>isOpening(i));
+  /* walls: whole, split around doors and windows */
+  let wallBox=null;const grow=(p)=>{if(!wallBox)wallBox={x0:p.x,x1:p.x,y0:p.y,y1:p.y};wallBox.x0=Math.min(wallBox.x0,p.x);wallBox.x1=Math.max(wallBox.x1,p.x);wallBox.y0=Math.min(wallBox.y0,p.y);wallBox.y1=Math.max(wallBox.y1,p.y);};
+  items.forEach(w=>{if(w.t!=='line'||w.kind!=='wall')return;const m=typeof wallMat==='function'?wallMat(w):null;const base=m&&m.base?m.base:(ext?'#b9b2a6':'#d8d0c2');const glass=m&&m.glass&&!m.blur;const top=m&&m.half?3.5:WALL_H;
+    for(let k=1;k<w.pts.length;k++){const a=w.pts[k-1],b=w.pts[k];grow(a);grow(b);const L=Math.hypot(b.x-a.x,b.y-a.y);if(L<.05)continue;const ux=(b.x-a.x)/L,uy=(b.y-a.y)/L;const nx=-uy,ny=ux;
+      const toward=(nx*(K.x-a.x)+ny*(K.y-a.y))>=0?1:-1;const at=(t,o2)=>({x:a.x+ux*t+nx*toward*(o2||0),y:a.y+uy*t+ny*toward*(o2||0)});
+      const facing=Math.abs(nx*K.ux+ny*K.uy);const col=glass?(night?'#1d2a3a':'#cfe6f7'):shade(base,.78+.27*facing);const gl=glass?`fill-opacity="${night?.85:.45}" stroke="#7fb3d6" stroke-width=".6"`:'';
+      const gaps=[];ops.forEach(op=>{const t=(op.x-a.x)*ux+(op.y-a.y)*uy;const d=Math.abs(-(op.x-a.x)*uy+(op.y-a.y)*ux);if(d<.5&&t>-1&&t<L+1){const hw=(+op.w||3)/2;gaps.push({t0:t-hw,t1:t+hw,op});}});gaps.sort((p,q)=>p.t0-q.t0);
+      const piece=(t0,t1,z0,z1,fill,ex,lay)=>{t0=Math.max(0,t0);t1=Math.min(L,t1);if(t1-t0<.02)return;const o2=lay&&lay.k?lay.k*.03:0;const A=at(t0,o2),B=at(t1,o2);add([toCam(K,A,z0),toCam(K,B,z0),toCam(K,B,z1),toCam(K,A,z1)],fill,0,ex);};
+      let t=0;gaps.forEach(g=>{piece(t,g.t0,0,top,col,gl);
+        if(isGlass(g.op)){piece(g.t0,g.t1,0,2.8,col,gl);piece(g.t0,g.t1,7.2,top,col,gl);mockWindow(piece,g,wtod);}
+        else if(/arch/i.test(g.op.t)){piece(g.t0,g.t1,7.6,top,col,gl);}
+        else{piece(g.t0,g.t1,7.25,top,col,gl);const gar=/elevator|garage|rollgate/.test(g.op.t);piece(g.t0-.25,g.t0,0,7.25,'#efe9df','',{g,k:1});piece(g.t1,g.t1+.25,0,7.25,'#efe9df','',{g,k:1});piece(g.t0,g.t1,7,7.25,'#efe9df','',{g,k:1});
+          const open=doorOpenAt(g.op,o.view&&o.view.phase);if(!open||gar)piece(g.t0,g.t1,0,7,gar?'#8d9196':'#6b5240','stroke="#3a2c22"',{g,k:1});else doorLeaves(g.op).forEach(([A2,B2])=>add([toCam(K,A2,0),toCam(K,B2,0),toCam(K,B2,7),toCam(K,A2,7)],'#6b5240',0,'stroke="#3a2c22"'));}
+        t=Math.max(t,g.t1);});piece(t,L,0,top,col,gl);}});
+  /* floor, ceiling and the sky beyond */
+  const floorCol=o.bg&&typeof bgFloor==='function'?bgFloor(o.bg):(ext?(night?'#2a2c30':'#77776f'):(night?'#3a2f26':'#7a6450'));
+  const fq=[[-200,-200],[200,-200],[200,200],[-200,200]].map(([dx,dy])=>toCam(K,{x:K.x+dx,y:K.y+dy},0));add(fq,floorCol,0,'');
+  if(wallBox&&!ext){const cq=[[wallBox.x0,wallBox.y0],[wallBox.x1,wallBox.y0],[wallBox.x1,wallBox.y1],[wallBox.x0,wallBox.y1]].map(([x,y])=>toCam(K,{x,y},WALL_H));add(cq,'#e9e4da',0,'');}
+  scene3.background=gl3Col(ext?(night?'#0e1626':wtod==='dusk'?'#e2a27c':'#a9cbe8'):(night?'#1b1a19':'#4a4540'));
+  /* set pieces, practicals, grip and gear: the same builders as before, captured as 3D */
+  const ctx={K,proj,add,polys:over,flats:over,near,extrude,f,ppm,camH,items,night,ext,inView:()=>true,self:o.cam,cap:capAPI};
+  function extrude(P,z0,z1,col){const n=P.length;for(let i=0;i<n;i++){const a=P[i],b=P[(i+1)%n];const ex=b.x-a.x,ey=b.y-a.y;const el=Math.hypot(ex,ey)||1;const nx=ey/el,ny=-ex/el;const lit=.72+.28*Math.abs(nx*.6+ny*-.8);
+      add([toCam(K,a,z0),toCam(K,b,z0),toCam(K,b,z1),toCam(K,a,z1)],shade(col,lit),0,`stroke="${shade(col,.55)}"`);}
+    add(P.map(q=>toCam(K,q,z1)),shade(col,1.12),0,`stroke="${shade(col,.6)}"`);if(z0>.05)add(P.map(q=>toCam(K,q,z0)),shade(col,.8),0,'');}
+  items.forEach(it=>{if(it===o.cam||it.id===(o.cam&&o.cam.id))return;try{mockItem(it,ctx);}catch(e){}});
+  /* actors */
+  const people=[];const toV=q=>{const c=toCam(K,{x:q.x,y:q.y},q.z);return new T.Vector3(c.l,c.z-camH,-c.d);};
+  items.filter(i=>i.t==='actor').forEach(a=>{const c=toCam(K,a,0);if(c.d<.8)return;people.push({a,c});try{root.add(buildMannequin(T,a,items,toV,a.color||'#e07a5f'));}catch(e){console.warn(e);}});
+  bucketsToMeshes(BK,root);
+  scene3.add(new T.HemisphereLight(0xffffff,0x6b6158,.85));const dl=new T.DirectionalLight(0xffffff,.55);dl.position.set(-.4,1,.6);scene3.add(dl);
+  /* render at twice the size, then focus blur by depth */
+  const SC=1.5,RW=Math.round(W*SC),RH=Math.round(H*SC);const R=gl3Renderer(RW,RH);const vfov=2*Math.atan((H/2)/(f*ppm))*180/Math.PI;const cam=new T.PerspectiveCamera(vfov,W/H,.3,600);cam.position.set(0,0,0);cam.lookAt(0,0,-1);
+  R.setRenderTarget(GL3.rt);R.render(scene3,cam);
+  const U=GL3.post.mat.uniforms;U.tC.value=GL3.rt.texture;U.tD.value=GL3.rt.depthTexture;U.near.value=.3;U.far.value=600;U.res.value.set(RW,RH);U.fmm.value=f;U.Nst.value=N;U.smm.value=s;U.ppx.value=ppm*SC;U.maxR.value=22*SC;
+  R.setRenderTarget(null);R.render(GL3.post.sc,GL3.post.cam);if(!GL3.c2)GL3.c2=document.createElement('canvas');const OW=Math.round(W*1.5),OH=Math.round(H*1.5);GL3.c2.width=OW;GL3.c2.height=OH;const c2=GL3.c2.getContext('2d');c2.imageSmoothingQuality='high';c2.drawImage(R.domElement,0,0,OW,OH);const url=GL3.c2.toDataURL('image/jpeg',.9);
+  /* overlays (signs, screens, small discs) on top, unless something nearer covers their spot */
+  const ray=new T.Raycaster();const visible=(c,mg)=>{if(!c)return true;const v=new T.Vector3(c.l,c.z-camH,-c.d);const dist=v.length();if(dist<.05)return true;ray.set(new T.Vector3(0,0,0),v.clone().normalize());ray.far=dist-(mg||.25);const hit=ray.intersectObjects(root.children,true).find(h=>h.object.isMesh&&h.object.material&&h.object.material.opacity>.6);return !hit;};
+  const id=o.idp||'mf';const defs={};const filt=sd=>{if(sd<.12)return '';const k=id+'b'+String(sd).replace('.','_');if(!defs[k])defs[k]=`<filter id="${k}" x="-30%" y="-30%" width="160%" height="160%"><feGaussianBlur stdDeviation="${sd}"/></filter>`;return ` filter="url(#${k})"`;};
+  const rollG=o.view&&o.view.roll?`<g transform="rotate(${o.view.roll} ${W/2} ${H/2})">`:'<g>';let body=rollG+`<image href="${url}" x="0" y="0" width="${W}" height="${H}" preserveAspectRatio="none"/>`;
+  over.filter(p=>typeof p==='object'&&p.svg).sort((a,b)=>b.d-a.d).forEach(p=>{if(p.at&&!visible(p.at))return;body+=`<g${filt(sdOf(p.d))}>${p.svg}</g>`;});
+  if(o.labels!==false)people.forEach(p=>{const hz=poseTop(p.a,items);const q=toCam(K,p.a,hz);if(q.d<near)return;const hq=toCam(K,p.a,poseInfo(p.a,items).head);if(!visible(hq,.6))return;const PP=proj(hq);if(PP[0]<-20||PP[0]>W+20||PP[1]>H+20)return;const P2=proj(q);const tx=Math.max(8,Math.min(W-8,P2[0])),ty=Math.max(18,Math.min(H-8,P2[1]));const inF=Math.abs(Math.hypot(p.a.x-K.x,p.a.y-K.y)-(o.focus||0))<.5;
+    body+=`<text x="${tx}" y="${ty}" text-anchor="${tx<60?'start':tx>W-60?'end':'middle'}" font-family="Lato,sans-serif" font-weight="700" font-size="13" fill="#fff" stroke="${p.a.color||'#e07a5f'}" stroke-width="4" paint-order="stroke">${esc(p.a.label||'')}${inF?' ◎':''}</text>`;});
+  body+='</g>';
+  scene3.traverse(ob=>{if(ob.geometry)ob.geometry.dispose();if(ob.material){(Array.isArray(ob.material)?ob.material:[ob.material]).forEach(m=>m.dispose());}});
+  return {svg:`<svg viewBox="0 0 ${W} ${H}" xmlns="http://www.w3.org/2000/svg" style="background:#000;display:block;width:100%"><defs>${Object.values(defs).join('')}</defs>`+body,H,W,people,count:root.children.length,gl:true};}
+/* the old drawn helpers hand their pieces to the 3D build when it's running */
+{const _l3=line3;line3=function(ctx,a,b,w,col){if(ctx&&ctx.cap)return ctx.cap.line(a,b,w,col);return _l3(ctx,a,b,w,col);};}
+{const _bl=bill;bill=function(ctx,p,z,draw){if(ctx&&ctx.cap)return ctx.cap.bill(p,z,draw);return _bl(ctx,p,z,draw);};}
+{const _mf=mockFrameSVG;mockFrameSVG=function(o){if(!ensureThree())return _mf(o);try{return mockFrame3D(o);}catch(e){console.warn('3D mock failed, using the drawn one',e);return _mf(o);}};}
 const BRANDFF=(()=>{let o='';for(const sh of document.styleSheets){try{for(const r of sh.cssRules)if(r.type===5&&/EB Garamond|Lato/.test(r.cssText))o+=r.cssText;}catch(e){}}return o;})();
 /* ============================================================
    Export
