@@ -5656,9 +5656,10 @@ BOOTHS.forEach(k=>{MH[k]=[0,3.6];SEAT_H[k]=1.55;});
 if(typeof LIB_TIPS==='object')Object.assign(LIB_TIPS,{booth_pair:'Two high-backed benches facing each other across a table, like a diner or bar booth.',booth_u:'A horseshoe booth that wraps a table on three sides, open at the front.',booth_corner:'An L-shaped corner booth with its table in the corner.',booth_wall:'One bench along a wall with a table in front of it.'});
 // settings, shown in Shape & parts
 Object.assign(PARTS,{bwood:{lab:'Wood',opts:Object.entries(BOOTH_WOOD).map(([k,v])=>[k,v[0]]),types:BOOTHS},buph:{lab:'Seats & backs',opts:Object.entries(BOOTH_UPH).map(([k,v])=>[k,v[0]]),types:BOOTHS},
-  bback:{lab:'Back height',opts:[['standard','Standard (3½ ft)'],['high','High (4½ ft)'],['low','Low (2¾ ft)']],types:BOOTHS},btable:{lab:'Table',opts:[['yes','With table'],['no','No table']],types:BOOTHS}});
+  bback:{lab:'Back height',opts:[['standard','Standard (3½ ft)'],['high','High (4½ ft)'],['low','Low (2¾ ft)']],types:BOOTHS},btable:{lab:'Table',opts:[['yes','With table'],['no','No table']],types:BOOTHS},bsdep:{lab:'Seat depth (inches)',num:true,max:30,types:BOOTHS}});
+PART_DEF.bsdep=()=>17;
 PARTS.seats.types.push(...BOOTHS);
-function boothSpec(it){const w=+it.w||5,h=+it.h||6,a=-w/2,b=w/2,T=-h/2,B=h/2;const back=.45,seat=1.45,bd=back+seat;
+function boothSpec(it){const w=+it.w||5,h=+it.h||6,a=-w/2,b=w/2,T=-h/2,B=h/2;const back=.45,seat=Math.max(12,Math.min(30,partOf(it,'bsdep')))/12,bd=back+seat;
   const wood=BOOTH_WOOD[partOf(it,'bwood')][1],u=BOOTH_UPH[partOf(it,'buph')][1]||shade(wood,1.12);const bh={standard:3.6,high:4.5,low:2.75}[partOf(it,'bback')];
   // runs of bench: [x0,y0,x1,y1, which way the sitter faces] in local feet; back strip sits on the outer side
   const runs=[];let table=null;
@@ -6127,6 +6128,56 @@ function mockJukebox45(it,ctx,on){const col=neonCol(it);const {W,D,H}=JB45;const
   const Q=P.map(q=>ctx.proj(q));const Wu=W*100,Hu=(H-.2)*100;const a=(Q[1][0]-Q[0][0])/Wu,b=(Q[1][1]-Q[0][1])/Wu,c=(Q[2][0]-Q[0][0])/Hu,d=(Q[2][1]-Q[0][1])/Hu;
   ctx.polys.push({d:P.reduce((t,q)=>t+q.d,0)/3-.04,svg:`<g transform="matrix(${a.toFixed(5)} ${b.toFixed(5)} ${c.toFixed(5)} ${d.toFixed(5)} ${Q[0][0].toFixed(1)} ${Q[0][1].toFixed(1)})">${jb45Front(it,Wu,Hu,on)}</g>`});
   if(on){const p=W3(it,.5,0);bill(ctx,p,3.6,(k,X,Y)=>`<defs><filter id="jb45${it.id}" x="-60%" y="-60%" width="220%" height="220%"><feGaussianBlur stdDeviation="${(1*k).toFixed(1)}"/></filter></defs><ellipse cx="${X.toFixed(1)}" cy="${Y.toFixed(1)}" rx="${(1.9*k).toFixed(1)}" ry="${(1.3*k).toFixed(1)}" fill="${col}" opacity=".16" filter="url(#jb45${it.id})"/>`);}}
+/* ============================================================
+   Typed sizes grow the sensible way, with no extra control:
+   - a side touching a wall or another piece stays put; the piece grows away from it
+   - free-standing pieces grow evenly from the center
+   - a thicker wall grows outward, so the room's inside size doesn't change
+   ============================================================ */
+function rotPt(o,lx,ly){const a=(o.r||0)*D2R,c=Math.cos(a),s=Math.sin(a);return {x:o.x+lx*c-ly*s,y:o.y+lx*s+ly*c};}
+function segD(p,a,b){const dx=b.x-a.x,dy=b.y-a.y,L2=dx*dx+dy*dy||1e-9;let t=((p.x-a.x)*dx+(p.y-a.y)*dy)/L2;t=Math.max(0,Math.min(1,t));return Math.hypot(p.x-a.x-t*dx,p.y-a.y-t*dy);}
+function insideSet(p,o){const L=LIB[o.t];if(!L||L.kind!=='set'||o.w==null)return false;const a=-(o.r||0)*D2R,c=Math.cos(a),s=Math.sin(a);const dx=p.x-o.x,dy=p.y-o.y;const lx=dx*c-dy*s,ly=dx*s+dy*c;return Math.abs(lx)<=(+o.w)/2+.02&&Math.abs(ly)<=(+o.h||+o.w)/2+.02;}
+/* is the face of `it` on this side (axis 'x' or 'y', sign ±1) against a wall or another piece? */
+function faceTouching(it,axis,sign,items){const hw=(+it.w||1)/2,hh=(+it.h||+it.w||1)/2;const pts=[];for(const t of [-.4,0,.4]){const lx=axis==='x'?sign*(hw+.15):t*2*hw,ly=axis==='x'?t*2*hh:sign*(hh+.15);pts.push(rotPt(it,lx,ly));}
+  return items.some(o=>{if(o.id===it.id)return false;if(o.t==='line'){if(o.kind!=='wall')return false;const th=(typeof lineW==='function'?lineW(o):.38)/2+.2;for(let i=1;i<o.pts.length;i++)if(pts.some(p=>segD(p,o.pts[i-1],o.pts[i])<=th))return true;return false;}
+    return pts.filter(p=>insideSet(p,o)).length>=1;});}
+let FIXFX=null;
+function flashFixed(it,axis,sign){const hw=(+it.w||1)/2,hh=(+it.h||+it.w||1)/2;const a=axis==='x'?rotPt(it,sign*hw,-hh):rotPt(it,-hw,sign*hh),b=axis==='x'?rotPt(it,sign*hw,hh):rotPt(it,hw,sign*hh);FIXFX={a,b,until:Date.now()+1100};renderCanvas();setTimeout(()=>{if(FIXFX&&Date.now()>=FIXFX.until){FIXFX=null;renderCanvas();}},1150);}
+function flashLine(a,b){FIXFX={a,b,until:Date.now()+1100};renderCanvas();setTimeout(()=>{if(FIXFX&&Date.now()>=FIXFX.until){FIXFX=null;renderCanvas();}},1150);}
+{const _ri=renderItems;renderItems=function(items,o){const L=_ri(items,o);try{if(FIXFX&&o&&o.dimSel&&!o.ghost&&o.tag!=='sheet'){L.labels=(L.labels||'')+`<path d="M${FIXFX.a.x} ${FIXFX.a.y} L${FIXFX.b.x} ${FIXFX.b.y}" stroke="#f0a020" stroke-width="${5*o.px}" stroke-linecap="round" opacity=".9" pointer-events="none"/>`;}}catch(e){}return L;};}
+/* typed width / depth on set pieces */
+{const _af=applyField;applyField=function(el,live){const k=el&&el.dataset&&el.dataset.k;const it0=selItem();
+  if(!(k==='w'||k==='h')||!it0||it0.t==='line'||!LIB[it0.t]||LIB[it0.t].kind!=='set'||selIds().length>1)return _af(el,live);
+  const o={x:it0.x,y:it0.y,w:+it0.w,h:+it0.h,id:it0.id};const r=_af(el,live);const it=selItem();if(!it)return r;const axis=k==='w'?'x':'y';const nv=+it[k],ov=k==='w'?o.w:o.h;if(!(nv>0)||!(ov>0)||Math.abs(nv-ov)<1e-6)return r;
+  const ref=Object.assign({},it,{x:o.x,y:o.y,w:o.w,h:o.h});const items=activeItems().filter(i=>i.id!==it.id);const neg=faceTouching(ref,axis,-1,items),pos=faceTouching(ref,axis,1,items);
+  let shift=0,fixed=0;if(neg&&!pos){shift=(nv-ov)/2;fixed=-1;}else if(pos&&!neg){shift=-(nv-ov)/2;fixed=1;}
+  const p=rotPt({x:o.x,y:o.y,r:it.r},axis==='x'?shift:0,axis==='y'?shift:0);it.x=r2(p.x);it.y=r2(p.y);
+  if(!live){if(fixed)flashFixed(it,axis,fixed);else renderCanvas();}else renderCanvas();return r;};}
+/* walls: keep the inside face where it is */
+function wallInsideSign(w,i){const a=w.pts[i-1],b=w.pts[i];const L=Math.hypot(b.x-a.x,b.y-a.y)||1;const nx=-(b.y-a.y)/L,ny=(b.x-a.x)/L;const m={x:(a.x+b.x)/2,y:(a.y+b.y)/2};
+  const walls=activeItems().filter(x=>x.t==='line'&&x.kind==='wall');const score=sg=>{const p={x:m.x+nx*sg*1.2,y:m.y+ny*sg*1.2};let hits=0;for(let k=0;k<8;k++){const ang=k*Math.PI/4,dx=Math.cos(ang),dy=Math.sin(ang);
+    if(walls.some(x=>{for(let j=1;j<x.pts.length;j++){if(x===w&&j===i)continue;if(rayHit(p,dx,dy,x.pts[j-1],x.pts[j]))return true;}return false;}))hits++;}return hits;};
+  const sp=score(1),sn=score(-1);return sp===sn?0:(sp>sn?1:-1);}
+function rayHit(p,dx,dy,a,b){const ex=b.x-a.x,ey=b.y-a.y;const den=dx*ey-dy*ex;if(Math.abs(den)<1e-9)return false;const t=((a.x-p.x)*ey-(a.y-p.y)*ex)/den,u=((a.x-p.x)*dy-(a.y-p.y)*dx)/den;return t>0&&t<80&&u>=0&&u<=1;}
+function lineX(p1,d1,p2,d2){const den=d1.x*d2.y-d1.y*d2.x;if(Math.abs(den)<1e-9)return null;const t=((p2.x-p1.x)*d2.y-(p2.y-p1.y)*d2.x)/den;return {x:p1.x+d1.x*t,y:p1.y+d1.y*t};}
+function shiftWall(w,delta){const n=w.pts.length;if(n<2||!delta)return;const closed=n>2&&Math.hypot(w.pts[0].x-w.pts[n-1].x,w.pts[0].y-w.pts[n-1].y)<.02;const old=w.pts.map(p=>({...p}));
+  const segs=[];for(let i=1;i<n;i++){const a=old[i-1],b=old[i];const L=Math.hypot(b.x-a.x,b.y-a.y)||1;const d={x:(b.x-a.x)/L,y:(b.y-a.y)/L};const sg=wallInsideSign(w,i);const nx=-d.y*(-sg),ny=d.x*(-sg);/* outward normal */segs.push({p:{x:a.x+nx*delta,y:a.y+ny*delta},d,sg});}
+  if(segs.every(s=>!s.sg))return;
+  const np=old.map((p,i)=>{const prev=i>0?segs[i-1]:(closed?segs[segs.length-1]:null),next=i<n-1?segs[i]:(closed?segs[0]:null);
+    if(prev&&next){const x=lineX(prev.p,prev.d,next.p,next.d);if(x)return {...p,x:r2(x.x),y:r2(x.y)};}
+    const sgm=prev||next,base=prev?old[i-1]:old[i];return {...p,x:r2(p.x+sgm.p.x-base.x),y:r2(p.y+sgm.p.y-base.y)};});
+  /* walls welded at the open ends: extend or trim them to meet the moved face line */
+  if(!closed)activeItems().forEach(x=>{if(x===w||x.t!=='line'||x.kind!=='wall')return;[0,x.pts.length-1].forEach(j=>{[0,n-1].forEach(k=>{if(Math.hypot(x.pts[j].x-old[k].x,x.pts[j].y-old[k].y)>.03)return;const other=x.pts[j===0?1:x.pts.length-2];const dd={x:x.pts[j].x-other.x,y:x.pts[j].y-other.y};const s=k===0?segs[0]:segs[segs.length-1];
+    const X=lineX(other,dd,s.p,s.d);if(X&&Math.hypot(X.x-x.pts[j].x,X.y-x.pts[j].y)<3){x.pts[j].x=r2(X.x);x.pts[j].y=r2(X.y);np[k].x=r2(X.x);np[k].y=r2(X.y);}});});});
+  w.pts=np;}
+{const _sl=setLineW;setLineW=function(it,v){if(!it||it.kind!=='wall')return _sl(it,v);const before=lineW(it);const r=_sl(it,v);const after=lineW(it);const d=(after-before)/2;if(Math.abs(d)>1e-4)try{shiftWall(it,d);}catch(e){}return r;};}
+/* wall size labels keep reading the room's size: a wall thicker than standard grew outward,
+   so its label measures at the standard position (the room didn't get bigger) */
+{const _dl=dimLabels;dimLabels=function(p,C,px,strong){try{const w=activeItems().find(x=>x.t==='line'&&x.kind==='wall'&&x.pts===p);const extra=w?lineW(w)-.38:0;
+  if(w&&Math.abs(extra)>.01){const n=p.length;const closed=n>2&&Math.hypot(p[0].x-p[n-1].x,p[0].y-p[n-1].y)<.02;let q;
+    if(closed){const w2={...w,pts:p.map(v=>({...v}))};const real=w.pts;w.pts=w2.pts;try{shiftWall(w2,-extra/2);}finally{w.pts=real;}q=w2.pts;}
+    else{q=p.map(v=>({...v}));const walls=activeItems().filter(x=>x!==w&&x.t==='line'&&x.kind==='wall');[[0,1],[n-1,n-2]].forEach(([e,o])=>{if(!walls.some(x=>x.pts.some(v=>Math.hypot(v.x-p[e].x,v.y-p[e].y)<.03)))return;const L=Math.hypot(p[o].x-p[e].x,p[o].y-p[e].y)||1;q[e].x+=(p[o].x-p[e].x)/L*extra/2;q[e].y+=(p[o].y-p[e].y)/L*extra/2;});}
+    return _dl(q,C,px,strong);}}catch(e){}return _dl(p,C,px,strong);};}
 const BRANDFF=(()=>{let o='';for(const sh of document.styleSheets){try{for(const r of sh.cssRules)if(r.type===5&&/EB Garamond|Lato/.test(r.cssText))o+=r.cssText;}catch(e){}}return o;})();
 /* ============================================================
    Export
