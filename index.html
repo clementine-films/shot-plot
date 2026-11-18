@@ -6372,13 +6372,150 @@ KIT('kit_restaurant','Restaurant (24×30, 4-tops and 2-tops with candles)',24,30
 /* each interior kit sets its room finish when placed, if the scene doesn't have one yet */
 const KIT_FINISH={kit_bedroom_prewar:'prewar_apartment',kit_studio:'studio_apartment',kit_galley:'apartment_kitchen',kit_divebar:'dive_bar',kit_diner:'diner',kit_restaurant:'bistro',kit_bath_apt:'bathroom',kit_bath_primary:'primary_bathroom'};
 {const _pa=placeAt;placeAt=function(w,keep,alt){const k=V.placing;const r=_pa(w,keep,alt);try{const sc=scene();if(k&&KIT_FINISH[k]&&sc&&!(sc.finish&&sc.finish.p)&&typeof FIN_P==='object'&&FIN_P[KIT_FINISH[k]]){sc.finish={p:KIT_FINISH[k]};scheduleSave();}}catch(e){}return r;};}
-/* one library group, at the bottom of Set, holding every pre-built kit */
-{const kitKeys=Object.keys(LIB).filter(k=>LIB[k].shape==='kit');kitKeys.forEach(k=>{LIB[k].group=PREBUILT;});
-  const order=['kit_divebar','kit_restaurant','kit_diner','kit_bedroom_prewar','kit_studio','kit_galley','kit_bath_apt','kit_bath_primary','kit_brownstone','kit_brownrow','kit_walkup','kit_doorman','kit_bodega','kit_frontyard'];
-  const keys=order.filter(k=>LIB[k]).concat(kitKeys.filter(k=>!order.includes(k)));
-  for(let j=LIBALL.length-1;j>=0;j--)if(keys.includes(LIBALL[j].key))LIBALL.splice(j,1);
-  let lastSet=-1;LIBALL.forEach((e,i)=>{if(e.cat==='Set'&&!e.kit)lastSet=i;});const ents=keys.map(k=>({key:k,cat:'Set',group:PREBUILT,name:LIB[k].name}));
-  LIBALL.splice(lastSet+1,0,...ents);try{renderLib();}catch(e){}}
+/* ============================================================
+   More pre-built interiors, and the "Pre-Built Set Kits" library category.
+   Coordinates in feet, x right, y down. Set pieces: back faces -y at r=0
+   (r=90 back to the right wall, r=-90 back to the left wall, r=180 back to the bottom wall).
+   ============================================================ */
+const KITCAT='Pre-Built Set Kits';
+KIT('kit_onebed','One-Bedroom Apartment (24×18, living, kitchenette, bedroom)',24,18,()=>[room(24,18),kLine('wall',[[4,-9],[4,9]]),
+  kItem('window',-7,-9,{w:3.5,r:0}),kItem('window',-1,-9,{w:3.5,r:0}),kItem('radiator',-7,-8.7,{w:3,r:0}),
+  kItem('couch',-10.5,-3,{r:-90}),kItem('coffeetable',-7.8,-3,{r:-90}),kItem('rug',-6.5,-3,{w:8,h:5,r:90}),kItem('tvconsole',3.25,-3,{r:90}),
+  kItem('armchair',-6.5,-7.3,{r:0}),kItem('pr_floor',-11.2,-8.2,{}),kItem('sidetable',-10.9,1.3,{}),kItem('pr_table',-10.9,1.3,{}),
+  kItem('roundtable',-4.2,3.4,{w:3,h:3}),kItem('chair',-4.2,1.2,{r:0}),kItem('chair',-4.2,5.6,{r:180}),kItem('pr_pendant',-4.2,3.4,{}),
+  kItem('fridge',-10.5,7.75,{r:180}),kItem('counter',-6.5,7.9,{w:5,r:180}),kItem('sink',-6.5,7.9,{r:180}),kItem('stove',-2.75,7.9,{r:180}),
+  kItem('door',1.6,9,{w:2.67,r:0,hinge:'Left',swing:'In',label:'Front door'}),
+  kItem('door',4,6,{w:2.67,r:-90,swing:'Out',label:'Bedroom'}),
+  kItem('bed',8.65,-3,{r:90}),kItem('nightstand',11.2,-6.4,{r:90}),kItem('nightstand',11.2,.4,{r:90}),kItem('pr_table',11.2,-6.4,{}),kItem('pr_table',11.2,.4,{}),
+  kItem('window',8,-9,{w:3,r:0}),kItem('dresser',4.8,2.1,{r:-90}),kItem('closet',8.5,9,{w:4,r:0}),kItem('pr_flush',8,0,{})]);
+KIT('kit_teenbed','Teen Bedroom (10×12, twin bed, desk)',10,12,()=>[room(10,12),
+  kItem('bedtwin',-1.85,-4.2,{r:-90}),kItem('nightstand',-4.2,-1.6,{r:-90}),kItem('pr_table',-4.2,-1.6,{}),
+  kItem('window',1,-6,{w:3,r:0}),kItem('desk',3.75,-1,{r:90}),kItem('officechair',2,-1,{r:-90}),kItem('pr_desk',4,-2.7,{r:180}),
+  kItem('bookshelf',4.5,3.4,{r:90}),kItem('rug',-.5,1.4,{w:5,h:4}),kItem('ottoman',-.6,2.4,{label:'Beanbag'}),
+  kItem('door',-3,6,{w:2.67,r:0,hinge:'Left',swing:'In'}),kItem('closet',1.6,6,{w:4,r:0}),kItem('pr_flush',0,0,{})]);
+KIT('kit_eatkitchen','Eat-in Kitchen (14×12, L counters, table for four)',14,12,()=>[room(14,12),
+  kItem('window',0,-6,{w:3,r:0}),kItem('counter',-1.5,-4.9,{w:11,r:0}),kItem('sink',0,-4.9,{r:0}),kItem('stove',-4.3,-4.9,{r:0}),kItem('dishwasher',2.3,-4.9,{r:0}),
+  kItem('cabinets',-4.5,-5.45,{w:4,r:0}),kItem('cabinets',3,-5.45,{w:2.5,r:0}),kItem('fridge',5.5,-4.75,{r:0}),
+  kItem('counter',-5.9,-.2,{w:5,r:-90}),kItem('microwave',-5.9,1.2,{r:-90}),
+  kItem('diningtable',1.5,2.2,{w:5,h:3.2}),kItem('chair',0,.1,{r:0}),kItem('chair',3,.1,{r:0}),kItem('chair',0,4.3,{r:180}),kItem('chair',3,4.3,{r:180}),kItem('pr_pendant',1.5,2.2,{}),
+  kItem('door',-4,6,{w:2.67,r:0,hinge:'Left',swing:'In'}),kItem('archway',7,3,{w:4,r:90})]);
+KIT('kit_living','Living Room (16×14, sofa, TV wall, armchairs)',16,14,()=>[room(16,14),
+  kItem('tvconsole',0,-6.25,{r:0}),kItem('tv',0,-7,{r:0}),kItem('couch',0,2.6,{r:180}),kItem('coffeetable',0,-.6,{r:0}),kItem('rug',0,-.6,{w:10,h:7}),
+  kItem('armchair',-5.2,-1.2,{r:-90}),kItem('armchair',5.2,-1.2,{r:90}),kItem('sidetable',-4.4,2.6,{}),kItem('sidetable',4.4,2.6,{}),kItem('pr_table',-4.4,2.6,{}),kItem('pr_table',4.4,2.6,{}),
+  kItem('window',-8,-2.5,{w:3.5,r:-90}),kItem('window',-8,3,{w:3.5,r:-90}),kItem('radiator',-7.7,-2.5,{w:3,r:-90}),kItem('pr_floor',-7.2,-6.2,{}),
+  kItem('bookshelf',7.5,4,{r:90}),kItem('plant',6.8,-6,{}),kItem('door',4.5,7,{w:2.67,r:0,hinge:'Left',swing:'In'})]);
+KIT('kit_dining','Dining Room (12×14, table for eight, sideboard)',12,14,()=>{const o=[room(12,14),
+  kItem('diningtable',0,0,{r:90}),kItem('rug',0,0,{w:8,h:10}),kItem('pr_chand',0,0,{}),kItem('chair',0,-3.85,{r:0}),kItem('chair',0,3.85,{r:180}),
+  kItem('dresser',5.2,0,{r:90,label:'Sideboard'}),kItem('window',-6,-3,{w:3,r:-90}),kItem('window',-6,3,{w:3,r:-90}),kItem('picture',0,-7,{r:0}),
+  kItem('pr_sconce',5.85,-4.5,{r:180}),kItem('pr_sconce',5.85,4.5,{r:180}),kItem('archway',0,7,{w:4,r:0})];
+  [-2,0,2].forEach(y=>{o.push(kItem('chair',-2.6,y,{r:-90}));o.push(kItem('chair',2.6,y,{r:90}));});return o;});
+KIT('kit_hallway','Apartment Hallway (4×24, doors off both sides)',4,24,()=>[room(4,24),
+  kItem('door',-2,-7,{w:2.67,r:90,swing:'Out',label:'Bedroom'}),kItem('door',-2,3,{w:2.67,r:90,swing:'Out',label:'Bathroom'}),kItem('door',2,-2,{w:2.67,r:-90,swing:'Out',label:'Closet'}),
+  kItem('archway',0,-12,{w:3.5,r:180,label:'To living room'}),kItem('door',0,12,{w:3,r:0,hinge:'Left',swing:'In',label:'Front door'}),
+  kItem('coatrack',1.2,9.8,{}),kItem('picture',2,5,{r:90}),kItem('picture',-2,-2,{r:-90}),kItem('rug',0,0,{w:2.5,h:14,label:'Runner'}),
+  kItem('pr_flush',0,-7,{}),kItem('pr_flush',0,1,{}),kItem('pr_flush',0,8,{})]);
+KIT('kit_dorm','Dorm Room (12×15, two twin beds, two desks)',12,15,()=>[room(12,15),
+  kItem('window',0,-7.5,{w:3,r:0}),kItem('bedtwin',-4.35,-4.35,{r:0}),kItem('bedtwin',4.35,-4.35,{r:0}),
+  kItem('desk',-4.75,1.6,{r:-90}),kItem('officechair',-3,1.6,{r:-90}),kItem('pr_desk',-5.3,.2,{}),
+  kItem('desk',4.75,1.6,{r:90}),kItem('officechair',3,1.6,{r:90}),kItem('pr_desk',5.3,.2,{r:180}),
+  kItem('wardrobe',-3.8,6.5,{r:180}),kItem('wardrobe',3.8,6.5,{r:180}),kItem('rug',0,-2,{w:4,h:5}),
+  kItem('door',0,7.5,{w:2.67,r:0,hinge:'Left',swing:'In'}),kItem('pr_troffer',0,-1,{})]);
+KIT('kit_lounge','Cocktail Lounge (24×30, bar, horseshoe booths, piano)',24,30,()=>{const o=[room(24,30),
+  kItem('barcounter',6,-3,{w:16,r:90,label:'Bar'}),kItem('counter',10.9,-3,{w:16,r:90,label:'Back bar'}),
+  kItem('door',-6,15,{w:3,r:0,swing:'In',label:'Entrance'}),kItem('door',-8,-15,{w:2.67,r:180,swing:'In',label:'Restrooms'}),kItem('door',4,-15,{w:3,r:180,swing:'In',label:'Kitchen'}),
+  kItem('piano',6.5,13.9,{r:180})];
+  for(let y=-9.6;y<=3.6;y+=2.2)o.push(kItem('stool',4.4,y,{}));[-8,-3,2].forEach(y=>o.push(kItem('pr_pendant',6,y,{})));
+  [-9,-1.5,6].forEach(y=>{o.push(kItem('booth_u',-9,y,{r:-90}));o.push(kItem('pr_candlelamp',-8.6,y,{}));});
+  [-8,-2,4].forEach(y=>{o.push(kItem('twotop',-1.5,y,{}));o.push(kItem('pr_bistro',-1.5,y,{}));});
+  [-10,0,10].forEach(y=>o.push(kItem('pr_sconce',-11.85,y,{r:0})));return o;});
+KIT('kit_cafe','Café (18×24, pastry case, register, window seats)',18,24,()=>{const o=[room(18,24),
+  kItem('counter',1.5,-10.9,{w:13,r:0,label:'Back counter / espresso'}),kItem('delicase',-2,-7.4,{r:0,label:'Pastry case'}),kItem('checkout',5,-7.4,{w:5,r:0,label:'Register'}),
+  kItem('door',-7,-12,{w:2.67,r:180,swing:'In',label:'Back'}),
+  kItem('door',5.5,12,{w:3,r:0,swing:'In'}),kItem('winstore',-2.5,12,{w:10,r:180}),
+  kItem('fourtop',2,-.5,{}),kItem('fourtop',2,5.5,{}),kItem('armchair',7.3,1,{r:90}),kItem('armchair',7.3,4.5,{r:90}),kItem('sidetable',7.4,2.75,{})];
+  [-2.5,1.5,5.5].forEach(x=>o.push(kItem('pr_pendant',x,-7.4,{})));[-6,-1].forEach(x=>o.push(kItem('stool',x,9.5,{})));
+  [-4,.5].forEach(y=>o.push(kItem('twotop',-7.6,y,{})));o.push(kItem('odd_pill',-3.5,11.1,{w:8,h:1.4,label:'Window counter'}));return o;});
+KIT('kit_office','Private Office (12×14, desk, guest chairs, sofa)',12,14,()=>[room(12,14),
+  kItem('window',0,-7,{w:5,r:0}),kItem('desk',0,-3.2,{r:180}),kItem('officechair',0,-5.2,{r:0}),kItem('chair',-1.3,-.6,{r:180}),kItem('chair',1.3,-.6,{r:180}),kItem('pr_desk',1.8,-3.6,{}),
+  kItem('bookshelf',-5.5,-4,{r:-90}),kItem('bookshelf',-5.5,-.6,{r:-90}),kItem('filecab',4.9,-5.5,{r:90}),
+  kItem('loveseat',4.5,3.4,{r:90}),kItem('coffeetable',2,3.4,{r:90}),kItem('plant',-5,5.9,{}),
+  kItem('door',-3,7,{w:2.67,r:0,hinge:'Left',swing:'In'}),kItem('pr_troffer',0,0,{})]);
+KIT('kit_conference','Conference Room (16×22, table for ten, screen)',16,22,()=>{const o=[room(16,22),
+  kItem('conftable',0,0,{r:90}),kItem('officechair',0,-6.2,{r:0}),kItem('officechair',0,6.2,{r:180}),
+  kItem('tvconsole',0,-10.25,{r:0,label:'Credenza'}),kItem('tv',0,-11,{w:6,r:0}),kItem('whiteboard',8,-3,{r:90}),
+  kItem('window',-8,-6,{w:4,r:-90}),kItem('window',-8,0,{w:4,r:-90}),kItem('window',-8,6,{w:4,r:-90}),
+  kItem('door',5,11,{w:3,r:0,hinge:'Left',swing:'In'})];
+  [-3.75,-1.25,1.25,3.75].forEach(y=>{o.push(kItem('officechair',-3.2,y,{r:-90}));o.push(kItem('officechair',3.2,y,{r:90}));});
+  [-5,0,5].forEach(y=>o.push(kItem('pr_troffer',0,y,{})));return o;});
+KIT('kit_classroom','School Classroom (24×30, 16 desks, chalkboard)',24,30,()=>[room(24,30),
+  kItem('classroom',0,1.5,{}),kItem('teacherdesk',6,-10.5,{r:180}),kItem('officechair',6,-12.6,{r:0}),kItem('chalkboard',-2,-15,{w:14,r:0}),kItem('clock',8.5,-15,{r:0}),
+  kItem('window',12,-8,{w:5,r:90}),kItem('window',12,0,{w:5,r:90}),kItem('window',12,8,{w:5,r:90}),kItem('radiator',11.7,0,{w:8,r:90}),
+  kItem('bookshelf',-11.5,6,{r:-90}),kItem('bookshelf',-11.5,9.2,{r:-90}),kItem('door',-8,15,{w:3,r:0,hinge:'Left',swing:'In'}),
+  kItem('pr_troffer',-6,-6,{}),kItem('pr_troffer',6,-6,{}),kItem('pr_troffer',-6,5,{}),kItem('pr_troffer',6,5,{})]);
+KIT('kit_hospital','Hospital Room (14×16, bed, visitor chair, curtain)',14,16,()=>[room(14,16),
+  kItem('hospbed',0,-4.25,{r:0}),kItem('ivstand',-2.4,-6.2,{}),kItem('sidetable',2.4,-6.6,{label:'Bedside cart'}),kItem('privcurtain',-4.6,-3,{w:8,r:90}),
+  kItem('armchair',4.4,-3,{r:90,label:'Visitor chair'}),kItem('window',7,-3,{w:5,r:90}),kItem('tv',0,8,{r:180}),
+  kItem('door',-4.6,8,{w:3.5,r:0,hinge:'Left',swing:'In'}),kItem('pedsink',4.9,7.1,{r:180}),
+  kItem('pr_sconce',0,-7.8,{r:90,label:'Over-bed light'}),kItem('pr_troffer',0,1.5,{})]);
+KIT('kit_interrog','Interrogation Room (10×12, table, one-way mirror)',10,12,()=>[room(10,12),
+  kItem('table',0,0,{}),kItem('chair',0,-2.3,{r:0,label:'Suspect'}),kItem('chair',-1.3,2.3,{r:180}),kItem('chair',1.3,2.3,{r:180}),
+  kItem('mirror',5,0,{w:6,r:90,label:'One-way mirror'}),kItem('clock',0,-6,{r:0}),kItem('door',-3,6,{w:3,r:0,hinge:'Left',swing:'In'}),kItem('pr_pendant',0,0,{})]);
+KIT('kit_hotel','Hotel Room (13×20, king bed, bathroom at the entry)',13,20,()=>[room(13,20),kLine('wall',[[-6.5,4],[-1,4],[-1,10]]),
+  kItem('window',0,-10,{w:6,r:0}),kItem('curtain',0,-9.7,{w:7,r:0}),kItem('bedking',-3.15,-3.5,{r:-90}),
+  kItem('nightstand',-5.7,-7.5,{r:-90}),kItem('nightstand',-5.7,.5,{r:-90}),kItem('pr_table',-5.7,-7.5,{}),kItem('pr_table',-5.7,.5,{}),
+  kItem('dresser',5.7,-3.5,{r:90}),kItem('tv',6.5,-3.5,{r:90}),kItem('armchair',4.3,-8.2,{r:135}),kItem('pr_floor',5.6,-9.2,{}),
+  kItem('desk',5.25,2.2,{r:90}),kItem('officechair',3.5,2.2,{r:-90}),kItem('pr_desk',5.6,.6,{r:180}),kItem('closet',6.5,6.8,{w:4,r:-90}),
+  kItem('door',2,10,{w:2.67,r:0,hinge:'Left',swing:'In'}),kItem('door',-1,7,{w:2.5,r:90,swing:'Out',label:'Bathroom'}),
+  kItem('tubshower',-5.25,7,{r:-90}),kItem('vanity',-3,4.9,{r:0}),kItem('toilet',-2.9,8.8,{r:180}),kItem('pr_vanity',-3,4.1,{r:90})]);
+KIT('kit_laundromat','Laundromat (20×36, washers, dryers, folding tables)',20,36,()=>[room(20,36),
+  kItem('dryers',-8.75,-6,{r:-90}),kItem('dryers',8.75,-6,{r:90}),kItem('washers',-1.25,-6,{r:90}),kItem('washers',1.25,-6,{r:-90}),
+  kItem('foldtable',-5,6,{}),kItem('foldtable',5,6,{}),kItem('counter',0,-16.9,{w:8,r:0,label:'Attendant'}),kItem('box',7.5,-16.6,{w:3,h:2.5,label:'Vending machine',ht:6,col:'#b8333a'}),
+  kItem('bench',-5,15.8,{r:180}),kItem('bench',2,15.8,{r:180}),kItem('winstore',-3,18,{w:12,r:180}),kItem('door',6.5,18,{w:3,r:0,swing:'In'}),
+  kItem('pr_troffer',-5,-10,{}),kItem('pr_troffer',5,-10,{}),kItem('pr_troffer',-5,-1,{}),kItem('pr_troffer',5,-1,{}),kItem('pr_troffer',0,8,{})]);
+KIT('kit_restroom','Public Restroom (14×16, 3 stalls, urinals, sinks)',14,16,()=>[room(14,16),
+  kItem('stalls',-2.5,-5.5,{r:0}),kItem('urinal',6.35,-6,{r:90}),kItem('urinal',6.35,-3.8,{r:90}),kItem('urinal',6.35,-1.6,{r:90}),
+  kItem('wallsink',-7,1,{r:-90}),kItem('wallsink',-7,3.4,{r:-90}),kItem('mirror',-7,2.2,{w:5,r:-90}),kItem('trashbin',-6,6.6,{}),
+  kItem('door',3,8,{w:3,r:0,hinge:'Left',swing:'In'}),kItem('pr_troffer',0,-3,{}),kItem('pr_troffer',0,3,{})]);
+KIT('kit_subway','Subway Car (9×51, benches, 4 door pairs a side)',9,51,()=>{const o=[room(9,51),
+  kItem('door',0,-25.5,{w:2.5,r:180,label:'End door'}),kItem('door',0,25.5,{w:2.5,r:0,label:'End door'})];
+  [-18,-6,6,18].forEach(y=>{o.push(kItem('door2',-4.5,y,{w:4.2,r:-90,label:'Doors'}));o.push(kItem('door2',4.5,y,{w:4.2,r:90,label:'Doors'}));o.push(kItem('column',0,y,{w:.2,h:.2,label:'Pole'}));});
+  [[-22.8,5],[-12,7.4],[0,7.4],[12,7.4],[22.8,5]].forEach(([y,w])=>{o.push(kItem('bench',-3.7,y,{w,r:-90,label:'Bench'}));o.push(kItem('bench',3.7,y,{w,r:90,label:'Bench'}));
+    o.push(kItem('window',-4.5,y,{w:Math.min(4,w-1),r:-90}));o.push(kItem('window',4.5,y,{w:Math.min(4,w-1),r:90}));});
+  [-20,-12,-4,4,12,20].forEach(y=>o.push(kItem('pr_troffer',0,y,{})));return o;});
+KIT('kit_rooftop','Rooftop (30×40, parapet, stair bulkhead, water tower)',30,40,()=>[kLine('fence',[[-15,-20],[15,-20],[15,20],[-15,20],[-15,-20]],{label:'Parapet (3.5 ft)'}),
+  kItem('box',-9,-14,{w:8,h:10,label:'Stair bulkhead',ht:9,col:'#a39a8c'}),kItem('door',-9,-9,{w:3,r:0,label:'Roof door'}),kItem('box',9,-14,{w:9,h:9,label:'Water tower (on legs)',ht:22,tower:1}),
+  kItem('box',10,4,{w:6,h:4,label:'HVAC unit',ht:4.5,col:'#b9bcbf'}),kItem('box',10,10,{w:4,h:3,label:'Vent / chimney',ht:6,col:'#8a5a44'}),
+  kItem('picnic',-6,4,{}),kItem('armchair',-11,11,{r:45}),kItem('armchair',-7.5,13,{r:20}),kItem('planter',-12.8,-2,{r:-90}),kItem('planter',-12.8,4,{r:-90}),
+  kItem('pr_pendant',-12,0,{label:'String lights'}),kItem('pr_pendant',-6,0,{label:'String lights'}),kItem('pr_pendant',0,0,{label:'String lights'})]);
+/* finishes the mock uses when these are placed (only if the scene has none yet) */
+Object.assign(KIT_FINISH,{kit_onebed:'modern_apartment',kit_teenbed:'teen_bedroom',kit_eatkitchen:'apartment_kitchen',kit_living:'prewar_apartment',kit_dining:'dining_room',
+  kit_hallway:'home_hallway',kit_dorm:'dorm_room',kit_lounge:'cocktail_lounge',kit_cafe:'caf_',kit_office:'corner_office',kit_conference:'conference_room',
+  kit_classroom:'school_classroom',kit_hospital:'hospital_room',kit_interrog:'interrogation_room',kit_hotel:'hotel_room',kit_laundromat:'laundromat',
+  kit_restroom:'public_restroom',kit_subway:'train_car'});
+const KIT_EXT={kit_rooftop:'rooftop'};
+{const _pa=placeAt;placeAt=function(w,keep,alt){const k=V.placing;const r=_pa(w,keep,alt);try{const sc=scene();if(k&&KIT_EXT[k]&&sc&&!(sc.ext&&sc.ext.p)&&typeof EXT_P==='object'&&EXT_P[KIT_EXT[k]]){sc.ext={p:KIT_EXT[k]};scheduleSave();}}catch(e){}return r;};}
+/* the library: every kit lives in its own category, in sub-groups */
+const KIT_GROUPS=[
+  ['Homes',['kit_studio','kit_onebed','kit_bedroom_prewar','kit_teenbed','kit_living','kit_dining','kit_eatkitchen','kit_galley','kit_hallway','kit_dorm']],
+  ['Bathrooms',['kit_bath_apt','kit_bath_primary','kit_restroom']],
+  ['Food & drink',['kit_divebar','kit_lounge','kit_restaurant','kit_diner','kit_cafe']],
+  ['Work & public',['kit_office','kit_conference','kit_classroom','kit_hospital','kit_interrog','kit_hotel','kit_laundromat']],
+  ['Vehicles & odd spaces',['kit_subway','kit_rooftop']],
+  ['Building exteriors',['kit_brownstone','kit_brownrow','kit_walkup','kit_doorman','kit_bodega','kit_frontyard']]];
+{CATS.splice(CATS.indexOf('Set')+1,0,KITCAT);
+  const kitKeys=Object.keys(LIB).filter(k=>LIB[k].shape==='kit');const listed=KIT_GROUPS.flatMap(g=>g[1]);
+  const extra=kitKeys.filter(k=>!listed.includes(k));if(extra.length)KIT_GROUPS.push(['More',extra]);
+  for(let j=LIBALL.length-1;j>=0;j--)if(kitKeys.includes(LIBALL[j].key))LIBALL.splice(j,1);
+  KIT_GROUPS.forEach(([g,ks])=>ks.filter(k=>LIB[k]).forEach(k=>{LIB[k].group=g;LIB[k].cat=KITCAT;LIBALL.push({key:k,cat:KITCAT,group:g,name:LIB[k].name});}));
+  const _rl=renderLib;renderLib=function(){_rl();try{const b=$('#libCats [data-cat="Set"]');if(b)b.textContent='Set Elements';
+    $('#lib').querySelectorAll('.libGroup').forEach(h=>{if(/^Set · /.test(h.textContent))h.textContent=h.textContent.replace(/^Set · /,'Set Elements · ');});}catch(e){}};
+  try{renderLib();}catch(e){}}
+
+/* a custom object given a real height (rooftop bulkhead, water tower, HVAC, vending machine) stands that tall in the mock */
+{const _md=mockDetail;mockDetail=function(it,L,ctx,w,h){if(it.t==='box'&&+it.ht>0){const a=-w/2,b=w/2,T=-h/2,B=h/2,H=+it.ht;
+  if(it.tower){const g=H*.45;[[a+.6,T+.6],[b-.6,T+.6],[a+.6,B-.6],[b-.6,B-.6]].forEach(([x,y])=>boxL(ctx,it,x-.2,x+.2,y-.2,y+.2,0,g,'#3c3f44'));
+    boxL(ctx,it,a+.4,b-.4,T+.4,B-.4,g,g+.3,'#3c3f44');boxL(ctx,it,a+.6,b-.6,T+.6,B-.6,g+.3,H-1.6,'#8b6a4c');boxL(ctx,it,a+1.4,b-1.4,T+1.4,B-1.4,H-1.6,H,'#5b4636');return 1;}
+  boxL(ctx,it,a,b,T,B,0,H,it.col||'#8d8a85');return 1;}return _md(it,L,ctx,w,h);};}
 /* ============================================================
    Room finish (interiors) and Exterior look, per scene, for the 3D mock.
    One menu of presets; a small Customize fold for the parts. No furniture is ever painted in:
