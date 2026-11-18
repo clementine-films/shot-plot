@@ -6373,6 +6373,52 @@ KIT('kit_restaurant','Restaurant (24×30, 4-tops and 2-tops with candles)',24,30
 const KIT_FINISH={kit_bedroom_prewar:'prewar_apartment',kit_studio:'studio_apartment',kit_galley:'apartment_kitchen',kit_divebar:'dive_bar',kit_diner:'diner',kit_restaurant:'bistro',kit_bath_apt:'bathroom',kit_bath_primary:'primary_bathroom'};
 {const _pa=placeAt;placeAt=function(w,keep,alt){const k=V.placing;const r=_pa(w,keep,alt);try{const sc=scene();if(k&&KIT_FINISH[k]&&sc&&!(sc.finish&&sc.finish.p)&&typeof FIN_P==='object'&&FIN_P[KIT_FINISH[k]]){sc.finish={p:KIT_FINISH[k]};scheduleSave();}}catch(e){}return r;};}
 /* ============================================================
+   Gallery wall: a cluster of mismatched frames on one wall (apartments, hallways, stairways).
+   Layout, frame finish, how many, cluster height and center height are in its own panel group.
+   Art is simple abstract color (fields, horizons, stripes, shapes) so nothing reads as a real work.
+   ============================================================ */
+def('gallery',{cat:'Set',group:'Wall-mounted',name:'Gallery Wall (cluster of frames)',kind:'set',shape:'box',wallSnap:true,wallMount:true,defaults:{w:6,h:.2,label:'Gallery Wall'}});
+MH.gallery=[3.2,6.8];
+const GAL_LAY=['Salon (mixed sizes)','Grid (even)','One row','Up the stairs'],GAL_FR=['Mixed','Black','Wood','Gold','White'];
+const GAL_FC={Black:'#1d1d20',Wood:'#7a5434',Gold:'#b8963e',White:'#efece4'};
+const galOpt=it=>({lay:GAL_LAY.includes(it.gLay)?it.gLay:GAL_LAY[0],fr:GAL_FR.includes(it.gFr)?it.gFr:'Mixed',n:Math.max(2,Math.min(15,Math.round(+it.gN||7))),ht:Math.max(1,Math.min(8,+it.gHt||3.5)),ctr:Math.max(24,Math.min(96,+it.gCtr||60))});
+function galRnd(seed){let s=0;for(const ch of String(seed))s=(s*31+ch.charCodeAt(0))>>>0;s=s||1;return()=>{s^=s<<13;s>>>=0;s^=s>>17;s^=s<<5;s>>>=0;return s/4294967296;};}
+/* frames in wall coordinates: u across (ft from center), v height (ft above floor) */
+function galLayout(it){const o=galOpt(it),W=Math.max(1,+it.w||6),Hc=o.ht,vc=o.ctr/12,rnd=galRnd((it.id||'g')+o.lay+o.n),g=.22;let R=[];
+  if(/Grid/.test(o.lay)){const cols=Math.max(1,Math.round(Math.sqrt(o.n*W/Hc))),rows=Math.ceil(o.n/cols);const cw=(W-g*(cols-1))/cols,rh=(Hc-g*(rows-1))/rows;
+    for(let i=0;i<o.n;i++){const r=Math.floor(i/cols),c=i%cols;const inRow=Math.min(cols,o.n-r*cols),off=(cols-inRow)*(cw+g)/2;const u0=-W/2+off+c*(cw+g),v1=vc+Hc/2-r*(rh+g);R.push([u0,u0+cw,v1-rh,v1]);}}
+  else if(/row/.test(o.lay)){const ws=[...Array(o.n)].map(()=>.7+rnd()*.8),tot=ws.reduce((x,y)=>x+y,0),k=(W-g*(o.n-1))/tot;let u=-W/2;
+    ws.forEach(w0=>{const fw=w0*k,fh=Math.min(Hc,fw*(.8+rnd()*.6));R.push([u,u+fw,vc-fh/2,vc+fh/2]);u+=fw+g;});}
+  else if(/stairs/.test(o.lay)){const rise=Math.min(W*.6,4.5);const fw=(W-g*(o.n-1))/o.n;for(let i=0;i<o.n;i++){const u0=-W/2+i*(fw+g),fh=Math.min(Hc*.55,fw*(.9+rnd()*.5)),vm=vc-rise/2+rise*(i+.5)/o.n+(rnd()-.5)*.35;R.push([u0,u0+fw,vm-fh/2,vm+fh/2]);}}
+  else{let P=[[-W/2,W/2,vc-Hc/2,vc+Hc/2]];while(P.length<o.n){P.sort((p,q)=>(q[1]-q[0])*(q[3]-q[2])-(p[1]-p[0])*(p[3]-p[2]));const [u0,u1,v0,v1]=P.shift();const t=.35+rnd()*.3;
+      if(u1-u0>(v1-v0)*1.1){const m=u0+(u1-u0)*t;P.push([u0,m,v0,v1],[m,u1,v0,v1]);}else{const m=v0+(v1-v0)*t;P.push([u0,u1,v0,m],[u0,u1,m,v1]);}}
+    R=P.map(([u0,u1,v0,v1])=>{const cu=(u0+u1)/2,cv=(v0+v1)/2;let sw=(u1-u0-g)*(.78+rnd()*.22),sh=(v1-v0-g)*(.78+rnd()*.22);if(sw>sh*2)sw=sh*2;if(sh>sw*2)sh=sw*2;return [cu-sw/2,cu+sw/2,cv-sh/2,cv+sh/2];});R.sort((p,q)=>p[0]-q[0]);}
+  const fins=Object.keys(GAL_FC);return R.map((r,i)=>{const fr=o.fr==='Mixed'?fins[Math.floor(rnd()*4)]:o.fr;const fw=Math.min(.18,(r[1]-r[0])*.08)+(fr==='Gold'?.04:0);
+    const mat=rnd()<.55?Math.min(.35,Math.min(r[1]-r[0],r[3]-r[2])*.14):0;return {u0:r[0],u1:r[1],v0:r[2],v1:r[3],fc:GAL_FC[fr],fw,mat,art:Math.floor(rnd()*6),k:rnd(),pal:Math.floor(rnd()*GAL_PAL.length)};});}
+const GAL_PAL=[['#d9a46c','#3f5e74','#efe2c6'],['#c8553d','#f2d0a4','#2d3047'],['#8fb3a5','#f4ecd8','#3b4d45'],['#e7c873','#4a6c8c','#f6f1e4'],['#b9b4ab','#5d5a55','#ece9e3'],['#d98e86','#6b7f99','#f3e8dc'],['#2f2f33','#a9a39a','#efede8']];
+/* the art inside a frame, as flat rectangles: [u0,u1,v0,v1,color] in 0..1 of the picture area */
+function galArt(f){const p=GAL_PAL[f.pal],k=f.k;switch(f.art){
+  case 0:return [[0,1,0,1,p[1]],[0,1,0,.38+k*.2,p[0]]];                                   /* horizon */
+  case 1:return [[0,1,0,1,p[2]],[.12,.88,.15,.85,p[0]],[.3,.7,.35,.65,p[1]]];               /* nested blocks */
+  case 2:return [[0,1,0,1,p[2]],[0,.34,0,1,p[0]],[.66,1,0,1,p[1]]];                         /* stripes */
+  case 3:return [[0,1,0,1,'#d8d6d2'],[.18,.82,.1,.75,'#8d8b88'],[.35,.65,.55,.9,'#5e5c59']]; /* black & white photo */
+  case 4:return [[0,1,0,1,p[2]],[.2,.8,.25,.75,p[1]]];                                      /* single shape */
+  default:return [[0,1,0,1,p[0]],[0,1,.55+k*.2,1,p[2]],[.55,.85,.2,.5,p[1]]];}}
+{const _sg=setGlyph;setGlyph=function(it,L,C,px){if(it.t!=='gallery')return _sg(it,L,C,px);const w=+it.w||6,h=+it.h||.2,a=-w/2,T=-h/2;
+  let s=`<rect x="${a}" y="${T}" width="${w}" height="${h}" fill="none" stroke="${C.setStroke}" stroke-width="${px}" stroke-dasharray="${3*px} ${2*px}"/>`;
+  galLayout(it).forEach(f=>{s+=`<rect x="${f.u0}" y="${T}" width="${Math.max(.05,f.u1-f.u0)}" height="${h}" fill="${f.fc}" stroke="${C.setStroke}" stroke-width="${.8*px}"/>`;});return s;};}
+{const _md=mockDetail;mockDetail=function(it,L,ctx,w,h){if(it.t!=='gallery')return _md(it,L,ctx,w,h);const T=-h/2,B=h/2;
+  const q=(u0,u1,v0,v1,c,y)=>quadL(ctx,it,[[u0,y,v0],[u1,y,v0],[u1,y,v1],[u0,y,v1]],c,'');
+  galLayout(it).forEach(f=>{const d=Math.min(B-T,.16);boxL(ctx,it,f.u0,f.u1,T,T+d,f.v0,f.v1,f.fc);let y=T+d+.01;
+    const iu0=f.u0+f.fw,iu1=f.u1-f.fw,iv0=f.v0+f.fw,iv1=f.v1-f.fw;if(iu1<=iu0||iv1<=iv0)return;
+    let au0=iu0,au1=iu1,av0=iv0,av1=iv1;if(f.mat){q(iu0,iu1,iv0,iv1,'#f4f1ea',y);y+=.008;au0+=f.mat;au1-=f.mat;av0+=f.mat;av1-=f.mat;if(au1<=au0||av1<=av0)return;}
+    galArt(f).forEach(([x0,x1,y0,y1,c])=>{q(au0+(au1-au0)*x0,au0+(au1-au0)*x1,av0+(av1-av0)*y0,av0+(av1-av0)*y1,c,y);y+=.006;});});return 1;};}
+{const _pi=panelItem;panelItem=function(){let h=_pi();const it=selItem();if(!it||it.t!=='gallery')return h;const o=galOpt(it);
+  h+=`<div class="grp"><h4>Gallery wall</h4>${fld('Layout',sel('gLay',GAL_LAY,o.lay))}${fld('Frames',sel('gFr',GAL_FR,o.fr))}
+   <div class="f2" style="display:flex;gap:8px">${fld('How many',inp('gN',o.n,'number','min="2" max="15" step="1"'))}${fld('Cluster height (ft)',inp('gHt',o.ht,'number','min="1" max="8" step="0.25"'))}</div>
+   ${fld('Center height (in)',inp('gCtr',o.ctr,'number','min="24" max="96" step="1"'))}<div class="pSub">Width is the cluster's width along the wall. Gallery walls usually center around 57–60 in. For a stairway, pick Up the stairs and widen it.</div></div>`;return h;};}
+{const i=LIBALL.findIndex(e=>e.key==='picture');const e={key:'gallery',cat:'Set',group:'Wall-mounted',name:LIB.gallery.name};if(i>=0)LIBALL.splice(i+1,0,e);else LIBALL.push(e);}
+/* ============================================================
    Car interior: a sedan shell you can shoot inside (dash, wheel, glass, pillars, roof),
    front bucket seats and a rear bench. Front of the car faces -y (up the plan) at r=0;
    seats face the front, so their backs are at +y.
@@ -6433,7 +6479,7 @@ KIT('kit_car','Car Interior (sedan, front seats, back seat)',6.2,15.5,()=>[kItem
 const KITCAT='Pre-Built Set Kits';
 KIT('kit_onebed','One-Bedroom Apartment (24×18, living, kitchenette, bedroom)',24,18,()=>[room(24,18),kLine('wall',[[4,-9],[4,9]]),
   kItem('window',-7,-9,{w:3.5,r:0}),kItem('window',-1,-9,{w:3.5,r:0}),kItem('radiator',-7,-8.7,{w:3,r:0}),
-  kItem('couch',-10.5,-3,{r:-90}),kItem('coffeetable',-7.8,-3,{r:-90}),kItem('rug',-6.5,-3,{w:8,h:5,r:90}),kItem('tvconsole',3.25,-3,{r:90}),
+  kItem('couch',-10.5,-3,{r:-90}),kItem('gallery',-12,-3,{w:6,r:-90}),kItem('coffeetable',-7.8,-3,{r:-90}),kItem('rug',-6.5,-3,{w:8,h:5,r:90}),kItem('tvconsole',3.25,-3,{r:90}),
   kItem('armchair',-6.5,-7.3,{r:0}),kItem('pr_floor',-11.2,-8.2,{}),kItem('sidetable',-10.9,1.3,{}),kItem('pr_table',-10.9,1.3,{}),
   kItem('roundtable',-4.2,3.4,{w:3,h:3}),kItem('chair',-4.2,1.2,{r:0}),kItem('chair',-4.2,5.6,{r:180}),kItem('pr_pendant',-4.2,3.4,{}),
   kItem('fridge',-10.5,7.75,{r:180}),kItem('counter',-6.5,7.9,{w:5,r:180}),kItem('sink',-6.5,7.9,{r:180}),kItem('stove',-2.75,7.9,{r:180}),
@@ -6456,7 +6502,7 @@ KIT('kit_living','Living Room (16×14, sofa, TV wall, armchairs)',16,14,()=>[roo
   kItem('tvconsole',0,-6.25,{r:0}),kItem('tv',0,-7,{r:0}),kItem('couch',0,2.6,{r:180}),kItem('coffeetable',0,-.6,{r:0}),kItem('rug',0,-.6,{w:10,h:7}),
   kItem('armchair',-5.2,-1.2,{r:-90}),kItem('armchair',5.2,-1.2,{r:90}),kItem('sidetable',-4.4,2.6,{}),kItem('sidetable',4.4,2.6,{}),kItem('pr_table',-4.4,2.6,{}),kItem('pr_table',4.4,2.6,{}),
   kItem('window',-8,-2.5,{w:3.5,r:-90}),kItem('window',-8,3,{w:3.5,r:-90}),kItem('radiator',-7.7,-2.5,{w:3,r:-90}),kItem('pr_floor',-7.2,-6.2,{}),
-  kItem('bookshelf',7.5,4,{r:90}),kItem('plant',6.8,-6,{}),kItem('door',4.5,7,{w:2.67,r:0,hinge:'Left',swing:'In'})]);
+  kItem('bookshelf',7.5,4,{r:90}),kItem('gallery',8,-2.2,{w:5,r:90,gLay:'Grid (even)',gN:6,gFr:'Black'}),kItem('plant',6.8,-6,{}),kItem('door',4.5,7,{w:2.67,r:0,hinge:'Left',swing:'In'})]);
 KIT('kit_dining','Dining Room (12×14, table for eight, sideboard)',12,14,()=>{const o=[room(12,14),
   kItem('diningtable',0,0,{r:90}),kItem('rug',0,0,{w:8,h:10}),kItem('pr_chand',0,0,{}),kItem('chair',0,-3.85,{r:0}),kItem('chair',0,3.85,{r:180}),
   kItem('dresser',5.2,0,{r:90,label:'Sideboard'}),kItem('window',-6,-3,{w:3,r:-90}),kItem('window',-6,3,{w:3,r:-90}),kItem('picture',0,-7,{r:0}),
@@ -6465,7 +6511,7 @@ KIT('kit_dining','Dining Room (12×14, table for eight, sideboard)',12,14,()=>{c
 KIT('kit_hallway','Apartment Hallway (4×24, doors off both sides)',4,24,()=>[room(4,24),
   kItem('door',-2,-7,{w:2.67,r:90,swing:'Out',label:'Bedroom'}),kItem('door',-2,3,{w:2.67,r:90,swing:'Out',label:'Bathroom'}),kItem('door',2,-2,{w:2.67,r:-90,swing:'Out',label:'Closet'}),
   kItem('archway',0,-12,{w:3.5,r:180,label:'To living room'}),kItem('door',0,12,{w:3,r:0,hinge:'Left',swing:'In',label:'Front door'}),
-  kItem('coatrack',1.2,9.8,{}),kItem('picture',2,5,{r:90}),kItem('picture',-2,-2,{r:-90}),kItem('rug',0,0,{w:2.5,h:14,label:'Runner'}),
+  kItem('coatrack',1.2,9.8,{}),kItem('gallery',2,6,{w:5,r:90,gLay:'One row',gN:4}),kItem('picture',-2,-2,{r:-90}),kItem('rug',0,0,{w:2.5,h:14,label:'Runner'}),
   kItem('pr_flush',0,-7,{}),kItem('pr_flush',0,1,{}),kItem('pr_flush',0,8,{})]);
 KIT('kit_dorm','Dorm Room (12×15, two twin beds, two desks)',12,15,()=>[room(12,15),
   kItem('window',0,-7.5,{w:3,r:0}),kItem('bedtwin',-4.35,-4.35,{r:0}),kItem('bedtwin',4.35,-4.35,{r:0}),
