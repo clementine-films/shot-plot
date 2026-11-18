@@ -6373,6 +6373,67 @@ KIT('kit_restaurant','Restaurant (24×30, 4-tops and 2-tops with candles)',24,30
 const KIT_FINISH={kit_bedroom_prewar:'prewar_apartment',kit_studio:'studio_apartment',kit_galley:'apartment_kitchen',kit_divebar:'dive_bar',kit_diner:'diner',kit_restaurant:'bistro',kit_bath_apt:'bathroom',kit_bath_primary:'primary_bathroom'};
 {const _pa=placeAt;placeAt=function(w,keep,alt){const k=V.placing;const r=_pa(w,keep,alt);try{const sc=scene();if(k&&KIT_FINISH[k]&&sc&&!(sc.finish&&sc.finish.p)&&typeof FIN_P==='object'&&FIN_P[KIT_FINISH[k]]){sc.finish={p:KIT_FINISH[k]};scheduleSave();}}catch(e){}return r;};}
 /* ============================================================
+   Artwork for picture frames and gallery walls: original pictures built from simple shapes
+   (no real works). Each kind has several variations; a seed keeps a frame's picture stable.
+   artPaint(kind,seed,aspect) → layers [[pts in 0..1 (u right, v up)], color]
+   ============================================================ */
+const ART_KINDS=['Scenery','Abstract','Portrait','Still life','Botanical','Black & white photo','Poster'];
+function artPaint(kind,seed,asp){const rnd=galRnd(String(seed)+kind);const L=[];asp=asp||1;
+  const rect=(x0,x1,y0,y1,c)=>L.push([[[x0,y0],[x1,y0],[x1,y1],[x0,y1]],c]);
+  const ell=(cx,cy,rx,ry,c,a0,a1,n)=>{a0=a0||0;a1=a1==null?Math.PI*2:a1;n=n||22;const P=[];for(let i=0;i<=n;i++){const t=a0+(a1-a0)*i/n;P.push([cx+rx*Math.cos(t),cy+ry*Math.sin(t)]);}L.push([P,c]);};
+  const circ=(cx,cy,r,c)=>ell(cx,cy,r/asp,r,c);
+  const rot=(cx,cy,rx,ry,ang,c)=>{const P=[];for(let i=0;i<18;i++){const t=i/18*Math.PI*2,x=rx*Math.cos(t),y=ry*Math.sin(t);P.push([cx+(x*Math.cos(ang)-y*Math.sin(ang))/asp,cy+x*Math.sin(ang)+y*Math.cos(ang)]);}L.push([P,c]);};
+  const poly=(P,c)=>L.push([P,c]);const pick=a=>a[Math.floor(rnd()*a.length)];
+  const sky=(cols,y0)=>{const n=cols.length;cols.forEach((c,i)=>rect(0,1,y0+(1-y0)*i/n,y0+(1-y0)*(i+1)/n+.002,c));};
+  const scenery=()=>{const v=Math.floor(rnd()*5);
+    if(v===0){sky(['#f3d9b1','#e9c3a0','#b9c6d3','#8fa9c2'],.3);circ(.72,.72,.09,'#fbeccb');poly([[-.05,.3],[.38,.82],[.8,.3]],'#7d8ea3');poly([[.35,.3],[.75,.7],[1.1,.3]],'#5c6d82');
+      poly([[.28,.66],[.38,.82],[.47,.7]],'#eef1f4');rect(0,1,0,.31,'#4f6b55');rect(0,1,0,.12,'#3f5845');return;}
+    if(v===1){sky(['#fbe3c2','#f6cba2','#eab08e','#c9a0a4'],.42);circ(.5,.45,.11,'#fff1cf');rect(0,1,.1,.43,'#4c7a95');[.36,.29,.2].forEach((y,i)=>rect(.15+i*.1,.85-i*.1,y,y+.012,'#8db6ca'));rect(0,1,0,.11,'#e2cfa6');return;}
+    if(v===2){sky(['#dbe9f2','#c4dced','#a9cbe4'],.35);ell(.25,.25,.55,.32,'#9cbf7a',0,Math.PI);ell(.8,.2,.55,.3,'#7fa860',0,Math.PI);rect(0,1,0,.22,'#6b9450');ell(.5,.05,.7,.2,'#5d8746',0,Math.PI);
+      rect(.69,.71,.3,.46,'#5b4636');circ(.7,.52,.09,'#3f6b3a');return;}
+    if(v===3){sky(['#2f3555','#5a4a6e','#b5677a','#efa27a'].reverse(),.25);rect(0,1,0,.26,'#262a3a');let x=0;while(x<1){const w=.06+rnd()*.1,h=.25+rnd()*.45;rect(x,x+w-.01,0,h,pick(['#2d3247','#363b52','#252939']));
+        for(let y=.05;y<h-.04;y+=.06)for(let u=x+.012;u<x+w-.025;u+=.025)if(rnd()<.45)rect(u,u+.01,y,y+.025,'#f4d58a');x+=w;}return;}
+    sky(['#e8eef0','#d3e1e4','#bcd3d7'],.3);rect(0,1,0,.32,'#556b4a');for(let r=0;r<2;r++)for(let i=0;i<9;i++){const x=i/8+(r?.06:0),h=.3+rnd()*.2,y=r?.1:.22;poly([[x-.06,y],[x,y+h],[x+.06,y]],r?'#2f4b33':'#47664a');}};
+  const abstract=()=>{const P=pick([['#e3b448','#3a6ea5','#c8553d','#f2ead8'],['#2d3047','#e0a458','#93b7be','#f4f1e8'],['#d98e86','#6b7f99','#efe2c8','#3b3b3b'],['#5f8d6e','#e9c46a','#264653','#f4ecdf']]);const v=Math.floor(rnd()*4);
+    rect(0,1,0,1,P[3]);if(v===0){circ(.38,.55,.26,P[0]);circ(.64,.42,.2,P[1]);circ(.5,.75,.08,P[2]);return;}
+    if(v===1){rect(.08,.55,.1,.62,P[0]);rect(.45,.92,.4,.9,P[1]);rect(.3,.62,.28,.48,P[2]);return;}
+    if(v===2){for(let i=0;i<5;i++){const y=.08+i*.18;poly([[0,y],[1,y+.12],[1,y+.2],[0,y+.08]],P[i%3]);}return;}
+    ell(.5,.12,.38/asp,.6,P[0],0,Math.PI);ell(.5,.12,.24/asp,.42,P[3],0,Math.PI);ell(.5,.12,.12/asp,.22,P[1],0,Math.PI);rect(0,1,0,.12,P[2]);};
+  const portrait=(bw)=>{const bg=pick(['#3d4a5c','#6b5b4e','#2f3b34','#8a6f5c','#4f4a63']),skin=pick(['#e8c4a8','#c99a78','#a8754f','#7a5236','#f0d2bd']),hair=pick(['#2a211c','#5a3a24','#8b6b3d','#1a1a1a','#b9a48a']),
+      cloth=pick(['#2f4f6f','#7a2f2f','#3e5a3e','#2b2b2b','#c9b28a']);rect(0,1,0,1,bg);ell(.5,.62,.2/asp*1.05,.24,hair);ell(.5,0,.42/asp*1.0,.34,cloth,0,Math.PI);rect(.45,.55,.28,.42,skin);ell(.5,.55,.15/asp,.2,skin);
+    ell(.5,.66,.16/asp,.1,hair,0,Math.PI);};
+  const still=()=>{rect(0,1,0,1,pick(['#3a3530','#5b5246','#2f3a40']));rect(0,1,0,.28,pick(['#8a6a4c','#6f5440','#b39b7a']));rect(0,1,.27,.3,'#4a3a2c');
+    ell(.42,.45,.12/asp,.17,pick(['#4f7ea8','#c9a46a','#9a4f3f','#d8d2c4']));rect(.39,.45,.58,.7,'#4f7ea8');[[.36,.82,'#d8574a'],[.46,.86,'#f2c14e'],[.42,.76,'#e9e2d0'],[.5,.78,'#d8574a']].forEach(([x,y,c])=>circ(x,y,.055,c));
+    circ(.68,.34,.07,'#e0a33a');circ(.78,.33,.06,'#8db04f');circ(.2,.33,.065,'#b8333a');};
+  const botanical=()=>{rect(0,1,0,1,pick(['#f2ecdc','#eef0e6','#f4e9e1']));const g=pick(['#4f7a4a','#3e6b5a','#6b8a4a','#5d7d6b']);const v=Math.floor(rnd()*3);
+    if(v===0){rect(.495,.505,.08,.85,g);for(let i=0;i<6;i++){const y=.22+i*.11,s=i%2?1:-1;rot(.5+s*.11/asp,y,.13,.05,s*.5,g);}rot(.5,.9,.06,.1,0,g);return;}
+    if(v===1){for(let i=0;i<14;i++){const t=i/13,x=.5+Math.sin(t*2.6)*.16,y=.1+t*.78;rect(x-.004,x+.004,y,y+.06,g);circ(x+(i%2?.07:-.07),y+.02,.055,g);}return;}
+    for(let i=0;i<9;i++){const x=.2+i*.075,h=.45+rnd()*.4,lean=(rnd()-.5)*.2;poly([[x-.02,.08],[x+lean,.08+h],[x+.02,.08]],g);}rect(.12,.88,.04,.1,pick(['#b9764f','#d8d2c4','#5b6470']));};
+  const poster=()=>{const P=pick([['#d94f30','#f4e9d8','#1e1e1e'],['#1f4e79','#f2c14e','#f7f3ea'],['#2a2a2a','#e8c547','#f2f2f2'],['#3c6e47','#f1e3c8','#e46b4c']]);
+    rect(0,1,0,1,P[0]);circ(.5,.62,.24,P[1]);rect(.12,.88,.2,.27,P[2]);rect(.12,.6,.12,.16,P[2]);rect(.12,.45,.06,.09,P[1]);};
+  const gray=c=>{const n=parseInt(c.slice(1),16),r=n>>16&255,g=n>>8&255,b=n&255,y=Math.round(.3*r+.59*g+.11*b);const h=y.toString(16).padStart(2,'0');return '#'+h+h+h;};
+  if(kind==='Scenery')scenery();else if(kind==='Abstract')abstract();else if(kind==='Portrait')portrait();else if(kind==='Still life')still();else if(kind==='Botanical')botanical();else if(kind==='Poster')poster();
+  else{(rnd()<.5?scenery:portrait)();L.forEach(l=>l[1]=gray(l[1]));}
+  return L;}
+/* draw layers into a wall-plane rect (u0..u1 across, v0..v1 up) at depth y of item it */
+function artDraw(ctx,it,kind,seed,u0,u1,v0,v1,y){const L=artPaint(kind,seed,(u1-u0)/Math.max(.05,v1-v0));const cu=x=>u0+(u1-u0)*Math.max(0,Math.min(1,x)),cv=x=>v0+(v1-v0)*Math.max(0,Math.min(1,x));
+  L.forEach(([P,c],i)=>quadL(ctx,it,P.map(([x,v])=>[cu(x),y+i*.004,cv(v)]),c,''));}
+const artKindOf=(it,seed)=>ART_KINDS.includes(it.artKind)?it.artKind:ART_KINDS.slice(0,5)[Math.floor(galRnd('auto'+seed)()*5)];
+/* ---------- the plain Picture Frame becomes a real picture ---------- */
+const PIC_FR={'Dark wood':'#3b2c22',Black:'#1d1d20',Gold:'#b8963e',White:'#efece4','Natural oak':'#b08a5a'};
+const picOpt=it=>({art:ART_KINDS.includes(it.artKind)?it.artKind:'Auto (varies)',fr:PIC_FR[it.picFr]?it.picFr:'Dark wood',mat:it.picMat==='No'?'No':'Yes',or:['Landscape','Portrait','Square'].includes(it.picOr)?it.picOr:'Landscape',v:Math.max(0,Math.round(+it.artVar||0))});
+{const _md=mockDetail;mockDetail=function(it,L,ctx,w,h){if(it.t!=='picture'||(it.mount&&it.mount!=='flat'))return _md(it,L,ctx,w,h);
+  const o=picOpt(it),T=-h/2,B=h/2,a=-w/2,b=w/2;const ph=Math.min(6,w*(o.or==='Portrait'?1.3:o.or==='Square'?1:.72)),vc=5.5,v0=Math.max(.4,vc-ph/2),v1=v0+ph;
+  const fc=PIC_FR[o.fr],fw=Math.min(.22,w*.06)+(o.fr==='Gold'?.04:0);boxL(ctx,it,a,b,T,B,v0,v1,fc);let y=B+.01;
+  let iu0=a+fw,iu1=b-fw,iv0=v0+fw,iv1=v1-fw;const face=(x0,x1,q0,q1,c)=>quadL(ctx,it,[[x0,y,q0],[x1,y,q0],[x1,y,q1],[x0,y,q1]],c,'');
+  if(o.mat==='Yes'){face(iu0,iu1,iv0,iv1,'#f4f1ea');y+=.006;const m=Math.min(.3,Math.min(iu1-iu0,iv1-iv0)*.13);iu0+=m;iu1-=m;iv0+=m;iv1-=m;}
+  const seed=(it.id||'p')+':'+o.v;artDraw(ctx,it,o.art==='Auto (varies)'?artKindOf(it,it.id||'p'):o.art,seed,iu0,iu1,iv0,iv1,y);return 1;};}
+{const _pi=panelItem;panelItem=function(){let h=_pi();const it=selItem();if(!it||it.t!=='picture')return h;const o=picOpt(it);
+  h+=`<div class="grp"><h4>Artwork</h4>${fld('Picture',sel('artKind',['Auto (varies)',...ART_KINDS],o.art))}
+   <div class="f2" style="display:flex;gap:8px">${fld('Variation',inp('artVar',o.v,'number','min="0" step="1"'))}${fld('Shape',sel('picOr',['Landscape','Portrait','Square'],o.or))}</div>
+   <div class="f2" style="display:flex;gap:8px">${fld('Frame',sel('picFr',Object.keys(PIC_FR),o.fr))}${fld('Mat',sel('picMat',['Yes','No'],o.mat))}</div>
+   <div class="pSub">Shown in the mock reference. Step Variation up for a different picture of the same kind. Width is the frame's width; Shape sets its height.</div></div>`;return h;};}
+/* ============================================================
    Gallery wall: a cluster of mismatched frames on one wall (apartments, hallways, stairways).
    Layout, frame finish, how many, cluster height and center height are in its own panel group.
    Art is simple abstract color (fields, horizons, stripes, shapes) so nothing reads as a real work.
@@ -6381,8 +6442,8 @@ def('gallery',{cat:'Set',group:'Wall-mounted',name:'Gallery Wall (cluster of fra
 MH.gallery=[3.2,6.8];
 const GAL_LAY=['Salon (mixed sizes)','Grid (even)','One row','Up the stairs'],GAL_FR=['Mixed','Black','Wood','Gold','White'];
 const GAL_FC={Black:'#1d1d20',Wood:'#7a5434',Gold:'#b8963e',White:'#efece4'};
-const galOpt=it=>({lay:GAL_LAY.includes(it.gLay)?it.gLay:GAL_LAY[0],fr:GAL_FR.includes(it.gFr)?it.gFr:'Mixed',n:Math.max(2,Math.min(15,Math.round(+it.gN||7))),ht:Math.max(1,Math.min(8,+it.gHt||3.5)),ctr:Math.max(24,Math.min(96,+it.gCtr||60))});
-function galRnd(seed){let s=0;for(const ch of String(seed))s=(s*31+ch.charCodeAt(0))>>>0;s=s||1;return()=>{s^=s<<13;s>>>=0;s^=s>>17;s^=s<<5;s>>>=0;return s/4294967296;};}
+const galOpt=it=>({lay:GAL_LAY.includes(it.gLay)?it.gLay:GAL_LAY[0],fr:GAL_FR.includes(it.gFr)?it.gFr:'Mixed',n:Math.max(2,Math.min(15,Math.round(+it.gN||7))),ht:Math.max(1,Math.min(8,+it.gHt||3.5)),ctr:Math.max(24,Math.min(96,+it.gCtr||60)),art:ART_KINDS.includes(it.gArt)?it.gArt:'Mixed'});
+function galRnd(seed){let s=0;for(const ch of String(seed))s=(Math.imul(s^ch.charCodeAt(0),2654435761)+0x9e3779b9)>>>0;s=s||1;const nx=()=>{s^=s<<13;s>>>=0;s^=s>>17;s^=s<<5;s>>>=0;return s/4294967296;};for(let i=0;i<12;i++)nx();return nx;}
 /* frames in wall coordinates: u across (ft from center), v height (ft above floor) */
 function galLayout(it){const o=galOpt(it),W=Math.max(1,+it.w||6),Hc=o.ht,vc=o.ctr/12,rnd=galRnd((it.id||'g')+o.lay+o.n),g=.22;let R=[];
   if(/Grid/.test(o.lay)){const cols=Math.max(1,Math.round(Math.sqrt(o.n*W/Hc))),rows=Math.ceil(o.n/cols);const cw=(W-g*(cols-1))/cols,rh=(Hc-g*(rows-1))/rows;
@@ -6394,7 +6455,7 @@ function galLayout(it){const o=galOpt(it),W=Math.max(1,+it.w||6),Hc=o.ht,vc=o.ct
       if(u1-u0>(v1-v0)*1.1){const m=u0+(u1-u0)*t;P.push([u0,m,v0,v1],[m,u1,v0,v1]);}else{const m=v0+(v1-v0)*t;P.push([u0,u1,v0,m],[u0,u1,m,v1]);}}
     R=P.map(([u0,u1,v0,v1])=>{const cu=(u0+u1)/2,cv=(v0+v1)/2;let sw=(u1-u0-g)*(.78+rnd()*.22),sh=(v1-v0-g)*(.78+rnd()*.22);if(sw>sh*2)sw=sh*2;if(sh>sw*2)sh=sw*2;return [cu-sw/2,cu+sw/2,cv-sh/2,cv+sh/2];});R.sort((p,q)=>p[0]-q[0]);}
   const fins=Object.keys(GAL_FC);return R.map((r,i)=>{const fr=o.fr==='Mixed'?fins[Math.floor(rnd()*4)]:o.fr;const fw=Math.min(.18,(r[1]-r[0])*.08)+(fr==='Gold'?.04:0);
-    const mat=rnd()<.55?Math.min(.35,Math.min(r[1]-r[0],r[3]-r[2])*.14):0;return {u0:r[0],u1:r[1],v0:r[2],v1:r[3],fc:GAL_FC[fr],fw,mat,art:Math.floor(rnd()*6),k:rnd(),pal:Math.floor(rnd()*GAL_PAL.length)};});}
+    const mat=rnd()<.55?Math.min(.35,Math.min(r[1]-r[0],r[3]-r[2])*.14):0;return {u0:r[0],u1:r[1],v0:r[2],v1:r[3],fc:GAL_FC[fr],fw,mat,art:Math.floor(rnd()*7),i,k:rnd(),pal:Math.floor(rnd()*GAL_PAL.length)};});}
 const GAL_PAL=[['#d9a46c','#3f5e74','#efe2c6'],['#c8553d','#f2d0a4','#2d3047'],['#8fb3a5','#f4ecd8','#3b4d45'],['#e7c873','#4a6c8c','#f6f1e4'],['#b9b4ab','#5d5a55','#ece9e3'],['#d98e86','#6b7f99','#f3e8dc'],['#2f2f33','#a9a39a','#efede8']];
 /* the art inside a frame, as flat rectangles: [u0,u1,v0,v1,color] in 0..1 of the picture area */
 function galArt(f){const p=GAL_PAL[f.pal],k=f.k;switch(f.art){
@@ -6412,9 +6473,9 @@ function galArt(f){const p=GAL_PAL[f.pal],k=f.k;switch(f.art){
   galLayout(it).forEach(f=>{const d=Math.min(B-T,.16);boxL(ctx,it,f.u0,f.u1,T,T+d,f.v0,f.v1,f.fc);let y=T+d+.01;
     const iu0=f.u0+f.fw,iu1=f.u1-f.fw,iv0=f.v0+f.fw,iv1=f.v1-f.fw;if(iu1<=iu0||iv1<=iv0)return;
     let au0=iu0,au1=iu1,av0=iv0,av1=iv1;if(f.mat){q(iu0,iu1,iv0,iv1,'#f4f1ea',y);y+=.008;au0+=f.mat;au1-=f.mat;av0+=f.mat;av1-=f.mat;if(au1<=au0||av1<=av0)return;}
-    galArt(f).forEach(([x0,x1,y0,y1,c])=>{q(au0+(au1-au0)*x0,au0+(au1-au0)*x1,av0+(av1-av0)*y0,av0+(av1-av0)*y1,c,y);y+=.006;});});return 1;};}
+    const ga=galOpt(it).art;artDraw(ctx,it,ga==='Mixed'?['Scenery','Abstract','Portrait','Still life','Botanical','Black & white photo','Abstract'][f.art%7]:ga,(it.id||'g')+':'+f.i,au0,au1,av0,av1,y);});return 1;};}
 {const _pi=panelItem;panelItem=function(){let h=_pi();const it=selItem();if(!it||it.t!=='gallery')return h;const o=galOpt(it);
-  h+=`<div class="grp"><h4>Gallery wall</h4>${fld('Layout',sel('gLay',GAL_LAY,o.lay))}${fld('Frames',sel('gFr',GAL_FR,o.fr))}
+  h+=`<div class="grp"><h4>Gallery wall</h4>${fld('Layout',sel('gLay',GAL_LAY,o.lay))}${fld('Frames',sel('gFr',GAL_FR,o.fr))}${fld('Pictures',sel('gArt',['Mixed',...ART_KINDS],o.art))}
    <div class="f2" style="display:flex;gap:8px">${fld('How many',inp('gN',o.n,'number','min="2" max="15" step="1"'))}${fld('Cluster height (ft)',inp('gHt',o.ht,'number','min="1" max="8" step="0.25"'))}</div>
    ${fld('Center height (in)',inp('gCtr',o.ctr,'number','min="24" max="96" step="1"'))}<div class="pSub">Width is the cluster's width along the wall. Gallery walls usually center around 57–60 in. For a stairway, pick Up the stairs and widen it.</div></div>`;return h;};}
 {const i=LIBALL.findIndex(e=>e.key==='picture');const e={key:'gallery',cat:'Set',group:'Wall-mounted',name:LIB.gallery.name};if(i>=0)LIBALL.splice(i+1,0,e);else LIBALL.push(e);}
