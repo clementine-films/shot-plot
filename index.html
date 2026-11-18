@@ -6373,6 +6373,59 @@ KIT('kit_restaurant','Restaurant (24×30, 4-tops and 2-tops with candles)',24,30
 const KIT_FINISH={kit_bedroom_prewar:'prewar_apartment',kit_studio:'studio_apartment',kit_galley:'apartment_kitchen',kit_divebar:'dive_bar',kit_diner:'diner',kit_restaurant:'bistro',kit_bath_apt:'bathroom',kit_bath_primary:'primary_bathroom'};
 {const _pa=placeAt;placeAt=function(w,keep,alt){const k=V.placing;const r=_pa(w,keep,alt);try{const sc=scene();if(k&&KIT_FINISH[k]&&sc&&!(sc.finish&&sc.finish.p)&&typeof FIN_P==='object'&&FIN_P[KIT_FINISH[k]]){sc.finish={p:KIT_FINISH[k]};scheduleSave();}}catch(e){}return r;};}
 /* ============================================================
+   Car interior: a sedan shell you can shoot inside (dash, wheel, glass, pillars, roof),
+   front bucket seats and a rear bench. Front of the car faces -y (up the plan) at r=0;
+   seats face the front, so their backs are at +y.
+   ============================================================ */
+def('car_shell',{cat:'Set',group:'Vehicles',name:'Car Interior Shell (sedan, shoot inside it)',kind:'set',shape:'car_shell',defaults:{w:6.2,h:15.5,label:''}});
+def('car_seat',{cat:'Set',group:'Vehicles',name:'Car Seat (front bucket)',kind:'set',shape:'car_seat',defaults:{w:1.8,h:2.3,label:''}});
+def('car_bench',{cat:'Set',group:'Vehicles',name:'Car Back Seat (bench)',kind:'set',shape:'car_bench',defaults:{w:5.2,h:2.1,label:''}});
+Object.assign(MH,{car_shell:[0,4.7],car_seat:[0,4.3],car_bench:[0,4.2]});Object.assign(SEAT_H,{car_seat:1.7,car_bench:1.7});
+/* shell layout along the car, in feet from the center (front is negative) */
+const CAR={hood:-4.0,dash:-2.9,wsTop:-2.0,bPil:.7,rgTop:3.6,rgBot:5.4,sill:3.0,roof:4.55,floor:.95,wheelY:-2.6,wheelX:-1.3};
+{const _sg=setGlyph;setGlyph=function(it,L,C,px){if(!/^car_(shell|seat|bench)$/.test(it.t))return _sg(it,L,C,px);
+  const w=+it.w||1,h=+it.h||1,a=-w/2,b=w/2,T=-h/2,B=h/2,sy=h/15.5;const st=`stroke="${C.setStroke}" stroke-width="${1.3*px}"`,thin=`stroke="${C.setStroke}" stroke-width="${px}"`;
+  const R=(x,y,W,H,rx,f,ex)=>`<rect x="${x}" y="${y}" width="${Math.max(.01,W)}" height="${Math.max(.01,H)}" rx="${rx||0}" fill="${f||C.setFill}" ${ex||st}/>`;const Y=v=>v*sy;
+  if(it.t==='car_shell'){let s=R(a,T,w,h,1.1);
+    s+=R(a+.25,Y(CAR.hood),w-.5,Y(CAR.rgBot-CAR.hood),.5,'#2e3034',thin);
+    s+=R(a+.35,Y(CAR.hood),w-.7,Y(CAR.wsTop-CAR.hood),.4,'#9fd3ff',thin+' fill-opacity=".35"')+R(a+.35,Y(CAR.rgTop),w-.7,Y(CAR.rgBot-CAR.rgTop),.4,'#9fd3ff',thin+' fill-opacity=".35"');
+    s+=R(a+.3,Y(CAR.hood),w-.6,Y(CAR.dash-CAR.hood),.2,'#1f2124',thin);
+    s+=`<ellipse cx="${CAR.wheelX*w/6.2}" cy="${Y(CAR.wheelY)}" rx=".62" ry=".2" fill="none" stroke="${C.setStroke}" stroke-width="${2*px}"/>`;
+    s+=R(-.35,Y(CAR.dash),.7,Y(1.5-CAR.dash),.15,'#3a3c40',thin);
+    [CAR.hood,CAR.bPil,CAR.rgTop].forEach(v=>{s+=`<path d="M${a} ${Y(v)} h.35 M${b} ${Y(v)} h-.35" ${st}/>`;});
+    s+=R(a-.45,Y(-3.4),.45,.3,.08,C.setStroke,'')+R(b,Y(-3.4),.45,.3,.08,C.setStroke,'');
+    s+=R(a+.3,T+.05,.7,.2,.08,'#fff6c4','')+R(b-1,T+.05,.7,.2,.08,'#fff6c4','')+R(a+.3,B-.25,.7,.2,.08,'#d33a3a','')+R(b-1,B-.25,.7,.2,.08,'#d33a3a','');
+    s+=`<path d="M0 ${T+.5} l-.35 .5 h.7 z" fill="${C.setStroke}"/>`;return s;}
+  if(it.t==='car_seat')return R(a+.1,T,w-.2,h-.5,.35,'#4a4d53',thin)+R(a,B-.6,w,.45,.2,'#3b3e43',thin)+R(-.4,B-.2,.8,.2,.08,'#2f3135',thin);
+  const n=3,cw=(w-.2)/n;let s='';for(let i=0;i<n;i++)s+=R(a+.1+i*cw+.04,T,cw-.08,h-.55,.3,'#4a4d53',thin);
+  s+=R(a,B-.6,w,.5,.2,'#3b3e43',thin);[-1,1].forEach(k=>s+=R(k*(w/2-.9)-.35,B-.2,.7,.2,.08,'#2f3135',thin));return s;};}
+{const _md=mockDetail;mockDetail=function(it,L,ctx,w,h){if(!/^car_(shell|seat|bench)$/.test(it.t))return _md(it,L,ctx,w,h);
+  const a=-w/2,b=w/2,T=-h/2,B=h/2,sy=h/15.5,Y=v=>v*sy;const box=(x0,x1,y0,y1,z0,z1,c)=>boxL(ctx,it,x0,x1,y0,y1,z0,z1,c);const q=(pts,c,ex)=>quadL(ctx,it,pts,c,ex);
+  const glass=`fill-opacity=".22" stroke="#7fb3d6" stroke-width=".6"`;
+  if(it.t==='car_shell'){const body=it.color||'#5b6470',trim='#2a2c30',door='#3a3c40',head='#cdc7bc';const yh=Y(CAR.hood),yd=Y(CAR.dash),yw=Y(CAR.wsTop),yb=Y(CAR.bPil),yr=Y(CAR.rgTop),yg=Y(CAR.rgBot);
+    box(a,b,T,yh,.7,2.75,body);box(a,b,yg,B,.7,2.85,body);box(a+.15,b-.15,yh,yg,.7,CAR.floor,'#2b2c2f');
+    [-1,1].forEach(k=>{const x0=k<0?a:b-.18,x1=k<0?a+.18:b;box(x0,x1,yh,yg,.7,CAR.sill,door);
+      box(x0,x1,yh,yh+.25,CAR.sill,CAR.roof,trim);box(x0,x1,yb-.22,yb+.22,CAR.sill,CAR.roof,trim);box(x0,x1,yr-.2,yr+.25,CAR.sill,CAR.roof,trim);
+      const xg=k<0?a+.05:b-.05;q([[xg,yh+.25,CAR.sill],[xg,yb-.22,CAR.sill],[xg,yb-.22,CAR.roof],[xg,yw,CAR.roof]],'#cfe6f7',glass);
+      q([[xg,yb+.22,CAR.sill],[xg,yr-.2,CAR.sill],[xg,yr-.2,CAR.roof],[xg,yb+.22,CAR.roof]],'#cfe6f7',glass);
+      box(k<0?a-.45:b,k<0?a:b+.45,Y(-3.5),Y(-3.2),CAR.sill,CAR.sill+.4,'#202226');});
+    q([[a+.18,yh,CAR.sill],[b-.18,yh,CAR.sill],[b-.18,yw,CAR.roof],[a+.18,yw,CAR.roof]],'#cfe6f7',glass);
+    q([[a+.18,yr,CAR.roof],[b-.18,yr,CAR.roof],[b-.18,yg,CAR.sill],[a+.18,yg,CAR.sill]],'#cfe6f7',glass);
+    box(a,b,yw,yr,CAR.roof,CAR.roof+.15,body);box(a+.18,b-.18,yw,yr,CAR.roof-.06,CAR.roof,head);
+    box(a+.18,b-.18,yh,yd,2.15,2.95,'#24262a');box(a+.18,b-.18,yh,yh+.4,CAR.floor,2.15,'#2b2c2f');
+    box(-.35,.35,yd,Y(1.5),CAR.floor,2.05,'#34363a');box(-.35,.35,yw+.05,yw+.2,4.15,4.38,'#1d1e21');
+    const wx=CAR.wheelX*w/6.2,wy=Y(CAR.wheelY),wz=3.15,r=.62;box(wx-.08,wx+.08,yd-.1,wy,2.7,2.95,'#1d1e21');
+    for(let i=0;i<18;i++){const t=i/18*Math.PI*2;const x=wx+r*Math.cos(t),z=wz+r*Math.sin(t)*.92,yy=wy+Math.sin(t)*.18;box(x-.07,x+.07,yy-.07,yy+.07,z-.07,z+.07,'#1a1b1d');}
+    box(wx-.12,wx+.12,wy-.06,wy+.06,wz-.12,wz+.12,'#2a2b2e');return 1;}
+  const seat='#4a4d53',back='#3b3e43';
+  if(it.t==='car_seat'){box(a+.1,b-.1,T,B-.45,1.0,1.7,seat);box(a,b,B-.55,B-.1,1.0,3.75,back);box(-.38,.38,B-.45,B-.15,3.85,4.35,'#2f3135');return 1;}
+  box(a+.1,b-.1,T,B-.5,1.0,1.7,seat);box(a,b,B-.6,B-.1,1.0,3.6,back);[-1,1].forEach(k=>box(k*(w/2-.9)-.35,k*(w/2-.9)+.35,B-.45,B-.15,3.7,4.15,'#2f3135'));return 1;};}
+/* a car with no room walls around it shows the outside through its glass, even in an INT. scene */
+{const _ff=finForMock;finForMock=function(sc){const r=_ff(sc);try{if(!r.ext){const its=activeItems();if(its.some(i=>i.t==='car_shell')&&!its.some(i=>i.t==='line'&&i.kind==='wall'))return {ext:true,E:extOf(sc)};}}catch(e){}return r;};}
+{const add=['car_shell','car_seat','car_bench'];const i=LIBALL.map(e=>e.key).lastIndexOf('motorcycle');const ents=add.map(k=>({key:k,cat:'Set',group:LIB[k].group,name:LIB[k].name}));
+  const j=LIBALL.findIndex(e=>e.key==='car'&&!e.kit);if(j>=0)LIBALL.splice(j+1,0,...ents);else LIBALL.push(...ents);}
+KIT('kit_car','Car Interior (sedan, front seats, back seat)',6.2,15.5,()=>[kItem('car_shell',0,0,{}),kItem('car_seat',-1.35,-.75,{label:'Driver'}),kItem('car_seat',1.35,-.75,{label:'Passenger'}),kItem('car_bench',0,2.85,{label:'Back seat'})]);
+/* ============================================================
    More pre-built interiors, and the "Pre-Built Set Kits" library category.
    Coordinates in feet, x right, y down. Set pieces: back faces -y at r=0
    (r=90 back to the right wall, r=-90 back to the left wall, r=180 back to the bottom wall).
@@ -6500,7 +6553,7 @@ const KIT_GROUPS=[
   ['Bathrooms',['kit_bath_apt','kit_bath_primary','kit_restroom']],
   ['Food & drink',['kit_divebar','kit_lounge','kit_restaurant','kit_diner','kit_cafe']],
   ['Work & public',['kit_office','kit_conference','kit_classroom','kit_hospital','kit_interrog','kit_hotel','kit_laundromat']],
-  ['Vehicles & odd spaces',['kit_subway','kit_rooftop']],
+  ['Vehicles & odd spaces',['kit_car','kit_subway','kit_rooftop']],
   ['Building exteriors',['kit_brownstone','kit_brownrow','kit_walkup','kit_doorman','kit_bodega','kit_frontyard']]];
 {CATS.splice(CATS.indexOf('Set')+1,0,KITCAT);
   const kitKeys=Object.keys(LIB).filter(k=>LIB[k].shape==='kit');const listed=KIT_GROUPS.flatMap(g=>g[1]);
@@ -6646,6 +6699,7 @@ function wallTex(F){const col=FIN_COLORS[F.col]||F.col||'#e0d8cc';const H=Math.r
     case 'mirror':{const gr=g.createLinearGradient(0,0,w,h);gr.addColorStop(0,'#9fb0b8');gr.addColorStop(.5,'#dfe7ea');gr.addColorStop(1,'#8fa1aa');g.fillStyle=gr;g.fillRect(0,0,w,h);g.fillStyle='rgba(0,0,0,.2)';for(let x=0;x<w;x+=PXF*2)g.fillRect(x,0,2,h);break;}
     case 'curtain':{fill(col);for(let x=0;x<w;x+=PXF*.4){const gr=g.createLinearGradient(x,0,x+PXF*.4,0);gr.addColorStop(0,'rgba(0,0,0,.18)');gr.addColorStop(.5,'rgba(255,255,255,.08)');gr.addColorStop(1,'rgba(0,0,0,.18)');g.fillStyle=gr;g.fillRect(x,0,PXF*.4,h);}break;}
     case 'padded':{fill(sh(col,.85));for(let y=0;y<h;y+=PXF*.8)for(let x=0;x<w;x+=PXF*.8){const gr=g.createRadialGradient(x+PXF*.4,y+PXF*.4,2,x+PXF*.4,y+PXF*.4,PXF*.5);gr.addColorStop(0,sh(col,1.1));gr.addColorStop(1,sh(col,.75));g.fillStyle=gr;g.fillRect(x,y,PXF*.8,PXF*.8);}break;}
+    case 'glassblock':{fill('#9fb8c6');const q=PXF*.67;for(let y=0;y<h;y+=q)for(let x=0;x<w;x+=q){const gr=g.createRadialGradient(x+q/2,y+q/2,2,x+q/2,y+q/2,q*.6);gr.addColorStop(0,'#eef7fb');gr.addColorStop(1,'#bcd5e2');g.fillStyle=gr;g.fillRect(x+2,y+2,q-4,q-4);}break;}
     default:fill(col);}
   if(F.rail&&F.wall!=='wainscot'){g.fillStyle=F.trim==='wood'?'#7a4e2e':F.trim==='black'?'#222':F.trim==='match'?shade(col,.9):'#f2efe9';g.fillRect(0,h-3*PXF,w,PXF*.18);}
   wearPass(g,w,h,F.wear,R);});}
@@ -6683,6 +6737,11 @@ function groundTex(k,tod){return cvTex(['g',k].join('|'),8*PXF,8*PXF,(g,w,h)=>{c
 function windowGridTex(seed,night){return cvTex(['bw',seed,night].join('|'),128,256,(g,w,h)=>{const R=rnd(seed);g.fillStyle=['#8a8f96','#a59a8a','#7d6f62','#b5aea3','#6f7a85'][seed%5];g.fillRect(0,0,w,h);for(let y=10;y<h-6;y+=22)for(let x=8;x<w-8;x+=20){g.fillStyle=night?(R()<.45?'#ffd68a':'#1a2230'):(R()<.2?'#d9e6ee':'#4a5865');g.fillRect(x,y,12,14);}});}
 /* finish key used by the 3D mock */
 function finForMock(sc){const ext=sceneIsExt(sc);return ext?{ext:true,E:extOf(sc)}:{ext:false,F:finOf(sc)};}
+/* a wall's own material (plan panel → Material) draws as that surface in the mock, not just a color */
+const WALL_MAT_TEX={'Brick':{wall:'brick',base:'none',crown:false,rail:false},'Painted brick':{wall:'brick_white',base:'none',crown:false,rail:false},
+  'Concrete':{wall:'concrete',base:'none',crown:false,rail:false},'Cinder block':{wall:'cinder',col:'Light gray',base:'none',crown:false,rail:false},
+  'Stone':{wall:'stone',base:'none',crown:false,rail:false},'Wood paneling':{wall:'panel',rail:false},'Tile':{wall:'subway',base:'none',crown:false,rail:false},
+  'Half wall (pony wall)':{},'Glass block':{wall:'glassblock',base:'none',crown:false,rail:false,wear:'pristine'}};
 /* ============================================================
    The mock frame as a real 3D render (three.js, shipped with the app, loaded on first use).
    - every piece is built from the plot at its real size, and the depth buffer decides what's in front: no popping
@@ -6712,7 +6771,8 @@ function gl3Renderer(w,h){const T=THREE;if(!GL3.r){const cv=document.createEleme
           vec4 c=acc/wsum;vec3 lo=c.rgb*12.92;vec3 hi=1.055*pow(max(c.rgb,vec3(0.)),vec3(1./2.4))-.055;gl_FragColor=vec4(mix(lo,hi,step(vec3(.0031308),c.rgb)),1.);}`,depthTest:false,depthWrite:false});
     const sc=new T.Scene();const cam=new T.OrthographicCamera(-1,1,1,-1,0,1);sc.add(new T.Mesh(new T.PlaneGeometry(2,2),mat));GL3.post={mat,sc,cam};}
   return GL3.r;}
-const gl3Col=c=>{try{return new THREE.Color(String(c||'#888').trim());}catch(e){return new THREE.Color('#888');}};
+/* flat colors are written as sRGB hex; the frame is encoded back to sRGB at the end, so decode them to linear here */
+const gl3Col=c=>{let k;try{k=new THREE.Color(String(c||'#888').trim());}catch(e){k=new THREE.Color('#888');}if(!THREE.ColorManagement||THREE.ColorManagement.legacyMode!==false)k.convertSRGBToLinear();return k;};
 function attr(extra,k){const m=String(extra||'').match(new RegExp(k+'="([^"]+)"'));return m?m[1]:null;}
 /* a flat polygon (camera-space points) as a mesh: triangulated on its own plane */
 function polyTris(P,fill,extra,off,B){const T=THREE;if(P.length<3)return;const V=P.map(q=>new T.Vector3(q.l,q.z-off,-q.d));
@@ -6783,11 +6843,11 @@ function mockFrame3D(o){const T=THREE;
       const toward=(nx*(K.x-a.x)+ny*(K.y-a.y))>=0?1:-1;const at=(t,o2)=>({x:a.x+ux*t+nx*toward*(o2||0),y:a.y+uy*t+ny*toward*(o2||0)});
       const facing=Math.abs(nx*K.ux+ny*K.uy);const col=glass?(night?'#1d2a3a':'#cfe6f7'):shade(base,.78+.27*facing);const gl=glass?`fill-opacity="${night?.85:.45}" stroke="#7fb3d6" stroke-width=".6"`:'';
       const gaps=[];ops.forEach(op=>{const t=(op.x-a.x)*ux+(op.y-a.y)*uy;const d=Math.abs(-(op.x-a.x)*uy+(op.y-a.y)*ux);if(d<.5&&t>-1&&t<L+1){const hw=(+op.w||3)/2;gaps.push({t0:t-hw,t1:t+hw,op});}});gaps.sort((p,q)=>p.t0-q.t0);
-      const useTex=FF&&!glass&&(!w.mat||w.mat==='Drywall / plaster');const fac=Math.round((.8+.22*facing)*20)/20;const wt=useTex?wallTex(FF):null;
+      const mk=w.mat&&WALL_MAT_TEX[w.mat];const Fw=mk?Object.assign({ch:CH,col:'Light gray',wear:'lived',trim:'white'},FF||{},mk):FF;const useTex=Fw&&!glass&&(!w.mat||w.mat==='Drywall / plaster'||!!mk);const fac=Math.round((.8+.22*facing)*20)/20;const wt=useTex?wallTex(Fw):null;
       const piece=(t0,t1,z0,z1,fill,ex,lay)=>{t0=Math.max(0,t0);t1=Math.min(L,t1);if(t1-t0<.02)return;const o2=lay&&lay.k?lay.k*.03:0;const A=at(t0,o2),B=at(t1,o2);
-        if(useTex&&fill===col&&!lay){texQuad(wt,'w'+FF.wall+FF.col,[[A,z0],[B,z0],[B,z1],[A,z1]],[[t0/4,z0/CH],[t1/4,z0/CH],[t1/4,z1/CH],[t0/4,z1/CH]],fac);
-          if(z0<.01&&FF.base!=='none'){const bh=FF.base==='tall'?.75:.35;const A2=at(t0,.05),B2=at(t1,.05);add([toCam(K,A2,0),toCam(K,B2,0),toCam(K,B2,bh),toCam(K,A2,bh)],trimCol(FF),0,'');}
-          if(FF.crown&&Math.abs(z1-CH)<.01){const A2=at(t0,.06),B2=at(t1,.06);add([toCam(K,A2,CH-.4),toCam(K,B2,CH-.4),toCam(K,B2,CH),toCam(K,A2,CH)],trimCol(FF),0,'');}
+        if(useTex&&fill===col&&!lay){texQuad(wt,'w'+Fw.wall+Fw.col+(Fw.rail?1:0),[[A,z0],[B,z0],[B,z1],[A,z1]],[[t0/4,z0/CH],[t1/4,z0/CH],[t1/4,z1/CH],[t0/4,z1/CH]],fac);
+          if(z0<.01&&Fw.base!=='none'){const bh=Fw.base==='tall'?.75:.35;const A2=at(t0,.05),B2=at(t1,.05);add([toCam(K,A2,0),toCam(K,B2,0),toCam(K,B2,bh),toCam(K,A2,bh)],trimCol(Fw),0,'');}
+          if(Fw.crown&&Math.abs(z1-CH)<.01){const A2=at(t0,.06),B2=at(t1,.06);add([toCam(K,A2,CH-.4),toCam(K,B2,CH-.4),toCam(K,B2,CH),toCam(K,A2,CH)],trimCol(Fw),0,'');}
           return;}
         add([toCam(K,A,z0),toCam(K,B,z0),toCam(K,B,z1),toCam(K,A,z1)],fill,0,ex);};
       let t=0;gaps.forEach(g=>{piece(t,g.t0,0,top,col,gl);
