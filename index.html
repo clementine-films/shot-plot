@@ -6433,6 +6433,12 @@ const picOpt=it=>({art:ART_KINDS.includes(it.artKind)?it.artKind:'Auto (varies)'
    <div class="f2" style="display:flex;gap:8px">${fld('Variation',inp('artVar',o.v,'number','min="0" step="1"'))}${fld('Shape',sel('picOr',['Landscape','Portrait','Square'],o.or))}</div>
    <div class="f2" style="display:flex;gap:8px">${fld('Frame',sel('picFr',Object.keys(PIC_FR),o.fr))}${fld('Mat',sel('picMat',['Yes','No'],o.mat))}</div>
    <div class="pSub">Shown in the mock reference. Step Variation up for a different picture of the same kind. Width is the frame's width; Shape sets its height.</div></div>`;return h;};}
+/* wall pieces (frames, mirrors, TVs, gallery walls, shelves…) always face the room side they were dropped on */
+{const _sw=snapToWall;snapToWall=function(it,p){const ok=_sw(it,p);try{const L=LIB[it.t];if(ok&&L&&L.wallMount&&L.kind==='set'&&!L.backToWall){faceAway(it);it.r=Math.round((((it.r||0)-90)%360+540)%360-180);}}catch(e){}return ok;};}
+/* …and ones already placed facing into the wall are drawn the right way round in the mock */
+function facesWall(it){let best=null;try{openHostSegs(false).forEach(([a,b])=>{const L=Math.hypot(b.x-a.x,b.y-a.y);if(L<.05)return;const ux=(b.x-a.x)/L,uy=(b.y-a.y)/L;const t=Math.max(0,Math.min(L,(it.x-a.x)*ux+(it.y-a.y)*uy));const px=a.x+ux*t,py=a.y+uy*t,d=Math.hypot(px-it.x,py-it.y);if(!best||d<best.d)best={d,px,py};});}catch(e){return false;}
+  if(!best||best.d>.9)return false;const r=(it.r||0)*D2R,fx=-Math.sin(r),fy=Math.cos(r);return (best.px-it.x)*fx+(best.py-it.y)*fy>0;}
+{const _md=mockDetail;mockDetail=function(it,L,ctx,w,h){if(L&&L.wallMount&&L.kind==='set'&&!L.backToWall&&facesWall(it))return _md(Object.assign({},it,{r:(it.r||0)+180}),L,ctx,w,h);return _md(it,L,ctx,w,h);};}
 /* ============================================================
    Gallery wall: a cluster of mismatched frames on one wall (apartments, hallways, stairways).
    Layout, frame finish, how many, cluster height and center height are in its own panel group.
